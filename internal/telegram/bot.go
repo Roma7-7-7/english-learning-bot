@@ -23,19 +23,11 @@ const (
 	callbackWordGuessed    = "callback#word#guessed"
 	callbackWordMissed     = "callback#word#missed"
 
-	cacheTTL       = 1 * time.Hour
+	cacheTTL       = 24 * time.Hour
 	processTimeout = 10 * time.Second
-	streakLimit    = 15
 )
 
 type (
-	Repository interface {
-		AddWordTranslation(ctx context.Context, chatID int64, word, translation string) error
-		GetRandomWordTranslation(ctx context.Context, chatID int64, streakLimit int) (*dal.WordTranslation, error)
-		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
-		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
-	}
-
 	Cache interface {
 		Get(key string) (string, bool)
 		Set(key, value string, ttl time.Duration)
@@ -43,7 +35,7 @@ type (
 
 	Bot struct {
 		bot   *tb.Bot
-		repo  Repository
+		repo  dal.Repository
 		cache Cache
 
 		middlewares []tb.MiddlewareFunc
@@ -52,7 +44,7 @@ type (
 	}
 )
 
-func NewBot(token string, repo Repository, log *slog.Logger, middlewares ...tb.MiddlewareFunc) (*Bot, error) {
+func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...tb.MiddlewareFunc) (*Bot, error) {
 	b, err := tb.NewBot(tb.Settings{
 		Token: token,
 		Poller: &tb.LongPoller{
@@ -117,7 +109,7 @@ func (b *Bot) SendWordCheck(ctx context.Context, chatID int64) error {
 }
 
 func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, m tb.Context) error {
-	wt, err := b.repo.GetRandomWordTranslation(ctx, chatID, streakLimit)
+	wt, err := b.repo.GetRandomBatchedWordTranslation(ctx, chatID)
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
 			b.log.Debug("no words to check", "chatID", chatID)
@@ -137,9 +129,9 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, m tb.Context) err
 	}
 
 	cacheID := callbackCacheID(chatID)
-	b.cache.Set(cacheID, encodeBase64(wt.Word)+":"+encodeBase64(wt.Translation), cacheTTL)
+	b.cache.Set(cacheID, encodeBase64(wt.Word)+":"+encodeBase64(wt.Translation)+":"+encodeBase64(wt.Description), cacheTTL)
 
-	_, err = b.bot.Send(tb.ChatID(chatID), fmt.Sprintf("**%s**", wt.Word), tb.ModeMarkdownV2, seeTranslationMarkup(cacheID))
+	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)), tb.ModeMarkdownV2, seeTranslationMarkup(cacheID))
 	return err
 }
 
@@ -161,7 +153,7 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 		return c.RespondText("too much time passed, please try new random word")
 	}
 	cachedParts := strings.Split(cached, ":")
-	if len(cachedParts) != 2 {
+	if len(cachedParts) > 3 {
 		slog.Warn("wrong cached data", "data", cached)
 		return c.RespondText("something went wrong")
 	}
@@ -176,10 +168,22 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 		slog.Warn("failed to decode translation", "translation", cachedParts[1], "error", err)
 		return c.RespondText("something went wrong")
 	}
+	description := ""
+	if len(cachedParts) > 2 {
+		description, err = decodeBase64(cachedParts[2])
+		if err != nil {
+			slog.Warn("failed to decode description", "description", cachedParts[2], "error", err)
+			return c.RespondText("something went wrong")
+		}
+	}
 
 	switch parts[0] {
 	case callbackSeeTranslation:
-		err = c.Send(fmt.Sprintf("**%s**", translation), tb.ModeMarkdownV2, guessedResponseMarkup(cacheID))
+		msg := fmt.Sprintf("**%s**", translation)
+		if description != "" {
+			msg += fmt.Sprintf(": _%s_", description)
+		}
+		err = c.Send(normalizeMessage(msg), tb.ModeMarkdownV2, guessedResponseMarkup(cacheID))
 	case callbackWordGuessed:
 		err = b.repo.IncreaseGuessedStreak(ctx, c.Chat().ID, word)
 	case callbackWordMissed:
@@ -245,4 +249,18 @@ func decodeBase64(s string) (string, error) {
 
 func processCtx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), processTimeout)
+}
+
+var toEscape = []string{
+	"=",
+	"-",
+	")",
+}
+
+func normalizeMessage(s string) string {
+	res := strings.TrimSpace(strings.ToLower(s))
+	for _, esc := range toEscape {
+		res = strings.ReplaceAll(res, esc, "\\"+esc)
+	}
+	return res
 }

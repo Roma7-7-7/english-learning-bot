@@ -11,11 +11,15 @@ import (
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/Roma7-7-7/english-learning-bot/internal/schedule"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
 	envDev  = "dev"
 	envProd = "prod"
+
+	batchSize          = 50
+	guessedStreakLimit = 15
 )
 
 var (
@@ -31,12 +35,13 @@ var (
 func main() {
 	ctx := context.Background()
 	log := mustLogger()
-	repo, err := dal.NewPostgresqlRepository(ctx, dbURLEnvVar)
+	db, err := pgxpool.New(ctx, dbURLEnvVar)
 	if err != nil {
-		log.Error("failed to create repository", "error", err)
+		log.Error("failed to create database connection pool", "error", err)
 		return
 	}
-	defer repo.Close()
+	defer db.Close()
+	repo := dal.NewPostgresqlRepository(db)
 
 	bot, err := telegram.NewBot(telegramTokenEnvVar, repo, log, telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(allowedChatIDs))
 	if err != nil {
@@ -44,12 +49,8 @@ func main() {
 		return
 	}
 
-	go func() {
-		err := schedule.StartWordCheckSchedule(ctx, allowedChatIDs, publishInterval, bot, log)
-		if err != nil {
-			log.Error("failed to start word check schedule", "error", err)
-		}
-	}()
+	go schedule.StartWordCheckSchedule(ctx, allowedChatIDs, publishInterval, bot, log)
+	go schedule.StartUpdateBatchSchedule(ctx, allowedChatIDs, batchSize, guessedStreakLimit, repo, log)
 
 	bot.Start()
 }
