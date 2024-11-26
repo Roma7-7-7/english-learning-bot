@@ -136,7 +136,7 @@ func (r *PostgresqlRepository) GetBatchedWordTranslationsCount(ctx context.Conte
 
 func (r *PostgresqlRepository) GetRandomBatchedWordTranslation(ctx context.Context, chatID int64) (*WordTranslation, error) {
 	row := r.client.QueryRow(ctx, `
-		SELECT wt.chat_id, wt.word, wt.translation, wt.description, wt.guessed_streak, wt.created_at, wt.updated_at
+		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.created_at, wt.updated_at
 		FROM word_translations wt
 		INNER JOIN learning_batches lb ON wt.chat_id = lb.chat_id AND wt.word = lb.word
 		WHERE wt.chat_id = $1
@@ -170,7 +170,7 @@ func (r *PostgresqlRepository) GetRandomNotBatchedWordTranslation(ctx context.Co
 			FROM learning_batches lb
 			WHERE lb.chat_id = $1
 		)
-		SELECT wt.chat_id, wt.word, wt.translation, wt.description, wt.guessed_streak, wt.created_at, wt.updated_at
+		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.created_at, wt.updated_at
 		FROM word_translations wt
 		WHERE wt.chat_id = $1 AND wt.guessed_streak < $2 AND wt.word NOT IN (SELECT word FROM batched_words)
 		ORDER BY random()
