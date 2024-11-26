@@ -42,20 +42,28 @@ func main() {
 	}
 
 	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
 		parts := strings.Split(strings.ToLower(line), ":")
-		if len(parts) != 2 {
+		if len(parts) > 3 {
 			fmt.Printf("invalid line: %s\n", line)
 			continue
 		}
 
 		word := strings.TrimSpace(parts[0])
 		translation := strings.TrimSpace(parts[1])
+		description := ""
+		if len(parts) == 3 {
+			description = strings.TrimSpace(parts[2])
+		}
 
 		_, err = conn.Exec(
 			ctx,
-			`INSERT INTO word_translations (chat_id, word, translation) VALUES ($1, $2, $3) 
-				   ON CONFLICT (chat_id, word) DO UPDATE SET translation = $3`,
-			chatID, word, translation,
+			`INSERT INTO word_translations (chat_id, word, translation, description) VALUES ($1, $2, $3, $4) 
+				   ON CONFLICT (chat_id, word) DO UPDATE SET translation = $3, description = $4`,
+			chatID, word, translation, description,
 		)
 		if err != nil {
 			fmt.Printf("failed to insert word translation: %v\n", err)
