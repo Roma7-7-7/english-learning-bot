@@ -254,6 +254,7 @@ func processCtx() (context.Context, context.CancelFunc) {
 var toEscape = []string{
 	"=",
 	"-",
+	"(",
 	")",
 }
 
