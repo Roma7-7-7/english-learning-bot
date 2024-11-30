@@ -17,6 +17,7 @@ import (
 const (
 	commandStart  = "/start"
 	commandAdd    = "/add"
+	commandStats  = "/stats"
 	commandRandom = "/random"
 
 	callbackSeeTranslation = "callback#see_translation"
@@ -66,6 +67,7 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 
 func (b *Bot) Start() {
 	b.bot.Handle(commandStart, b.HandleStart, b.middlewares...)
+	b.bot.Handle(commandStats, b.HandleStats, b.middlewares...)
 	b.bot.Handle(commandAdd, b.HandleAdd, b.middlewares...)
 	b.bot.Handle(commandRandom, b.HandleRandom, b.middlewares...)
 	b.bot.Handle(tb.OnCallback, b.HandleCallback, b.middlewares...)
@@ -75,6 +77,19 @@ func (b *Bot) Start() {
 
 func (b *Bot) HandleStart(m tb.Context) error {
 	return m.Reply("Hello, I'm a translation bot. To add a translation use /add command. Example: /add word: translation")
+}
+
+func (b *Bot) HandleStats(m tb.Context) error {
+	ctx, cancel := processCtx()
+	defer cancel()
+
+	stats, err := b.repo.GetStats(ctx, m.Chat().ID)
+	if err != nil {
+		slog.Error("failed to get stats", "error", err)
+		return m.Reply("failed to get stats")
+	}
+
+	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1An9, stats.Total))
 }
 
 func (b *Bot) HandleAdd(m tb.Context) error {
