@@ -31,6 +31,7 @@ type (
 
 	Repository interface {
 		Transact(ctx context.Context, txFunc func(r Repository) error) error
+		GetStats(ctx context.Context, chatID int64) (*WordTranslationStats, error)
 		AddWordTranslation(ctx context.Context, chatID int64, word, translation string) error
 		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
 		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
@@ -66,6 +67,36 @@ func (r *PostgresqlRepository) Transact(ctx context.Context, txFunc func(r Repos
 	}
 
 	return nil
+}
+
+func (r *PostgresqlRepository) GetStats(ctx context.Context, chatID int64) (*WordTranslationStats, error) {
+	row := r.client.QueryRow(ctx, `
+SELECT 
+    chat_id,
+    SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus,
+    SUM(CASE WHEN guessed_streak BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS streak_10_to_14,
+    SUM(CASE WHEN guessed_streak BETWEEN 1 AND 9 THEN 1 ELSE 0 END) AS streak_1_to_9,
+    COUNT(*) AS total_words
+FROM 
+    word_translations
+WHERE
+	chat_id = $1
+GROUP BY
+	chat_id
+`, chatID)
+
+	var stats WordTranslationStats
+	err := row.Scan(
+		&stats.ChatID,
+		&stats.GreaterThanOrEqual15,
+		&stats.Between10And14,
+		&stats.Between1An9,
+		&stats.Total,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get stats: %w", err)
+	}
+	return &stats, nil
 }
 
 func (r *PostgresqlRepository) AddWordTranslation(ctx context.Context, chatID int64, word, translation string) error {
