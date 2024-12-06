@@ -89,7 +89,7 @@ func (b *Bot) HandleStats(m tb.Context) error {
 		return m.Reply("failed to get stats")
 	}
 
-	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1An9, stats.Total))
+	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total))
 }
 
 func (b *Bot) HandleAdd(m tb.Context) error {

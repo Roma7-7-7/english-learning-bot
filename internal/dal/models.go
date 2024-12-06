@@ -7,7 +7,7 @@ type (
 		ChatID               int64
 		GreaterThanOrEqual15 int
 		Between10And14       int
-		Between1An9          int
+		Between1And9         int
 		Total                int
 	}
 

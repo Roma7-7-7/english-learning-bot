@@ -90,7 +90,7 @@ GROUP BY
 		&stats.ChatID,
 		&stats.GreaterThanOrEqual15,
 		&stats.Between10And14,
-		&stats.Between1An9,
+		&stats.Between1And9,
 		&stats.Total,
 	)
 	if err != nil {

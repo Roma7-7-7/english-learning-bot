@@ -47,7 +47,7 @@ func main() {
 		}
 
 		parts := strings.Split(strings.ToLower(line), ":")
-		if len(parts) > 3 {
+		if len(parts) < 2 || len(parts) > 3 {
 			fmt.Printf("invalid line: %s\n", line)
 			continue
 		}
