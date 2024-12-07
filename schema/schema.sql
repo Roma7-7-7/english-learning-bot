@@ -5,6 +5,7 @@ CREATE TABLE word_translations
     translation    VARCHAR(255) NOT NULL,
     description    varchar(1024),
     guessed_streak INT          NOT NULL DEFAULT 0,
+    to_review      BOOL NOT NULL DEFAULT FALSE,
     created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

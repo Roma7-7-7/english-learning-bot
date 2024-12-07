@@ -28,7 +28,7 @@ func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, batchSize, g
 			return
 		case <-runIn:
 			runIn = time.After(1 * time.Hour)
-			
+
 			log.Info("update learning batch schedule started")
 			for _, chatID := range chatIDs {
 				ctx, cancel := context.WithTimeout(ctx, processTimeout)
@@ -60,7 +60,7 @@ func updateLearningBatch(ctx context.Context, chatID int64, guessedStreakLimit i
 	}
 
 	for i := 0; i < batchSize-batched; i++ {
-		word, err := repo.GetRandomNotBatchedWordTranslation(ctx, chatID, guessedStreakLimit)
+		word, err := repo.FindRandomNotBatchedWordTranslation(ctx, chatID, guessedStreakLimit)
 		if err != nil {
 			if errors.Is(err, dal.ErrNotFound) {
 				log.Debug("no words to add to learning batch", "chat_id", chatID)

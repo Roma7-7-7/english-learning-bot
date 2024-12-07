@@ -2,11 +2,12 @@ package telegram
 
 import (
 	"context"
-	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
@@ -15,18 +16,30 @@ import (
 )
 
 const (
-	commandStart  = "/start"
-	commandAdd    = "/add"
-	commandStats  = "/stats"
-	commandRandom = "/random"
+	commandStart    = "/start"
+	commandAdd      = "/add"
+	commandStats    = "/stats"
+	commandToReview = "/to_review"
+	commandRandom   = "/random"
 
 	callbackSeeTranslation = "callback#see_translation"
+	callbackResetToReview  = "callback#reset_to_review"
 	callbackWordGuessed    = "callback#word#guessed"
 	callbackWordMissed     = "callback#word#missed"
+	callbackWordToReview   = "callback#word#to_review"
+
+	somethingWentWrongMsg = "something went wrong"
 
 	cacheTTL       = 24 * time.Hour
 	processTimeout = 10 * time.Second
 )
+
+var wordsToReviewTemplate = template.Must(template.New("to_review").
+	Parse(`To Review:
+{{- range .}}
+- {{.Word}}
+{{- end}}
+`))
 
 type (
 	Cache interface {
@@ -42,6 +55,13 @@ type (
 		middlewares []tb.MiddlewareFunc
 
 		log *slog.Logger
+	}
+
+	callbackData struct {
+		CacheID     string `json:"cache_id"`
+		Word        string `json:"word"`
+		Translation string `json:"translation"`
+		Description string `json:"description"`
 	}
 )
 
@@ -67,8 +87,9 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 
 func (b *Bot) Start() {
 	b.bot.Handle(commandStart, b.HandleStart, b.middlewares...)
-	b.bot.Handle(commandStats, b.HandleStats, b.middlewares...)
 	b.bot.Handle(commandAdd, b.HandleAdd, b.middlewares...)
+	b.bot.Handle(commandStats, b.HandleStats, b.middlewares...)
+	b.bot.Handle(commandToReview, b.HandleToReview, b.middlewares...)
 	b.bot.Handle(commandRandom, b.HandleRandom, b.middlewares...)
 	b.bot.Handle(tb.OnCallback, b.HandleCallback, b.middlewares...)
 
@@ -89,7 +110,7 @@ func (b *Bot) HandleStats(m tb.Context) error {
 		return m.Reply("failed to get stats")
 	}
 
-	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1An9, stats.Total))
+	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total))
 }
 
 func (b *Bot) HandleAdd(m tb.Context) error {
@@ -119,12 +140,35 @@ func (b *Bot) HandleRandom(m tb.Context) error {
 	return b.sendWordCheck(ctx, m.Chat().ID, m)
 }
 
+func (b *Bot) HandleToReview(m tb.Context) error {
+	ctx, cancel := processCtx()
+	defer cancel()
+
+	words, err := b.repo.FindWordsToReview(ctx, m.Chat().ID)
+	if err != nil {
+		slog.Error("failed to get words to review", "error", err)
+		return m.Reply("failed to get words to review")
+	}
+
+	if len(words) == 0 {
+		return m.Reply("no words to review")
+	}
+
+	buff := &strings.Builder{}
+	if err := wordsToReviewTemplate.Execute(buff, words); err != nil {
+		slog.Error("failed to render words to review", "error", err)
+		return m.Reply("failed to render words to review")
+	}
+
+	return m.Reply(buff.String(), wordsToReviewMarkup())
+}
+
 func (b *Bot) SendWordCheck(ctx context.Context, chatID int64) error {
 	return b.sendWordCheck(ctx, chatID, nil)
 }
 
 func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, m tb.Context) error {
-	wt, err := b.repo.GetRandomBatchedWordTranslation(ctx, chatID)
+	wt, err := b.repo.FindRandomBatchedWordTranslation(ctx, chatID)
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
 			b.log.Debug("no words to check", "chatID", chatID)
@@ -144,7 +188,17 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, m tb.Context) err
 	}
 
 	cacheID := callbackCacheID(chatID)
-	b.cache.Set(cacheID, encodeBase64(wt.Word)+":"+encodeBase64(wt.Translation)+":"+encodeBase64(wt.Description), cacheTTL)
+	data, err := encodeCallbackData(callbackData{
+		CacheID:     cacheID,
+		Word:        wt.Word,
+		Translation: wt.Translation,
+		Description: wt.Description,
+	})
+	if err != nil {
+		b.log.Error("failed to marshal callback data", "error", err)
+		return m.Reply(somethingWentWrongMsg)
+	}
+	b.cache.Set(cacheID, data, cacheTTL)
 
 	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)), tb.ModeMarkdownV2, seeTranslationMarkup(cacheID))
 	return err
@@ -156,61 +210,50 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 
 	data := c.Callback().Data
 	parts := strings.Split(data, ":")
-	if len(parts) != 2 {
+	if len(parts) > 2 {
 		slog.Warn("wrong callback data", "data", data)
 		return c.RespondText("something went wrong")
 	}
 
-	cacheID := parts[1]
-	cached, ok := b.cache.Get(cacheID)
-	if !ok {
-		slog.Debug("cached data not found", "cacheID", cacheID)
-		return c.RespondText("too much time passed, please try new random word")
-	}
-	cachedParts := strings.Split(cached, ":")
-	if len(cachedParts) > 3 {
-		slog.Warn("wrong cached data", "data", cached)
-		return c.RespondText("something went wrong")
-	}
-
-	word, err := decodeBase64(cachedParts[0])
-	if err != nil {
-		slog.Warn("failed to decode word", "word", cachedParts[0], "error", err)
-		return c.RespondText("something went wrong")
-	}
-	translation, err := decodeBase64(cachedParts[1])
-	if err != nil {
-		slog.Warn("failed to decode translation", "translation", cachedParts[1], "error", err)
-		return c.RespondText("something went wrong")
-	}
-	description := ""
-	if len(cachedParts) > 2 {
-		description, err = decodeBase64(cachedParts[2])
-		if err != nil {
-			slog.Warn("failed to decode description", "description", cachedParts[2], "error", err)
+	var cData callbackData
+	var err error
+	if len(parts) == 2 {
+		cached, ok := b.cache.Get(parts[1])
+		if !ok {
+			slog.Warn("callback data not found", "data", data)
 			return c.RespondText("something went wrong")
+		}
+
+		cData, err = decodeCallbackData(cached)
+		if err != nil {
+			slog.Error("failed to decode callback data", "error", err)
+			return c.RespondText(somethingWentWrongMsg)
 		}
 	}
 
 	switch parts[0] {
 	case callbackSeeTranslation:
-		msg := fmt.Sprintf("**%s**", translation)
-		if description != "" {
-			msg += fmt.Sprintf(": _%s_", description)
+		msg := fmt.Sprintf("**%s**", cData.Translation)
+		if cData.Description != "" {
+			msg += fmt.Sprintf(": _%s_", cData.Description)
 		}
-		err = c.Send(normalizeMessage(msg), tb.ModeMarkdownV2, guessedResponseMarkup(cacheID))
+		err = c.Send(normalizeMessage(msg), tb.ModeMarkdownV2, guessedResponseMarkup(cData.CacheID))
+	case callbackResetToReview:
+		err = b.repo.ResetToReview(ctx, c.Chat().ID)
 	case callbackWordGuessed:
-		err = b.repo.IncreaseGuessedStreak(ctx, c.Chat().ID, word)
+		err = b.repo.IncreaseGuessedStreak(ctx, c.Chat().ID, cData.Word)
 	case callbackWordMissed:
-		err = b.repo.ResetGuessedStreak(ctx, c.Chat().ID, word)
+		err = b.repo.ResetGuessedStreak(ctx, c.Chat().ID, cData.Word)
+	case callbackWordToReview:
+		err = b.repo.MarkToReviewAndResetStreak(ctx, c.Chat().ID, cData.Word)
 	default:
 		slog.Warn("unknown callback action", "action", parts[0])
-		return c.RespondText("something went wrong")
+		return c.RespondText(somethingWentWrongMsg)
 	}
 
 	if err != nil {
 		slog.Error("failed to process callback", "error", err)
-		return c.RespondText("something went wrong")
+		return c.RespondText(somethingWentWrongMsg)
 	}
 
 	return c.Delete()
@@ -238,28 +281,49 @@ func guessedResponseMarkup(cacheID string) *tb.ReplyMarkup {
 		InlineKeyboard: [][]tb.InlineButton{
 			{
 				{
-					Text: "✅",
+					Text: "[      ✅      ]",
 					Data: fmt.Sprintf("%s:%s", callbackWordGuessed, cacheID),
 				},
 				{
-					Text: "❌",
+					Text: "[      ❌      ]",
 					Data: fmt.Sprintf("%s:%s", callbackWordMissed, cacheID),
+				},
+				{
+					Text: "[      ❓      ]",
+					Data: fmt.Sprintf("%s:%s", callbackWordToReview, cacheID),
 				},
 			},
 		},
 	}
 }
 
-func encodeBase64(s string) string {
-	return base64.StdEncoding.EncodeToString([]byte(s))
+func wordsToReviewMarkup() *tb.ReplyMarkup {
+	return &tb.ReplyMarkup{
+		InlineKeyboard: [][]tb.InlineButton{
+			{
+				{
+					Text: "✅",
+					Data: callbackResetToReview,
+				},
+			},
+		},
+	}
 }
 
-func decodeBase64(s string) (string, error) {
-	b, err := base64.StdEncoding.DecodeString(s)
+func encodeCallbackData(data callbackData) (string, error) {
+	b, err := json.Marshal(data)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal callback data: %w", err)
 	}
 	return string(b), nil
+}
+
+func decodeCallbackData(data string) (callbackData, error) {
+	var cData callbackData
+	if err := json.Unmarshal([]byte(data), &cData); err != nil {
+		return callbackData{}, fmt.Errorf("unmarshal callback data: %w", err)
+	}
+	return cData, nil
 }
 
 func processCtx() (context.Context, context.CancelFunc) {
