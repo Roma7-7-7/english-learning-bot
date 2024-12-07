@@ -281,15 +281,15 @@ func guessedResponseMarkup(cacheID string) *tb.ReplyMarkup {
 		InlineKeyboard: [][]tb.InlineButton{
 			{
 				{
-					Text: "✅",
+					Text: "[      ✅      ]",
 					Data: fmt.Sprintf("%s:%s", callbackWordGuessed, cacheID),
 				},
 				{
-					Text: "❌",
+					Text: "[      ❌      ]",
 					Data: fmt.Sprintf("%s:%s", callbackWordMissed, cacheID),
 				},
 				{
-					Text: "❓",
+					Text: "[      ❓      ]",
 					Data: fmt.Sprintf("%s:%s", callbackWordToReview, cacheID),
 				},
 			},
