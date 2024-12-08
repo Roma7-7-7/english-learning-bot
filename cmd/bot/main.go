@@ -41,7 +41,7 @@ func main() {
 		return
 	}
 	defer db.Close()
-	repo := dal.NewPostgresqlRepository(db)
+	repo := dal.NewPostgreSQLRepository(ctx, db, log)
 
 	bot, err := telegram.NewBot(telegramTokenEnvVar, repo, log, telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(allowedChatIDs))
 	if err != nil {

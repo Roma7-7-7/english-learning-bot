@@ -20,4 +20,17 @@ type (
 		CreatedAt     time.Time
 		UpdatedAt     time.Time
 	}
+
+	Cache struct {
+		Key       string
+		Value     string
+		ExpiresAt time.Time
+	}
+
+	CallbackData struct {
+		ChatID    int64     `json:"-"`
+		ID        string    `json:"-"`
+		Word      string    `json:"word"`
+		ExpiresAt time.Time `json:"-"`
+	}
 )
