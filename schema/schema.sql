@@ -42,3 +42,13 @@ CREATE TABLE learning_batches
 
 CREATE INDEX idx_learning_batches_chat_id
     ON learning_batches (chat_id);
+
+CREATE TABLE callback_data
+(
+    chat_id    INT          NOT NULL,
+    uuid       UUID         NOT NULL,
+    data       JSONB        NOT NULL,
+    expires_at TIMESTAMP    NOT NULL,
+
+    PRIMARY KEY (chat_id, uuid)
+);
