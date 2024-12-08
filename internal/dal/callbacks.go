@@ -67,7 +67,8 @@ func (r *PostgreSQLRepository) cleanupJob(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case <-time.After(time.Hour):
+			r.log.Info("running cleanup job")
 			_, err := r.client.Exec(ctx, `DELETE FROM callback_data WHERE expires_at < now()`)
 			if err != nil {
 				r.log.Error("failed to run cleanup job", "error", err)
