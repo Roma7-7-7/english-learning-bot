@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/Roma7-7-7/english-learning-bot/internal/schedule"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -22,7 +23,7 @@ const (
 	guessedStreakLimit = 15
 )
 
-// nolint: gochecknoglobals // configuration in main file
+//nolint:gochecknoglobals // configuration in main file
 var (
 	envEnvVar             = os.Getenv("ENV")
 	telegramTokenEnvVar   = os.Getenv("TELEGRAM_TOKEN")

@@ -227,7 +227,7 @@ func (r *PostgreSQLRepository) FindWordsToReview(ctx context.Context, chatID int
 
 	var words []WordTranslation
 	for rows.Next() {
-		wt, err := hydrateWordTranslation(rows) // nolint:govet // it is supposed to be used in a loop
+		wt, err := hydrateWordTranslation(rows) //nolint:govet // it is supposed to be used in a loop
 		if err != nil {
 			return nil, fmt.Errorf("scan word translation: %w", err)
 		}

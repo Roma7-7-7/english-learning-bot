@@ -10,8 +10,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	tb "gopkg.in/telebot.v3"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
 const (
@@ -36,7 +37,7 @@ const (
 	callbackDataExpirationTime = 24 * 7 * time.Hour
 )
 
-// nolint: gochecknoglobals // it's a template for rendering words to review
+//nolint:gochecknoglobals // it's a template for rendering words to review
 var wordsToReviewTemplate = template.Must(template.New("to_review").
 	Parse(`To Review:
 {{- range .}}
@@ -325,7 +326,7 @@ func processCtx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), processTimeout)
 }
 
-// nolint: gochecknoglobals // it's a list of characters to escape
+//nolint:gochecknoglobals // it's a list of characters to escape
 var toEscape = []string{
 	"=",
 	"-",
