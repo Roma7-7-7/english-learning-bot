@@ -22,6 +22,7 @@ const (
 	guessedStreakLimit = 15
 )
 
+// nolint: gochecknoglobals // configuration in main file
 var (
 	envEnvVar             = os.Getenv("ENV")
 	telegramTokenEnvVar   = os.Getenv("TELEGRAM_TOKEN")
@@ -30,11 +31,13 @@ var (
 	publishIntervalEnvVar = os.Getenv("PUBLISH_INTERVAL")
 	allowedChatIDs        []int64
 	publishInterval       time.Duration
+	kyivLocation          *time.Location
 )
 
 func main() {
 	ctx := context.Background()
 	log := mustLogger()
+	log.InfoContext(ctx, "initialized", "kyiv_time", time.Now().In(kyivLocation).Format(time.RFC3339))
 	db, err := pgxpool.New(ctx, dbURLEnvVar)
 	if err != nil {
 		log.Error("failed to create database connection pool", "error", err)
@@ -49,7 +52,7 @@ func main() {
 		return
 	}
 
-	go schedule.StartWordCheckSchedule(ctx, allowedChatIDs, publishInterval, bot, log)
+	go schedule.StartWordCheckSchedule(ctx, allowedChatIDs, publishInterval, bot, kyivLocation, log)
 	go schedule.StartUpdateBatchSchedule(ctx, allowedChatIDs, batchSize, guessedStreakLimit, repo, log)
 
 	bot.Start()
@@ -69,7 +72,13 @@ func mustLogger() *slog.Logger {
 	return slog.New(handler)
 }
 
+//nolint:gochecknoinits // init main
 func init() {
+	loc, err := time.LoadLocation("Europe/Kyiv")
+	if err != nil {
+		panic(err)
+	}
+	kyivLocation = loc
 	if envEnvVar == "" {
 		envEnvVar = envProd
 	}
@@ -82,7 +91,8 @@ func init() {
 	if allowedChatIDsEnvVar != "" {
 		chatIDStrings := strings.Split(allowedChatIDsEnvVar, ",")
 		for _, chatIDString := range chatIDStrings {
-			chatID, err := strconv.ParseInt(chatIDString, 10, 64)
+			var chatID int64
+			chatID, err = strconv.ParseInt(chatIDString, 10, 64)
 			if err != nil {
 				panic("invalid chat ID " + chatIDString)
 			}
@@ -95,7 +105,6 @@ func init() {
 	if publishIntervalEnvVar == "" {
 		publishIntervalEnvVar = "1h"
 	}
-	var err error
 	publishInterval, err = time.ParseDuration(publishIntervalEnvVar)
 	if err != nil {
 		panic("invalid PUBLISH_INTERVAL value")

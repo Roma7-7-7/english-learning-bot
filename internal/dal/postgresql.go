@@ -34,13 +34,13 @@ func (r *PostgreSQLRepository) Transact(ctx context.Context, txFunc func(r Repos
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer tx.Rollback(ctx) //nolint:errcheck // ignore rollback errors
 
-	if err := txFunc(newPostgreSQLRepository(r.client, r.log)); err != nil {
+	if err = txFunc(newPostgreSQLRepository(r.client, r.log)); err != nil {
 		return err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 

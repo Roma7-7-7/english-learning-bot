@@ -36,14 +36,13 @@ const (
 	callbackDataExpirationTime = 24 * 7 * time.Hour
 )
 
+// nolint: gochecknoglobals // it's a template for rendering words to review
 var wordsToReviewTemplate = template.Must(template.New("to_review").
 	Parse(`To Review:
 {{- range .}}
 - {{.Word}}
 {{- end}}
 `))
-
-var silentMode = &sync.Map{}
 
 type (
 	Bot struct {
@@ -52,7 +51,8 @@ type (
 
 		middlewares []tb.MiddlewareFunc
 
-		log *slog.Logger
+		silentMode *sync.Map
+		log        *slog.Logger
 	}
 
 	replier interface {
@@ -77,6 +77,7 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 		bot:         b,
 		repo:        repo,
 		middlewares: middlewares,
+		silentMode:  &sync.Map{},
 		log:         log,
 	}, nil
 }
@@ -103,7 +104,7 @@ func (b *Bot) HandleStats(m tb.Context) error {
 
 	stats, err := b.repo.GetStats(ctx, m.Chat().ID)
 	if err != nil {
-		slog.Error("failed to get stats", "error", err)
+		b.log.ErrorContext(ctx, "failed to get stats", "error", err)
 		return m.Reply("failed to get stats")
 	}
 
@@ -115,15 +116,15 @@ func (b *Bot) HandleAdd(m tb.Context) error {
 	defer cancel()
 
 	parts := strings.Split(strings.ToLower(m.Text())[len(commandAdd):], ":")
-	if len(parts) != 2 {
-		slog.Debug("wrong message format", "message", m.Message().Text)
+	if len(parts) != 2 { //nolint: mnd // word:translation
+		b.log.DebugContext(ctx, "wrong message format", "message", m.Message().Text)
 		return m.Reply("wrong message format, it should be like: word:translation")
 	}
 
 	word, translation := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 
 	if err := b.repo.AddWordTranslation(ctx, m.Chat().ID, word, translation); err != nil {
-		slog.Error("failed to add translation", "error", err)
+		b.log.ErrorContext(ctx, "failed to add translation", "error", err)
 		return m.Reply("failed to add translation")
 	}
 
@@ -143,7 +144,7 @@ func (b *Bot) HandleToReview(m tb.Context) error {
 
 	words, err := b.repo.FindWordsToReview(ctx, m.Chat().ID)
 	if err != nil {
-		slog.Error("failed to get words to review", "error", err)
+		b.log.ErrorContext(ctx, "failed to get words to review", "error", err)
 		return m.Reply("failed to get words to review")
 	}
 
@@ -152,8 +153,8 @@ func (b *Bot) HandleToReview(m tb.Context) error {
 	}
 
 	buff := &strings.Builder{}
-	if err := wordsToReviewTemplate.Execute(buff, words); err != nil {
-		slog.Error("failed to render words to review", "error", err)
+	if err = wordsToReviewTemplate.Execute(buff, words); err != nil {
+		b.log.ErrorContext(ctx, "failed to render words to review", "error", err)
 		return m.Reply("failed to render words to review")
 	}
 
@@ -168,11 +169,11 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, replier replier) 
 	wt, err := b.repo.FindRandomBatchedWordTranslation(ctx, chatID)
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
-			b.log.Debug("no words to check", "chatID", chatID)
+			b.log.DebugContext(ctx, "no words to check", "chatID", chatID)
 			return replier.Reply("no words to check")
 		}
 
-		b.log.Error("failed to get random translation", "error", err)
+		b.log.ErrorContext(ctx, "failed to get random translation", "error", err)
 		return replier.Reply(somethingWentWrongMsg)
 	}
 
@@ -183,20 +184,20 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, replier replier) 
 	}
 	callbackID, err := b.repo.InsertCallback(ctx, data)
 	if err != nil {
-		b.log.Error("failed to insert callback data", "error", err)
+		b.log.ErrorContext(ctx, "failed to insert callback data", "error", err)
 		return replier.Reply(somethingWentWrongMsg)
 	}
 
-	opts := make([]any, 0, 3)
+	opts := make([]any, 0, 3) //nolint: mnd // 2 by default and 1 more for optional silent mode
 	opts = append(opts, tb.ModeMarkdownV2, seeTranslationMarkup(callbackID))
-	if v, ok := silentMode.Load(chatID); ok {
-		if until, ok := v.(time.Time); ok && time.Now().Before(until) {
+	if v, ok := b.silentMode.Load(chatID); ok {
+		if until, okt := v.(time.Time); okt && time.Now().Before(until) {
 			opts = append(opts, tb.Silent)
 		}
 	}
 
 	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)), opts...)
-	return nil
+	return err
 }
 
 func (b *Bot) HandleCallback(c tb.Context) error {
@@ -205,14 +206,15 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 
 	data := c.Callback().Data
 	parts := strings.Split(data, ":")
-	if len(parts) > 2 {
-		slog.Warn("wrong callback data", "data", data)
+
+	if len(parts) > 2 { //nolint: mnd // key:<cacheUUID>
+		b.log.Warn("wrong callback data", "data", data)
 		return c.RespondText(somethingWentWrongMsg)
 	}
 
 	if parts[0] == callbackResetToReview {
 		if err := b.repo.ResetToReview(ctx, c.Chat().ID); err != nil {
-			slog.Error("failed to reset to review", "error", err)
+			b.log.ErrorContext(ctx, "failed to reset to review", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
 
@@ -222,19 +224,20 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	cData, err := b.repo.FindCallback(ctx, c.Chat().ID, parts[1])
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
-			slog.Warn("callback data not found", "data", data)
+			b.log.Warn("callback data not found", "data", data)
 			return c.RespondText("too much time passed")
 		}
 
-		slog.Error("failed to find callback data", "error", err)
+		b.log.ErrorContext(ctx, "failed to find callback data", "error", err)
 		return c.RespondText(somethingWentWrongMsg)
 	}
 
 	switch parts[0] {
 	case callbackSeeTranslation:
-		wt, err := b.repo.FindWordTranslation(ctx, c.Chat().ID, cData.Word)
+		var wt *dal.WordTranslation
+		wt, err = b.repo.FindWordTranslation(ctx, c.Chat().ID, cData.Word)
 		if err != nil {
-			slog.Error("failed to get word translation", "error", err)
+			b.log.ErrorContext(ctx, "failed to get word translation", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
 		msg := fmt.Sprintf("**%s**", wt.Translation)
@@ -249,12 +252,12 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	case callbackWordToReview:
 		err = b.repo.MarkToReviewAndResetStreak(ctx, c.Chat().ID, cData.Word)
 	default:
-		slog.Warn("unknown callback action", "action", parts[0])
+		b.log.Warn("unknown callback action", "action", parts[0])
 		return c.RespondText(somethingWentWrongMsg)
 	}
 
 	if err != nil {
-		slog.Error("failed to process callback", "error", err)
+		b.log.ErrorContext(ctx, "failed to process callback", "error", err)
 		return c.RespondText(somethingWentWrongMsg)
 	}
 
@@ -263,7 +266,7 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 
 func (b *Bot) HandleMute(m tb.Context) error {
 	chatID := m.Chat().ID
-	silentMode.Store(chatID, time.Now().Add(muteDuration))
+	b.silentMode.Store(chatID, time.Now().Add(muteDuration))
 	return m.Reply(fmt.Sprintf("muted for %s", muteDuration), tb.Silent)
 }
 
@@ -322,6 +325,7 @@ func processCtx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), processTimeout)
 }
 
+// nolint: gochecknoglobals // it's a list of characters to escape
 var toEscape = []string{
 	"=",
 	"-",

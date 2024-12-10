@@ -10,15 +10,6 @@ import (
 
 var (
 	ErrNotFound = errors.New("not found")
-
-	columns = []string{
-		"chat_id",
-		"word",
-		"translation",
-		"guessed_streak",
-		"created_at",
-		"updated_at",
-	}
 )
 
 type (
@@ -173,7 +164,7 @@ func (r *PostgreSQLRepository) FindWordTranslation(ctx context.Context, chatID i
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
-		
+
 		return nil, fmt.Errorf("find word translation: %w", err)
 	}
 	return wt, nil
@@ -232,10 +223,11 @@ func (r *PostgreSQLRepository) FindWordsToReview(ctx context.Context, chatID int
 	if err != nil {
 		return nil, fmt.Errorf("get words to review: %w", err)
 	}
+	defer rows.Close()
 
 	var words []WordTranslation
 	for rows.Next() {
-		wt, err := hydrateWordTranslation(rows)
+		wt, err := hydrateWordTranslation(rows) // nolint:govet // it is supposed to be used in a loop
 		if err != nil {
 			return nil, fmt.Errorf("scan word translation: %w", err)
 		}

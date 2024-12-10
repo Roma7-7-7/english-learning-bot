@@ -1,3 +1,4 @@
+//nolint:gochecknoglobals,mnd,gochecknoinits,forbidigo // this is utitility command
 package main
 
 import (
@@ -20,25 +21,29 @@ var (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	if err := validate(); err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		return 1
 	}
 
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		fmt.Printf("failed to connect to database: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 	defer conn.Close(ctx)
 
 	lines, err := parseLines(source)
 	if err != nil {
 		fmt.Printf("failed to parse lines: %v\n", err)
-		os.Exit(3)
+		return 3
 	}
 
 	for _, line := range lines {
@@ -67,11 +72,12 @@ func main() {
 		)
 		if err != nil {
 			fmt.Printf("failed to insert word translation: %v\n", err)
-			os.Exit(4)
+			return 4
 		}
 	}
 
 	fmt.Println("done")
+	return 0
 }
 
 func parseLines(path string) ([]string, error) {

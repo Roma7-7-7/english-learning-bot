@@ -1,5 +1,8 @@
 include .env
 
+lint:
+	golangci-lint run ./...
+
 build:
 	go mod download
 	CGO_ENABLED=0 go build -o ./bin/english-learning-bot ./cmd/bot/main.go
