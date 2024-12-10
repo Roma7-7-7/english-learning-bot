@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
-	"github.com/Roma7-7-7/english-learning-bot/pkg/cache"
 	tb "gopkg.in/telebot.v3"
 )
 
@@ -30,8 +28,9 @@ const (
 
 	somethingWentWrongMsg = "something went wrong"
 
-	cacheTTL       = 24 * time.Hour
 	processTimeout = 10 * time.Second
+
+	callbackDataExpirationTime = 24 * 7 * time.Hour
 )
 
 var wordsToReviewTemplate = template.Must(template.New("to_review").
@@ -42,27 +41,20 @@ var wordsToReviewTemplate = template.Must(template.New("to_review").
 `))
 
 type (
-	Cache interface {
-		Get(key string) (string, bool)
-		Set(key, value string, ttl time.Duration)
-	}
-
 	Bot struct {
-		bot   *tb.Bot
-		repo  dal.Repository
-		cache Cache
+		bot  *tb.Bot
+		repo dal.Repository
 
 		middlewares []tb.MiddlewareFunc
 
 		log *slog.Logger
 	}
 
-	callbackData struct {
-		CacheID     string `json:"cache_id"`
-		Word        string `json:"word"`
-		Translation string `json:"translation"`
-		Description string `json:"description"`
+	replier interface {
+		Reply(any, ...any) error
 	}
+
+	noOpReplier struct{}
 )
 
 func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...tb.MiddlewareFunc) (*Bot, error) {
@@ -79,7 +71,6 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 	return &Bot{
 		bot:         b,
 		repo:        repo,
-		cache:       cache.NewInMemory(),
 		middlewares: middlewares,
 		log:         log,
 	}, nil
@@ -164,44 +155,34 @@ func (b *Bot) HandleToReview(m tb.Context) error {
 }
 
 func (b *Bot) SendWordCheck(ctx context.Context, chatID int64) error {
-	return b.sendWordCheck(ctx, chatID, nil)
+	return b.sendWordCheck(ctx, chatID, &noOpReplier{})
 }
 
-func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, m tb.Context) error {
+func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, replier replier) error {
 	wt, err := b.repo.FindRandomBatchedWordTranslation(ctx, chatID)
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
 			b.log.Debug("no words to check", "chatID", chatID)
-			if m != nil {
-				return m.Reply("no words to check")
-			}
-
-			return nil
+			return replier.Reply("no words to check")
 		}
 
-		if m != nil {
-			b.log.Error("failed to get random translation", "error", err)
-			return m.Reply("failed to get random translation")
-		}
-
-		return fmt.Errorf("get random translation: %w", err)
+		b.log.Error("failed to get random translation", "error", err)
+		return replier.Reply(somethingWentWrongMsg)
 	}
 
-	cacheID := callbackCacheID(chatID)
-	data, err := encodeCallbackData(callbackData{
-		CacheID:     cacheID,
-		Word:        wt.Word,
-		Translation: wt.Translation,
-		Description: wt.Description,
-	})
+	data := dal.CallbackData{
+		ChatID:    chatID,
+		Word:      wt.Word,
+		ExpiresAt: time.Now().Add(callbackDataExpirationTime),
+	}
+	callbackID, err := b.repo.InsertCallback(ctx, data)
 	if err != nil {
-		b.log.Error("failed to marshal callback data", "error", err)
-		return m.Reply(somethingWentWrongMsg)
+		b.log.Error("failed to insert callback data", "error", err)
+		return replier.Reply(somethingWentWrongMsg)
 	}
-	b.cache.Set(cacheID, data, cacheTTL)
 
-	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)), tb.ModeMarkdownV2, seeTranslationMarkup(cacheID))
-	return err
+	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)), tb.ModeMarkdownV2, seeTranslationMarkup(callbackID))
+	return nil
 }
 
 func (b *Bot) HandleCallback(c tb.Context) error {
@@ -212,34 +193,41 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	parts := strings.Split(data, ":")
 	if len(parts) > 2 {
 		slog.Warn("wrong callback data", "data", data)
-		return c.RespondText("something went wrong")
+		return c.RespondText(somethingWentWrongMsg)
 	}
 
-	var cData callbackData
-	var err error
-	if len(parts) == 2 {
-		cached, ok := b.cache.Get(parts[1])
-		if !ok {
-			slog.Warn("callback data not found", "data", data)
-			return c.RespondText("something went wrong")
-		}
-
-		cData, err = decodeCallbackData(cached)
-		if err != nil {
-			slog.Error("failed to decode callback data", "error", err)
+	if parts[0] == callbackResetToReview {
+		if err := b.repo.ResetToReview(ctx, c.Chat().ID); err != nil {
+			slog.Error("failed to reset to review", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
+
+		return c.Delete()
+	}
+
+	cData, err := b.repo.FindCallback(ctx, c.Chat().ID, parts[1])
+	if err != nil {
+		if errors.Is(err, dal.ErrNotFound) {
+			slog.Warn("callback data not found", "data", data)
+			return c.RespondText("too much time passed")
+		}
+
+		slog.Error("failed to find callback data", "error", err)
+		return c.RespondText(somethingWentWrongMsg)
 	}
 
 	switch parts[0] {
 	case callbackSeeTranslation:
-		msg := fmt.Sprintf("**%s**", cData.Translation)
-		if cData.Description != "" {
-			msg += fmt.Sprintf(": _%s_", cData.Description)
+		wt, err := b.repo.FindWordTranslation(ctx, c.Chat().ID, cData.Word)
+		if err != nil {
+			slog.Error("failed to get word translation", "error", err)
+			return c.RespondText(somethingWentWrongMsg)
 		}
-		err = c.Send(normalizeMessage(msg), tb.ModeMarkdownV2, guessedResponseMarkup(cData.CacheID))
-	case callbackResetToReview:
-		err = b.repo.ResetToReview(ctx, c.Chat().ID)
+		msg := fmt.Sprintf("**%s**", wt.Translation)
+		if wt.Description != "" {
+			msg += fmt.Sprintf(": _%s_", wt.Description)
+		}
+		err = c.Send(normalizeMessage(msg), tb.ModeMarkdownV2, guessedResponseMarkup(cData.ID))
 	case callbackWordGuessed:
 		err = b.repo.IncreaseGuessedStreak(ctx, c.Chat().ID, cData.Word)
 	case callbackWordMissed:
@@ -259,38 +247,38 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	return c.Delete()
 }
 
-func callbackCacheID(chatID int64) string {
-	return fmt.Sprintf("%d#%d", chatID, time.Now().UnixNano())
+func (r *noOpReplier) Reply(any, ...any) error {
+	return nil
 }
 
-func seeTranslationMarkup(cacheID string) *tb.ReplyMarkup {
+func seeTranslationMarkup(uuid string) *tb.ReplyMarkup {
 	return &tb.ReplyMarkup{
 		InlineKeyboard: [][]tb.InlineButton{
 			{
 				{
 					Text: "See translation",
-					Data: fmt.Sprintf("%s:%s", callbackSeeTranslation, cacheID),
+					Data: fmt.Sprintf("%s:%s", callbackSeeTranslation, uuid),
 				},
 			},
 		},
 	}
 }
 
-func guessedResponseMarkup(cacheID string) *tb.ReplyMarkup {
+func guessedResponseMarkup(uuid string) *tb.ReplyMarkup {
 	return &tb.ReplyMarkup{
 		InlineKeyboard: [][]tb.InlineButton{
 			{
 				{
 					Text: "[      ✅      ]",
-					Data: fmt.Sprintf("%s:%s", callbackWordGuessed, cacheID),
+					Data: fmt.Sprintf("%s:%s", callbackWordGuessed, uuid),
 				},
 				{
 					Text: "[      ❌      ]",
-					Data: fmt.Sprintf("%s:%s", callbackWordMissed, cacheID),
+					Data: fmt.Sprintf("%s:%s", callbackWordMissed, uuid),
 				},
 				{
 					Text: "[      ❓      ]",
-					Data: fmt.Sprintf("%s:%s", callbackWordToReview, cacheID),
+					Data: fmt.Sprintf("%s:%s", callbackWordToReview, uuid),
 				},
 			},
 		},
@@ -308,22 +296,6 @@ func wordsToReviewMarkup() *tb.ReplyMarkup {
 			},
 		},
 	}
-}
-
-func encodeCallbackData(data callbackData) (string, error) {
-	b, err := json.Marshal(data)
-	if err != nil {
-		return "", fmt.Errorf("marshal callback data: %w", err)
-	}
-	return string(b), nil
-}
-
-func decodeCallbackData(data string) (callbackData, error) {
-	var cData callbackData
-	if err := json.Unmarshal([]byte(data), &cData); err != nil {
-		return callbackData{}, fmt.Errorf("unmarshal callback data: %w", err)
-	}
-	return cData, nil
 }
 
 func processCtx() (context.Context, context.CancelFunc) {

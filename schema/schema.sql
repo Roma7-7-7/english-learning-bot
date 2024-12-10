@@ -40,5 +40,21 @@ CREATE TABLE learning_batches
     PRIMARY KEY (chat_id, word)
 );
 
+ALTER TABLE learning_batches
+    ADD FOREIGN KEY (chat_id, word)
+    REFERENCES word_translations (chat_id, word)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE;
+
 CREATE INDEX idx_learning_batches_chat_id
     ON learning_batches (chat_id);
+
+CREATE TABLE callback_data
+(
+    chat_id    INT          NOT NULL,
+    uuid       UUID         NOT NULL,
+    data       JSONB        NOT NULL,
+    expires_at TIMESTAMP    NOT NULL,
+
+    PRIMARY KEY (chat_id, uuid)
+);
