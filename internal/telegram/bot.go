@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -19,6 +20,7 @@ const (
 	commandStats    = "/stats"
 	commandToReview = "/to_review"
 	commandRandom   = "/random"
+	commandMute     = "/mute"
 
 	callbackSeeTranslation = "callback#see_translation"
 	callbackResetToReview  = "callback#reset_to_review"
@@ -30,6 +32,7 @@ const (
 
 	processTimeout = 10 * time.Second
 
+	muteDuration               = 1 * time.Hour
 	callbackDataExpirationTime = 24 * 7 * time.Hour
 )
 
@@ -39,6 +42,8 @@ var wordsToReviewTemplate = template.Must(template.New("to_review").
 - {{.Word}}
 {{- end}}
 `))
+
+var silentMode = &sync.Map{}
 
 type (
 	Bot struct {
@@ -83,6 +88,7 @@ func (b *Bot) Start() {
 	b.bot.Handle(commandToReview, b.HandleToReview, b.middlewares...)
 	b.bot.Handle(commandRandom, b.HandleRandom, b.middlewares...)
 	b.bot.Handle(tb.OnCallback, b.HandleCallback, b.middlewares...)
+	b.bot.Handle(commandMute, b.HandleMute, b.middlewares...)
 
 	b.bot.Start()
 }
@@ -181,7 +187,15 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, replier replier) 
 		return replier.Reply(somethingWentWrongMsg)
 	}
 
-	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)), tb.ModeMarkdownV2, seeTranslationMarkup(callbackID))
+	opts := make([]any, 0, 3)
+	opts = append(opts, tb.ModeMarkdownV2, seeTranslationMarkup(callbackID))
+	if v, ok := silentMode.Load(chatID); ok {
+		if until, ok := v.(time.Time); ok && time.Now().Before(until) {
+			opts = append(opts, tb.Silent)
+		}
+	}
+
+	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)), opts...)
 	return nil
 }
 
@@ -245,6 +259,12 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	}
 
 	return c.Delete()
+}
+
+func (b *Bot) HandleMute(m tb.Context) error {
+	chatID := m.Chat().ID
+	silentMode.Store(chatID, time.Now().Add(muteDuration))
+	return m.Reply(fmt.Sprintf("muted for %s", muteDuration), tb.Silent)
 }
 
 func (r *noOpReplier) Reply(any, ...any) error {
