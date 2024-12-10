@@ -40,6 +40,12 @@ CREATE TABLE learning_batches
     PRIMARY KEY (chat_id, word)
 );
 
+ALTER TABLE learning_batches
+    ADD FOREIGN KEY (chat_id, word)
+    REFERENCES word_translations (chat_id, word)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE;
+
 CREATE INDEX idx_learning_batches_chat_id
     ON learning_batches (chat_id);
 
