@@ -1,5 +1,3 @@
-include .env
-
 lint:
 	golangci-lint run ./...
 
