@@ -21,8 +21,9 @@ vendor/
 go.work
 go.work.sum
 
-# env file
+# run files
 .env
+**.log
 
 # Goland
 .idea/
@@ -30,3 +31,4 @@ go.work.sum
 # Other
 data/
 bin/
+**/.DS_Store

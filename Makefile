@@ -1,4 +1,9 @@
-include .env
+lint:
+	golangci-lint run ./...
+
+# Goland automatically adds a space after "//" when adding a comment, so we need to remove it (yes, I'm too lazy to fix it in Goland configuration)
+fix-nolint:
+	find . -type f -name "*.go" -exec sed -i '' 's|// nolint|//nolint|g' {} +
 
 build:
 	go mod download

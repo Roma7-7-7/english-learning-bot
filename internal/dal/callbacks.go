@@ -16,10 +16,10 @@ type CallbacksRepository interface {
 
 func (r *PostgreSQLRepository) InsertCallback(ctx context.Context, data CallbackData) (string, error) {
 	if data.ChatID == 0 {
-		return "", fmt.Errorf("chat id is required")
+		return "", errors.New("chat id is required")
 	}
 	if data.ExpiresAt.IsZero() {
-		return "", fmt.Errorf("expires at is required")
+		return "", errors.New("expires at is required")
 	}
 
 	row := r.client.QueryRow(ctx, `
@@ -68,10 +68,10 @@ func (r *PostgreSQLRepository) cleanupJob(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Hour):
-			r.log.Info("running cleanup job")
+			r.log.InfoContext(ctx, "running cleanup job")
 			_, err := r.client.Exec(ctx, `DELETE FROM callback_data WHERE expires_at < now()`)
 			if err != nil {
-				r.log.Error("failed to run cleanup job", "error", err)
+				r.log.ErrorContext(ctx, "failed to run cleanup job", "error", err)
 			}
 		}
 	}
