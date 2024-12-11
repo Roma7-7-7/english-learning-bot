@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"strings"
 	"sync"
 	"text/template"
@@ -136,7 +137,7 @@ func (b *Bot) HandleRandom(m tb.Context) error {
 	ctx, cancel := processCtx()
 	defer cancel()
 
-	return b.sendWordCheck(ctx, m.Chat().ID, m)
+	return b.sendWordCheck(ctx, m.Chat().ID, dal.FindRandomWordFilter{StreakLimitDirection: dal.LimitDirectionGreaterThanOrEqual, StreakLimit: 0}, m)
 }
 
 func (b *Bot) HandleToReview(m tb.Context) error {
@@ -163,11 +164,15 @@ func (b *Bot) HandleToReview(m tb.Context) error {
 }
 
 func (b *Bot) SendWordCheck(ctx context.Context, chatID int64) error {
-	return b.sendWordCheck(ctx, chatID, &noOpReplier{})
+	filter := dal.FindRandomWordFilter{Batched: true}
+	if rand.Int()%100 == 0 {
+		filter = dal.FindRandomWordFilter{StreakLimitDirection: dal.LimitDirectionLessThan, StreakLimit: 0} // every 100th word to be random
+	}
+	return b.sendWordCheck(ctx, chatID, filter, &noOpReplier{})
 }
 
-func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, replier replier) error {
-	wt, err := b.repo.FindRandomBatchedWordTranslation(ctx, chatID)
+func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRandomWordFilter, replier replier) error {
+	wt, err := b.repo.FindRandomWordTranslation(ctx, chatID, filter)
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
 			b.log.DebugContext(ctx, "no words to check", "chatID", chatID)

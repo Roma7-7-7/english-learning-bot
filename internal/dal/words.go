@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const (
+	LimitDirectionLessThan StreakLimitDirection = iota
+	LimitDirectionGreaterThanOrEqual
+)
+
 var (
 	ErrNotFound = errors.New("not found")
 )
@@ -19,14 +24,21 @@ type (
 		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
 		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
 		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
-		FindRandomBatchedWordTranslation(ctx context.Context, chatID int64) (*WordTranslation, error)
-		FindRandomNotBatchedWordTranslation(ctx context.Context, chatID int64, streakLimit int) (*WordTranslation, error)
+		FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error)
 		FindWordsToReview(ctx context.Context, chatID int64) ([]WordTranslation, error)
 		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetToReview(ctx context.Context, chatID int64) error
 		MarkToReviewAndResetStreak(ctx context.Context, chatID int64, word string) error
 		DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error)
+	}
+
+	StreakLimitDirection int
+
+	FindRandomWordFilter struct {
+		Batched              bool
+		StreakLimitDirection StreakLimitDirection // ignored if Batched = true
+		StreakLimit          int                  // ignored if Batched = true
 	}
 )
 
@@ -170,28 +182,23 @@ func (r *PostgreSQLRepository) FindWordTranslation(ctx context.Context, chatID i
 	return wt, nil
 }
 
-func (r *PostgreSQLRepository) FindRandomBatchedWordTranslation(ctx context.Context, chatID int64) (*WordTranslation, error) {
-	row := r.client.QueryRow(ctx, `
+func (r *PostgreSQLRepository) FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error) {
+	var (
+		query string
+		args  []any
+	)
+	if filter.Batched {
+		query = `
 		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.created_at, wt.updated_at
 		FROM word_translations wt
 		INNER JOIN learning_batches lb ON wt.chat_id = lb.chat_id AND wt.word = lb.word
 		WHERE wt.chat_id = $1
 		ORDER BY random()
 		LIMIT 1
-	`, chatID)
-
-	wt, err := hydrateWordTranslation(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, fmt.Errorf("get random word translation: %w", err)
-	}
-	return wt, nil
-}
-
-func (r *PostgreSQLRepository) FindRandomNotBatchedWordTranslation(ctx context.Context, chatID int64, streakLimit int) (*WordTranslation, error) {
-	row := r.client.QueryRow(ctx, `
+	`
+		args = []any{chatID}
+	} else {
+		query = fmt.Sprintf(`
 		WITH batched_words AS (
 			SELECT lb.word
 			FROM learning_batches lb
@@ -199,11 +206,14 @@ func (r *PostgreSQLRepository) FindRandomNotBatchedWordTranslation(ctx context.C
 		)
 		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.created_at, wt.updated_at
 		FROM word_translations wt
-		WHERE wt.chat_id = $1 AND wt.guessed_streak < $2 AND wt.word NOT IN (SELECT word FROM batched_words)
+		WHERE wt.chat_id = $1 AND wt.guessed_streak %s $2 AND wt.word NOT IN (SELECT word FROM batched_words)
 		ORDER BY random()
 		LIMIT 1
-	`, chatID, streakLimit)
+	`, filter.StreakLimitDirection.String())
+		args = []any{chatID, filter.StreakLimit}
+	}
 
+	row := r.client.QueryRow(ctx, query, args...)
 	wt, err := hydrateWordTranslation(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -211,6 +221,7 @@ func (r *PostgreSQLRepository) FindRandomNotBatchedWordTranslation(ctx context.C
 		}
 		return nil, fmt.Errorf("get random word translation: %w", err)
 	}
+
 	return wt, nil
 }
 
@@ -253,6 +264,10 @@ func (r *PostgreSQLRepository) DeleteFromLearningBatchGtGuessedStreak(ctx contex
 	}
 
 	return int(res.RowsAffected()), nil
+}
+
+func (d StreakLimitDirection) String() string {
+	return [...]string{"<", ">="}[d]
 }
 
 func hydrateWordTranslation(row pgx.Row) (*WordTranslation, error) {
