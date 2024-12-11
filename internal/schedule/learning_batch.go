@@ -59,10 +59,11 @@ func updateLearningBatch(ctx context.Context, chatID int64, guessedStreakLimit i
 	}
 
 	for range batchSize - batched {
+		//nolint:govet // it is supposed to be used in a loop
 		word, err := repo.FindRandomWordTranslation(ctx, chatID, dal.FindRandomWordFilter{
 			StreakLimitDirection: dal.LimitDirectionLessThan,
 			StreakLimit:          guessedStreakLimit,
-		}) //nolint:govet // it is supposed to be used in a loop
+		})
 		if err != nil {
 			if errors.Is(err, dal.ErrNotFound) {
 				log.DebugContext(ctx, "no words to add to learning batch", "chat_id", chatID)
