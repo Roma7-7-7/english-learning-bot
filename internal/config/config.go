@@ -18,7 +18,7 @@ const (
 	EnvDev  = "dev"
 	EnvProd = "prod"
 
-	defaultPublishInterval = time.Hour
+	defaultPublishInterval = 10 * time.Minute
 )
 
 type (

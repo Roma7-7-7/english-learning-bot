@@ -51,7 +51,7 @@ func run(ctx context.Context) int {
 
 	log := mustLogger(conf.Env)
 
-	log.InfoContext(ctx, "starting bot", "env", conf.Env, "interval", conf.PublishInterval, "current_time_in_location", time.Now().In(conf.Location))
+	log.InfoContext(ctx, "starting bot", "env", conf.Env, "interval", conf.PublishInterval.String(), "current_time_in_location", time.Now().In(conf.Location))
 	defer log.InfoContext(ctx, "bot is stopped")
 
 	db, err := pgxpool.New(ctx, conf.DBURL)
