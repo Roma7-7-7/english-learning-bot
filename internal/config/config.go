@@ -1,27 +1,39 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ssm"
 )
 
 const (
+	DefaultAWSRegion = "eu-central-1"
+
 	EnvDev  = "dev"
 	EnvProd = "prod"
+
+	defaultPublishInterval = time.Hour
 )
 
-type Config struct {
-	Env             string
-	TelegramToken   string
-	AllowedChatIDs  []int64
-	DBURL           string
-	PublishInterval time.Duration
-	Location        *time.Location
-}
+type (
+	Config struct {
+		Env             string
+		TelegramToken   string
+		AllowedChatIDs  []int64
+		DBURL           string
+		PublishInterval time.Duration
+		Location        *time.Location
+	}
+
+	configBuilderFn func(string) (*Config, error)
+)
 
 func GetConfig() (*Config, error) {
 	env := os.Getenv("ENV")
@@ -29,14 +41,33 @@ func GetConfig() (*Config, error) {
 		env = EnvProd
 	}
 
+	region := os.Getenv("AWS_REGION")
+	if region == "" {
+		region = DefaultAWSRegion
+	}
+
+	loc, err := time.LoadLocation("Europe/Kyiv")
+	if err != nil {
+		return nil, fmt.Errorf("load location: %w", err)
+	}
+
+	var confBuilder configBuilderFn
 	switch {
 	case env == EnvDev:
-		return validate(getDevConfig())
+		confBuilder = getDevConfig
 	case env == EnvProd:
-		return validate(getProdConfig())
+		confBuilder = getProdConfig
 	default:
 		return nil, fmt.Errorf("unknown environment: %s", env)
 	}
+
+	res, err := confBuilder(region)
+	if err != nil {
+		return nil, err
+	}
+	res.Env = env
+	res.Location = loc
+	return validate(res, nil)
 }
 
 func validate(conf *Config, err error) (*Config, error) {
@@ -71,46 +102,104 @@ func validate(conf *Config, err error) (*Config, error) {
 	return conf, nil
 }
 
-func getDevConfig() (*Config, error) {
-	loc, err := time.LoadLocation("Europe/Kyiv")
-	if err != nil {
-		return nil, fmt.Errorf("load location: %w", err)
-	}
-
+func getDevConfig(string) (*Config, error) {
 	telegramTokenEnvVar := os.Getenv("TELEGRAM_TOKEN")
-	allowedChatIDs := make([]int64, 0, 10) //nolint:mnd // 10 is a reasonable default value
-	allowedChatIDsEnvVar := os.Getenv("ALLOWED_CHAT_IDS")
-	if allowedChatIDsEnvVar != "" {
-		chatIDStrings := strings.Split(allowedChatIDsEnvVar, ",")
-		for _, chatIDString := range chatIDStrings {
-			var chatID int64
-			chatID, err = strconv.ParseInt(chatIDString, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("invalid chat ID %s: %w", chatIDString, err)
-			}
-			allowedChatIDs = append(allowedChatIDs, chatID)
-		}
-	}
 	dbURLEnvVar := os.Getenv("DB_URL")
-	publishIntervalEnvVar := os.Getenv("PUBLISH_INTERVAL")
-	if publishIntervalEnvVar == "" {
-		publishIntervalEnvVar = "1h"
+	allowedChatIDs, err := parseChatIDs(os.Getenv("ALLOWED_CHAT_IDS"))
+	if err != nil {
+		return nil, err
 	}
-	publishInterval, err := time.ParseDuration(publishIntervalEnvVar)
+	publishInterval, err := parsePublishInterval(os.Getenv("PUBLISH_INTERVAL"), defaultPublishInterval)
 	if err != nil {
 		return nil, fmt.Errorf("parse publish interval: %w", err)
 	}
 
 	return &Config{
-		Env:             EnvDev,
 		TelegramToken:   telegramTokenEnvVar,
 		AllowedChatIDs:  allowedChatIDs,
 		DBURL:           dbURLEnvVar,
 		PublishInterval: publishInterval,
-		Location:        loc,
 	}, nil
 }
 
-func getProdConfig() (*Config, error) {
-	return nil, errors.New("not implemented")
+func getProdConfig(region string) (*Config, error) {
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(region),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create aws session: %w", err)
+	}
+
+	ssmClient := ssm.New(sess, aws.NewConfig().WithRegion(region).
+		WithCredentials(credentials.NewEnvCredentials()), // todo remove
+	)
+	parameters, err := ssmClient.GetParameters(&ssm.GetParametersInput{
+		Names: []*string{
+			aws.String("/english-learning-bot/prod/telegram-token"),
+			aws.String("/english-learning-bot/prod/allowed-chat-ids"),
+			aws.String("/english-learning-bot/prod/db-url"),
+			aws.String("/english-learning-bot/prod/publish-interval"),
+		},
+		WithDecryption: aws.Bool(true),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get parameters: %w", err)
+	}
+
+	telegramToken := ""
+	var allowedChatIDs []int64
+	dbURL := ""
+	publishIntervalStr := ""
+	for _, param := range parameters.Parameters {
+		switch *param.Name {
+		case "/english-learning-bot/prod/telegram-token":
+			telegramToken = *param.Value
+		case "/english-learning-bot/prod/allowed-chat-ids":
+			allowedChatIDs, err = parseChatIDs(*param.Value)
+			if err != nil {
+				return nil, err
+			}
+		case "/english-learning-bot/prod/db-url":
+			dbURL = *param.Value
+		case "/english-learning-bot/prod/publish-interval":
+			publishIntervalStr = *param.Value
+		}
+	}
+
+	publishInterval, err := parsePublishInterval(publishIntervalStr, defaultPublishInterval)
+	if err != nil {
+		return nil, fmt.Errorf("parse publish interval: %w", err)
+	}
+
+	return &Config{
+		TelegramToken:   telegramToken,
+		AllowedChatIDs:  allowedChatIDs,
+		DBURL:           dbURL,
+		PublishInterval: publishInterval,
+	}, nil
+}
+
+func parseChatIDs(chatIDsStr string) ([]int64, error) {
+	if chatIDsStr == "" {
+		return nil, nil
+	}
+
+	chatIDStrings := strings.Split(chatIDsStr, ",")
+	chatIDs := make([]int64, 0, len(chatIDStrings))
+	for _, chatIDString := range chatIDStrings {
+		chatID, err := strconv.ParseInt(chatIDString, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse chat IDs: invalid chat ID %s: %w", chatIDString, err)
+		}
+		chatIDs = append(chatIDs, chatID)
+	}
+
+	return chatIDs, nil
+}
+
+func parsePublishInterval(publishIntervalStr string, def time.Duration) (time.Duration, error) {
+	if publishIntervalStr == "" {
+		return def, nil
+	}
+	return time.ParseDuration(publishIntervalStr)
 }
