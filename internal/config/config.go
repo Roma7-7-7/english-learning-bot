@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
 )
@@ -130,9 +129,7 @@ func getProdConfig(region string) (*Config, error) {
 		return nil, fmt.Errorf("create aws session: %w", err)
 	}
 
-	ssmClient := ssm.New(sess, aws.NewConfig().WithRegion(region).
-		WithCredentials(credentials.NewEnvCredentials()), // todo remove
-	)
+	ssmClient := ssm.New(sess, aws.NewConfig().WithRegion(region))
 	parameters, err := ssmClient.GetParameters(&ssm.GetParametersInput{
 		Names: []*string{
 			aws.String("/english-learning-bot/prod/telegram-token"),
