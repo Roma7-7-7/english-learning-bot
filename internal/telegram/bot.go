@@ -19,6 +19,7 @@ import (
 
 const (
 	commandStart    = "/start"
+	commandGet      = "/get"
 	commandAdd      = "/add"
 	commandUpdate   = "/update"
 	commandStats    = "/stats"
@@ -88,6 +89,7 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 
 func (b *Bot) Start(ctx context.Context) {
 	b.bot.Handle(commandStart, b.HandleStart, b.middlewares...)
+	b.bot.Handle(commandGet, b.HandleGet, b.middlewares...)
 	b.bot.Handle(commandAdd, b.HandleAdd, b.middlewares...)
 	b.bot.Handle(commandUpdate, b.HandleUpdate, b.middlewares...)
 	b.bot.Handle(commandStats, b.HandleStats, b.middlewares...)
@@ -123,6 +125,26 @@ func (b *Bot) HandleStats(m tb.Context) error {
 	}
 
 	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total))
+}
+
+func (b *Bot) HandleGet(m tb.Context) error {
+	ctx, cancel := processCtx()
+	defer cancel()
+
+	word := strings.TrimSpace(m.Text()[len(commandGet):])
+
+	wt, err := b.repo.FindWordTranslation(ctx, m.Chat().ID, word)
+	if err != nil {
+		if errors.Is(err, dal.ErrNotFound) {
+			b.log.DebugContext(ctx, "word not found", "word", word)
+			return m.Reply("word not found")
+		}
+
+		b.log.ErrorContext(ctx, "failed to get word translation", "error", err)
+		return m.Reply("failed to get word translation")
+	}
+
+	return m.Reply(fmt.Sprintf("**%s**: %s", wt.Word, wt.Translation), tb.ModeMarkdownV2)
 }
 
 func (b *Bot) HandleAdd(m tb.Context) error {
