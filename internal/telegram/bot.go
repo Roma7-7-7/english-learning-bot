@@ -85,7 +85,7 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 	}, nil
 }
 
-func (b *Bot) Start() {
+func (b *Bot) Start(ctx context.Context) {
 	b.bot.Handle(commandStart, b.HandleStart, b.middlewares...)
 	b.bot.Handle(commandAdd, b.HandleAdd, b.middlewares...)
 	b.bot.Handle(commandStats, b.HandleStats, b.middlewares...)
@@ -94,6 +94,15 @@ func (b *Bot) Start() {
 	b.bot.Handle(tb.OnCallback, b.HandleCallback, b.middlewares...)
 	b.bot.Handle(commandMute, b.HandleMute, b.middlewares...)
 
+	go func() {
+		time.Sleep(5 * time.Second) //nolint:mnd // wait for the bot to start
+		<-ctx.Done()
+		b.log.InfoContext(ctx, "stopping telebot instance")
+		b.bot.Stop()
+		b.log.InfoContext(ctx, "telebot instance stopped")
+	}()
+
+	b.log.InfoContext(ctx, "starting telebot instance")
 	b.bot.Start()
 }
 
