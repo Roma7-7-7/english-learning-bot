@@ -21,6 +21,7 @@ type (
 	WordTranslationsRepository interface {
 		GetStats(ctx context.Context, chatID int64) (*WordTranslationStats, error)
 		AddWordTranslation(ctx context.Context, chatID int64, word, translation string) error
+		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
 		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
 		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
 		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
@@ -132,6 +133,18 @@ func (r *PostgreSQLRepository) MarkToReview(ctx context.Context, chatID int64, w
 		return fmt.Errorf("mark review and reset streak: %w", err)
 	}
 
+	return nil
+}
+
+func (r *PostgreSQLRepository) UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, updatedTranslation, description string) error {
+	_, err := r.client.Exec(ctx, `
+		UPDATE word_translations
+		SET word = $3, translation = $4, description = $5
+		WHERE chat_id = $1 AND word = $2
+	`, chatID, word, updatedWord, updatedTranslation, description)
+	if err != nil {
+		return fmt.Errorf("update translation: %w", err)
+	}
 	return nil
 }
 

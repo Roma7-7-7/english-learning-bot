@@ -19,7 +19,9 @@ import (
 
 const (
 	commandStart    = "/start"
+	commandGet      = "/get"
 	commandAdd      = "/add"
+	commandUpdate   = "/update"
 	commandStats    = "/stats"
 	commandToReview = "/to_review"
 	commandRandom   = "/random"
@@ -87,7 +89,9 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 
 func (b *Bot) Start(ctx context.Context) {
 	b.bot.Handle(commandStart, b.HandleStart, b.middlewares...)
+	b.bot.Handle(commandGet, b.HandleGet, b.middlewares...)
 	b.bot.Handle(commandAdd, b.HandleAdd, b.middlewares...)
+	b.bot.Handle(commandUpdate, b.HandleUpdate, b.middlewares...)
 	b.bot.Handle(commandStats, b.HandleStats, b.middlewares...)
 	b.bot.Handle(commandToReview, b.HandleToReview, b.middlewares...)
 	b.bot.Handle(commandRandom, b.HandleRandom, b.middlewares...)
@@ -123,6 +127,26 @@ func (b *Bot) HandleStats(m tb.Context) error {
 	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total))
 }
 
+func (b *Bot) HandleGet(m tb.Context) error {
+	ctx, cancel := processCtx()
+	defer cancel()
+
+	word := strings.TrimSpace(m.Text()[len(commandGet):])
+
+	wt, err := b.repo.FindWordTranslation(ctx, m.Chat().ID, word)
+	if err != nil {
+		if errors.Is(err, dal.ErrNotFound) {
+			b.log.DebugContext(ctx, "word not found", "word", word)
+			return m.Reply("word not found")
+		}
+
+		b.log.ErrorContext(ctx, "failed to get word translation", "error", err)
+		return m.Reply("failed to get word translation")
+	}
+
+	return m.Reply(fmt.Sprintf("**%s**: %s", wt.Word, wt.Translation), tb.ModeMarkdownV2)
+}
+
 func (b *Bot) HandleAdd(m tb.Context) error {
 	ctx, cancel := processCtx()
 	defer cancel()
@@ -130,7 +154,7 @@ func (b *Bot) HandleAdd(m tb.Context) error {
 	parts := strings.Split(strings.ToLower(m.Text())[len(commandAdd):], ":")
 	if len(parts) != 2 { //nolint: mnd // word:translation
 		b.log.DebugContext(ctx, "wrong message format", "message", m.Message().Text)
-		return m.Reply("wrong message format, it should be like: word:translation")
+		return m.Reply("wrong message format, it should be like \"word:translation\"")
 	}
 
 	word, translation := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
@@ -141,6 +165,26 @@ func (b *Bot) HandleAdd(m tb.Context) error {
 	}
 
 	return m.Reply("translation added")
+}
+
+func (b *Bot) HandleUpdate(m tb.Context) error {
+	ctx, cancel := processCtx()
+	defer cancel()
+
+	parts := strings.Split(strings.ToLower(m.Text())[len(commandUpdate):], ":")
+	if len(parts) != 3 { //nolint: mnd // word:translation
+		b.log.DebugContext(ctx, "wrong message format", "message", m.Message().Text)
+		return m.Reply("wrong message format, it should be like: \"original word:new word:new translation\"")
+	}
+
+	original, updated, translation := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])
+
+	if err := b.repo.UpdateWordTranslation(ctx, m.Chat().ID, original, updated, translation, ""); err != nil {
+		b.log.ErrorContext(ctx, "failed to update translation", "error", err)
+		return m.Reply("failed to update translation")
+	}
+
+	return m.Reply("translation updated")
 }
 
 func (b *Bot) HandleRandom(m tb.Context) error {
