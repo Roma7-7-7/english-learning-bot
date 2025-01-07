@@ -310,7 +310,7 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 		if wt.Description != "" {
 			msg += fmt.Sprintf(": _%s_", wt.Description)
 		}
-		err = c.Send(normalizeMessage(msg), tb.ModeMarkdownV2, guessedResponseMarkup(cData.ID))
+		err = c.Send(normalizeMessage(msg), guessedResponseMarkup(cData.ID), tb.ModeMarkdownV2, tb.Silent)
 	case callbackWordGuessed:
 		err = b.repo.IncreaseGuessedStreak(ctx, c.Chat().ID, cData.Word)
 	case callbackWordMissed:
