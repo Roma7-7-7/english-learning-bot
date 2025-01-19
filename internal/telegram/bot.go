@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"math/big"
 	"strings"
-	"sync"
 	"text/template"
 	"time"
 
@@ -56,8 +55,7 @@ type (
 
 		middlewares []tb.MiddlewareFunc
 
-		silentMode *sync.Map
-		log        *slog.Logger
+		log *slog.Logger
 	}
 
 	replier interface {
@@ -82,7 +80,6 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 		bot:         b,
 		repo:        repo,
 		middlewares: middlewares,
-		silentMode:  &sync.Map{},
 		log:         log,
 	}, nil
 }
@@ -96,7 +93,6 @@ func (b *Bot) Start(ctx context.Context) {
 	b.bot.Handle(commandToReview, b.HandleToReview, b.middlewares...)
 	b.bot.Handle(commandRandom, b.HandleRandom, b.middlewares...)
 	b.bot.Handle(tb.OnCallback, b.HandleCallback, b.middlewares...)
-	b.bot.Handle(commandMute, b.HandleMute, b.middlewares...)
 
 	go func() {
 		time.Sleep(5 * time.Second) //nolint:mnd // wait for the bot to start
@@ -254,15 +250,9 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 		return replier.Reply(somethingWentWrongMsg)
 	}
 
-	opts := make([]any, 0, 3) //nolint: mnd // 2 by default and 1 more for optional silent mode
-	opts = append(opts, tb.ModeMarkdownV2, seeTranslationMarkup(callbackID))
-	if v, ok := b.silentMode.Load(chatID); ok {
-		if until, okt := v.(time.Time); okt && time.Now().Before(until) {
-			opts = append(opts, tb.Silent)
-		}
-	}
-
-	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)), opts...)
+	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)),
+		tb.ModeMarkdownV2, tb.Silent, seeTranslationMarkup(callbackID),
+	)
 	return err
 }
 
@@ -328,12 +318,6 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	}
 
 	return c.Delete()
-}
-
-func (b *Bot) HandleMute(m tb.Context) error {
-	chatID := m.Chat().ID
-	b.silentMode.Store(chatID, time.Now().Add(muteDuration))
-	return m.Reply(fmt.Sprintf("muted for %s", muteDuration), tb.Silent)
 }
 
 func (r *noOpReplier) Reply(any, ...any) error {
