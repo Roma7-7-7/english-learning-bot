@@ -21,6 +21,7 @@ type (
 	WordTranslationsRepository interface {
 		GetStats(ctx context.Context, chatID int64) (*WordTranslationStats, error)
 		AddWordTranslation(ctx context.Context, chatID int64, word, translation string) error
+		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
 		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
 		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
 		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
@@ -81,6 +82,17 @@ func (r *PostgreSQLRepository) AddWordTranslation(ctx context.Context, chatID in
 	`, chatID, word, translation)
 	if err != nil {
 		return fmt.Errorf("add translation: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgreSQLRepository) DeleteWordTranslation(ctx context.Context, chatID int64, word string) error {
+	_, err := r.client.Exec(ctx, `
+		DELETE FROM word_translations
+		WHERE chat_id = $1 AND word = $2
+	`, chatID, word)
+	if err != nil {
+		return fmt.Errorf("delete translation: %w", err)
 	}
 	return nil
 }
