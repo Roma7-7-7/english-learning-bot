@@ -21,10 +21,10 @@ const (
 	commandGet      = "/get"
 	commandAdd      = "/add"
 	commandUpdate   = "/update"
+	commandDelete   = "/delete"
 	commandStats    = "/stats"
 	commandToReview = "/to_review"
 	commandRandom   = "/random"
-	commandMute     = "/mute"
 
 	callbackSeeTranslation = "callback#see_translation"
 	callbackResetToReview  = "callback#reset_to_review"
@@ -89,6 +89,7 @@ func (b *Bot) Start(ctx context.Context) {
 	b.bot.Handle(commandGet, b.HandleGet, b.middlewares...)
 	b.bot.Handle(commandAdd, b.HandleAdd, b.middlewares...)
 	b.bot.Handle(commandUpdate, b.HandleUpdate, b.middlewares...)
+	b.bot.Handle(commandDelete, b.HandleDelete, b.middlewares...)
 	b.bot.Handle(commandStats, b.HandleStats, b.middlewares...)
 	b.bot.Handle(commandToReview, b.HandleToReview, b.middlewares...)
 	b.bot.Handle(commandRandom, b.HandleRandom, b.middlewares...)
@@ -181,6 +182,20 @@ func (b *Bot) HandleUpdate(m tb.Context) error {
 	}
 
 	return m.Reply("translation updated")
+}
+
+func (b *Bot) HandleDelete(m tb.Context) error {
+	ctx, cancel := processCtx()
+	defer cancel()
+
+	word := strings.TrimSpace(m.Text()[len(commandDelete):])
+
+	if err := b.repo.DeleteWordTranslation(ctx, m.Chat().ID, word); err != nil {
+		b.log.ErrorContext(ctx, "failed to delete translation", "error", err)
+		return m.Reply("failed to delete translation")
+	}
+
+	return m.Reply("translation deleted")
 }
 
 func (b *Bot) HandleRandom(m tb.Context) error {
