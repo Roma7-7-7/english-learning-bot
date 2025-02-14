@@ -358,10 +358,10 @@ func (b *Bot) HandleDocument(m tb.Context) error {
 		defer wg.Done()
 
 		for line := range lines {
-			if err := b.repo.AddWordTranslation(ctx, m.Chat().ID, line.Word, line.Translation, line.Description); err != nil {
+			if gErr := b.repo.AddWordTranslation(ctx, m.Chat().ID, line.Word, line.Translation, line.Description); gErr != nil {
 				addFailed = true
 				parseCancel()
-				b.log.ErrorContext(ctx, "failed to add translation", "error", err)
+				b.log.ErrorContext(ctx, "failed to add translation", "error", gErr)
 				break
 			}
 		}
@@ -376,7 +376,7 @@ func (b *Bot) HandleDocument(m tb.Context) error {
 			return m.Reply(somethingWentWrongMsg)
 		}
 
-		invalidLines := pErr.InvalidLines[:int(math.Min(float64(len(pErr.InvalidLines)), 10))] //nolint:gomnd // 10 is a magic number
+		invalidLines := pErr.InvalidLines[:int(math.Min(float64(len(pErr.InvalidLines)), 10))] //nolint:mnd // 10 is a magic number
 		return m.Reply(fmt.Sprintf("invalid lines=%v", invalidLines))
 	}
 

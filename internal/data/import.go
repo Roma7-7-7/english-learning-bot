@@ -30,7 +30,7 @@ func Parse(ctx context.Context, in io.ReadCloser, out chan<- Line) error {
 
 	// Read the file line by line
 	scanner := bufio.NewScanner(in)
-	invalidLines := make([]int, 0, 10)
+	invalidLines := make([]int, 0, 10) //nolint:mnd // 10 is the expected capacity
 	linNum := 0
 	for scanner.Scan() {
 		linNum++
@@ -48,7 +48,7 @@ func Parse(ctx context.Context, in io.ReadCloser, out chan<- Line) error {
 		word := strings.TrimSpace(parts[0])
 		translation := strings.TrimSpace(parts[1])
 		description := ""
-		if len(parts) == 3 {
+		if len(parts) == 3 { //nolint:mnd // 3 is the expected length
 			description = strings.TrimSpace(parts[2])
 		}
 
