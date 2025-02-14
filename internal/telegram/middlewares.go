@@ -3,6 +3,7 @@ package telegram
 import (
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 
 	tb "gopkg.in/telebot.v3"
 )
@@ -12,7 +13,7 @@ func Recover(log *slog.Logger) tb.MiddlewareFunc {
 		return func(c tb.Context) error {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Error("panic occurred", "panic", r)
+					log.Error("panic occurred", "panic", r, "stack", string(debug.Stack()))
 				}
 			}()
 			return next(c)

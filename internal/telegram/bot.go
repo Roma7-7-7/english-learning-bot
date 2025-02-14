@@ -6,14 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/big"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
 	tb "gopkg.in/telebot.v3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
+	"github.com/Roma7-7-7/english-learning-bot/internal/data"
 )
 
 const (
@@ -94,6 +97,7 @@ func (b *Bot) Start(ctx context.Context) {
 	b.bot.Handle(commandToReview, b.HandleToReview, b.middlewares...)
 	b.bot.Handle(commandRandom, b.HandleRandom, b.middlewares...)
 	b.bot.Handle(tb.OnCallback, b.HandleCallback, b.middlewares...)
+	b.bot.Handle(tb.OnDocument, b.HandleDocument, b.middlewares...)
 
 	go func() {
 		time.Sleep(5 * time.Second) //nolint:mnd // wait for the bot to start
@@ -156,7 +160,7 @@ func (b *Bot) HandleAdd(m tb.Context) error {
 
 	word, translation := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 
-	if err := b.repo.AddWordTranslation(ctx, m.Chat().ID, word, translation); err != nil {
+	if err := b.repo.AddWordTranslation(ctx, m.Chat().ID, word, translation, ""); err != nil {
 		b.log.ErrorContext(ctx, "failed to add translation", "error", err)
 		return m.Reply("failed to add translation")
 	}
@@ -333,6 +337,54 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	}
 
 	return c.Delete()
+}
+
+func (b *Bot) HandleDocument(m tb.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	file, err := b.bot.File(&m.Message().Document.File)
+	if err != nil {
+		b.log.ErrorContext(ctx, "failed to get file", "error", err)
+		return m.Reply(somethingWentWrongMsg)
+	}
+
+	lines := make(chan data.Line)
+	addFailed := false
+	parseCtx, parseCancel := context.WithCancel(ctx)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		for line := range lines {
+			if gErr := b.repo.AddWordTranslation(ctx, m.Chat().ID, line.Word, line.Translation, line.Description); gErr != nil {
+				addFailed = true
+				parseCancel()
+				b.log.ErrorContext(ctx, "failed to add translation", "error", gErr)
+				break
+			}
+		}
+	}()
+
+	err = data.Parse(parseCtx, file, lines)
+	wg.Wait()
+	if err != nil {
+		var pErr *data.ParsingError
+		if !errors.As(err, &pErr) {
+			b.log.ErrorContext(ctx, "failed to parse document", "error", err)
+			return m.Reply(somethingWentWrongMsg)
+		}
+
+		invalidLines := pErr.InvalidLines[:int(math.Min(float64(len(pErr.InvalidLines)), 10))] //nolint:mnd // 10 is a magic number
+		return m.Reply(fmt.Sprintf("invalid lines=%v", invalidLines))
+	}
+
+	if addFailed {
+		return m.Reply(somethingWentWrongMsg)
+	}
+
+	return m.Reply("translations added")
 }
 
 func (r *noOpReplier) Reply(any, ...any) error {

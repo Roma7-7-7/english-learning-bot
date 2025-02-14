@@ -20,7 +20,7 @@ var (
 type (
 	WordTranslationsRepository interface {
 		GetStats(ctx context.Context, chatID int64) (*WordTranslationStats, error)
-		AddWordTranslation(ctx context.Context, chatID int64, word, translation string) error
+		AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
 		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
 		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
 		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
@@ -74,12 +74,12 @@ GROUP BY
 	return &stats, nil
 }
 
-func (r *PostgreSQLRepository) AddWordTranslation(ctx context.Context, chatID int64, word, translation string) error {
+func (r *PostgreSQLRepository) AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
 	_, err := r.client.Exec(ctx, `
-		INSERT INTO word_translations (chat_id, word, translation)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (chat_id, word) DO UPDATE SET translation = $3, guessed_streak = 0
-	`, chatID, word, translation)
+		INSERT INTO word_translations (chat_id, word, translation, description)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (chat_id, word) DO UPDATE SET translation = $3, description = $4
+	`, chatID, word, translation, description)
 	if err != nil {
 		return fmt.Errorf("add translation: %w", err)
 	}
