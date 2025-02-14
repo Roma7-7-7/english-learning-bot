@@ -29,6 +29,6 @@ go.work.sum
 .idea/
 
 # Other
-data/
+./data/
 bin/
 **/.DS_Store
