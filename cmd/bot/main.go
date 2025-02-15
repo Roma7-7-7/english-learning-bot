@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -19,9 +20,7 @@ import (
 const (
 	batchSize          = 50
 	guessedStreakLimit = 15
-)
 
-const (
 	exitCodeOK int = iota
 	exitCodeConfigParse
 	exitCodeDBConnect
@@ -51,7 +50,7 @@ func run(ctx context.Context) int {
 
 	log := mustLogger(conf.Env)
 
-	log.InfoContext(ctx, "starting bot", "env", conf.Env, "interval", conf.PublishInterval.String(), "current_time_in_location", time.Now().In(conf.Location))
+	log.InfoContext(ctx, "starting bot", "config", loggableConfig(conf), "current_time_in_location", time.Now().In(conf.WordCheckSchedule.Location))
 	defer log.InfoContext(ctx, "bot is stopped")
 
 	db, err := pgxpool.New(ctx, conf.DBURL)
@@ -68,7 +67,13 @@ func run(ctx context.Context) int {
 		return exitCodeBotCreate
 	}
 
-	go schedule.StartWordCheckSchedule(ctx, conf.AllowedChatIDs, conf.PublishInterval, bot, conf.Location, log)
+	go schedule.StartWordCheckSchedule(ctx, schedule.WordCheckConfig{
+		ChatIDs:  conf.AllowedChatIDs,
+		Interval: conf.WordCheckSchedule.PublishInterval,
+		HourFrom: conf.WordCheckSchedule.HourFrom,
+		HourTo:   conf.WordCheckSchedule.HourTo,
+		Location: conf.WordCheckSchedule.Location,
+	}, bot, log)
 	go schedule.StartUpdateBatchSchedule(ctx, conf.AllowedChatIDs, batchSize, guessedStreakLimit, repo, log)
 
 	log.InfoContext(ctx, "starting bot")
@@ -89,4 +94,16 @@ func mustLogger(env string) *slog.Logger {
 		})
 	}
 	return slog.New(handler)
+}
+
+func loggableConfig(conf *config.Config) map[string]any {
+	return map[string]any{
+		"env":              conf.Env,
+		"allowed-chat-ids": conf.AllowedChatIDs,
+		"word-check-schedule": map[string]any{
+			"publish-interval": fmt.Sprintf("%v", conf.WordCheckSchedule.PublishInterval),
+			"hour-from":        conf.WordCheckSchedule.HourFrom,
+			"hour-to":          conf.WordCheckSchedule.HourTo,
+		},
+	}
 }
