@@ -37,7 +37,8 @@ func StartWordCheckSchedule(ctx context.Context, conf WordCheckConfig, p Publish
 			return
 		case <-time.After(conf.Interval):
 			log.InfoContext(ctx, "word check schedule started")
-			if time.Now().In(conf.Location).Hour() < conf.HourFrom || time.Now().In(conf.Location).Hour() > conf.HourTo {
+			now := time.Now().In(conf.Location)
+			if now.Hour() < conf.HourFrom || now.Hour() >= conf.HourTo {
 				continue
 			}
 
