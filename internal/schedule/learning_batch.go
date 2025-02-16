@@ -21,6 +21,8 @@ func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, batchSize, g
 		}
 	}()
 
+	log.InfoContext(ctx, "update learning batch schedule started")
+	defer log.InfoContext(ctx, "update learning batch schedule stopped")
 	runIn := time.After(time.Second)
 	for {
 		select {
@@ -29,7 +31,7 @@ func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, batchSize, g
 		case <-runIn:
 			runIn = time.After(1 * time.Hour)
 
-			log.InfoContext(ctx, "update learning batch schedule started")
+			log.DebugContext(ctx, "update learning batch execution started")
 			for _, chatID := range chatIDs {
 				ctx, cancel := context.WithTimeout(ctx, processTimeout) //nolint:govet // it is supposed to override ctx here
 
@@ -41,7 +43,7 @@ func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, batchSize, g
 				}
 				cancel()
 			}
-			log.InfoContext(ctx, "update learning batch schedule finished")
+			log.DebugContext(ctx, "update learning batch execution finished")
 		}
 	}
 }

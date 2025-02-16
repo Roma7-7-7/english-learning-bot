@@ -31,25 +31,28 @@ func StartWordCheckSchedule(ctx context.Context, conf WordCheckConfig, p Publish
 		}
 	}()
 
+	log.InfoContext(ctx, "word check schedule started")
+	defer log.InfoContext(ctx, "word check schedule stopped")
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(conf.Interval):
-			log.InfoContext(ctx, "word check schedule started")
+			log.DebugContext(ctx, "word check execution started")
 			now := time.Now().In(conf.Location)
 			if now.Hour() < conf.HourFrom || now.Hour() >= conf.HourTo {
+				log.DebugContext(ctx, "word check execution skipped", "current_hour", now.Hour())
 				continue
 			}
 
 			for _, chatID := range conf.ChatIDs {
 				ctx, cancel := context.WithTimeout(ctx, publishTimeout) //nolint:govet // it is supposed to override ctx here
+				log.DebugContext(ctx, "sending word check", "chat_id", chatID)
 				if err := p.SendWordCheck(ctx, chatID); err != nil {
 					log.ErrorContext(ctx, "failed to send word check", "error", err, "chat_id", chatID)
 				}
 				cancel()
 			}
-			log.InfoContext(ctx, "word check schedule finished")
 		}
 	}
 }
