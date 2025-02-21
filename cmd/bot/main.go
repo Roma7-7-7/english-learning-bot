@@ -42,7 +42,7 @@ func run(ctx context.Context) int {
 	}()
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	conf, err := config.GetConfig()
+	conf, err := config.GetBot()
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get config", "error", err) //nolint:sloglint // app logger is not configured yet
 		return exitCodeConfigParse
@@ -82,7 +82,7 @@ func run(ctx context.Context) int {
 	return exitCodeOK
 }
 
-func mustLogger(env string) *slog.Logger {
+func mustLogger(env config.Env) *slog.Logger {
 	var handler slog.Handler
 	if env == config.EnvProd {
 		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -96,7 +96,7 @@ func mustLogger(env string) *slog.Logger {
 	return slog.New(handler)
 }
 
-func loggableConfig(conf *config.Config) map[string]any {
+func loggableConfig(conf *config.Bot) map[string]any {
 	return map[string]any{
 		"env":              conf.Env,
 		"allowed-chat-ids": conf.AllowedChatIDs,

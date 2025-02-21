@@ -5,8 +5,13 @@ lint:
 fix-nolint:
 	find . -type f -name "*.go" -exec sed -i '' 's|// nolint|//nolint|g' {} +
 
-build:
+deps:
 	go mod download
+
+generate-templ: deps
+	go tool github.com/a-h/templ/cmd/templ generate -path ./internal/web/views
+
+build: generate-templ
 	CGO_ENABLED=0 go build -o ./bin/english-learning-bot ./cmd/bot/main.go
 
 docker-build:

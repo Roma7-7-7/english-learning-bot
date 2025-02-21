@@ -29,6 +29,8 @@ const (
 	commandToReview = "/to_review"
 	commandRandom   = "/random"
 
+	callbackAuthConfirm    = "callback#auth#confirm"
+	callbackAuthDecline    = "callback#auth#decline"
 	callbackSeeTranslation = "callback#see_translation"
 	callbackResetToReview  = "callback#reset_to_review"
 	callbackWordGuessed    = "callback#word#guessed"
@@ -39,7 +41,6 @@ const (
 
 	processTimeout = 10 * time.Second
 
-	muteDuration               = 1 * time.Hour
 	callbackDataExpirationTime = 24 * 7 * time.Hour
 )
 
@@ -285,6 +286,21 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	if len(parts) > 2 { //nolint: mnd // key:<cacheUUID>
 		b.log.Warn("wrong callback data", "data", data)
 		return c.RespondText(somethingWentWrongMsg)
+	}
+
+	if parts[0] == callbackAuthConfirm {
+		if err := b.repo.ConfirmAuthConfirmation(ctx, int(c.Chat().ID), parts[1]); err != nil {
+			b.log.ErrorContext(ctx, "failed to confirm callback data", "error", err)
+			return c.RespondText(somethingWentWrongMsg)
+		}
+
+		return c.Delete()
+	} else if parts[0] == callbackAuthDecline {
+		if err := b.repo.DeleteAuthConfirmation(ctx, int(c.Chat().ID), parts[1]); err != nil {
+			b.log.ErrorContext(ctx, "failed to decline callback data", "error", err)
+			return c.RespondText(somethingWentWrongMsg)
+		}
+		return c.Delete()
 	}
 
 	if parts[0] == callbackResetToReview {

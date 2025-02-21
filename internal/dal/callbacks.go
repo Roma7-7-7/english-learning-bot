@@ -62,7 +62,7 @@ func (r *PostgreSQLRepository) FindCallback(ctx context.Context, chatID int64, u
 	return &data, nil
 }
 
-func (r *PostgreSQLRepository) cleanupJob(ctx context.Context) {
+func (r *PostgreSQLRepository) cleanupCallbacksJob(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():

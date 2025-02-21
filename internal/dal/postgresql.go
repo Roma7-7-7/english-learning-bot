@@ -25,7 +25,8 @@ type (
 
 func NewPostgreSQLRepository(ctx context.Context, client Client, log *slog.Logger) *PostgreSQLRepository {
 	res := newPostgreSQLRepository(client, log)
-	go res.cleanupJob(ctx)
+	go res.cleanupCallbacksJob(ctx)
+	go res.cleanupAuthConfirmations(ctx)
 	return res
 }
 
