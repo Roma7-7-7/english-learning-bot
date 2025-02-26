@@ -16,7 +16,7 @@ import (
 
 type (
 	TelegramClient interface {
-		AskAuthConfirmation(ctx context.Context, chatID int, token string) error
+		AskAuthConfirmation(ctx context.Context, chatID int64, token string) error
 	}
 
 	AuthHandler struct {
@@ -29,7 +29,7 @@ type (
 	}
 )
 
-func NewAuth(repo dal.AuthConfirmationRepository, jwtProc *JWTProcessor, cookiesProc *CookiesProcessor, teleClient TelegramClient, log *slog.Logger) *AuthHandler {
+func NewAuthHandler(repo dal.AuthConfirmationRepository, jwtProc *JWTProcessor, cookiesProc *CookiesProcessor, teleClient TelegramClient, log *slog.Logger) *AuthHandler {
 	return &AuthHandler{
 		repo:             repo,
 		teleClient:       teleClient,
@@ -44,12 +44,17 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	return views.LoginPage(c.QueryParam("error")).Render(c.Request().Context(), c.Response().Writer)
 }
 
+func (h *AuthHandler) LogOut(c echo.Context) error {
+	c.SetCookie(h.cookiesProcessor.ExpireAccessTokenCookie())
+	return redirectToLogin(c, http.StatusFound)
+}
+
 func (h *AuthHandler) SubmitChatID(c echo.Context) error {
 	chatIDStr := c.FormValue("chatID")
 	if chatIDStr == "" {
 		return views.LoginForm(chatIDStr, "chatID is required").Render(c.Request().Context(), c.Response().Writer)
 	}
-	chatID, err := strconv.Atoi(chatIDStr)
+	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
 	if err != nil {
 		return views.LoginForm(chatIDStr, "chatID must be a number").Render(c.Request().Context(), c.Response().Writer)
 	}

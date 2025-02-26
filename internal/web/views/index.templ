@@ -1,0 +1,50 @@
+package views
+
+type WordTranslation struct {
+    Word        string
+    Translation string
+    ToReview    bool
+}
+
+templ IndexPage(learned, total int, rows []WordTranslation, err string) {
+    @base() {
+        @navbar(learned, total)
+        <div class="p-3">
+            <div class="row">
+                <div class="col-12">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Word</th>
+                                <th>Translation</th>
+                                <th>To Review</th>
+                                <th>Edit</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            for _, row := range rows {
+                                <tr>
+                                    <td>{ row.Word }</td>
+                                    <td>{ row.Translation }</td>
+                                    <td>
+                                        if row.ToReview {
+                                            Yes
+                                        } else {
+                                            No
+                                        }
+                                    </td>
+                                    <td><a href="#">Edit</a></td>
+                                    <td><a href="#">Delete</a></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="row">
+                @ErrorAlertDiv(err)
+            </div>
+        </div>
+    }
+}

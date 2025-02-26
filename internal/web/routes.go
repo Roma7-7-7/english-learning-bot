@@ -37,10 +37,16 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 	jwtProcessor := NewJWTProcessor(conf.API.JWT, conf.API.Cookie.AuthExpiresIn, conf.API.Cookie.AccessExpiresIn)
 	cookiesProcessor := NewCookiesProcessor(conf.API.Cookie)
 
-	auth := NewAuth(deps.Repo, jwtProcessor, cookiesProcessor, deps.TelegramClient, deps.Logger)
+	auth := NewAuthHandler(deps.Repo, jwtProcessor, cookiesProcessor, deps.TelegramClient, deps.Logger)
+
 	e.GET("/login", auth.Login)
 	e.POST("/login", auth.SubmitChatID)
 	e.GET("/login/status", auth.LoginStatus)
+	e.GET("/logout", auth.LogOut)
+
+	index := NewIndexHandler(deps.Repo, deps.Logger)
+	securedGroup := e.Group("", AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger))
+	securedGroup.GET("/", index.IndexPage)
 
 	return e
 }
@@ -67,4 +73,13 @@ func loggingMiddleware(ctx context.Context, log *slog.Logger) echo.MiddlewareFun
 			return nil
 		},
 	})
+}
+
+func redirect(c echo.Context, status int, to string) error {
+	c.Response().Header().Set("HX-Redirect", to)
+	return c.Redirect(status, to)
+}
+
+func redirectToLogin(c echo.Context, status int) error {
+	return redirect(c, status, "/login")
 }

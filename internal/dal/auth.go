@@ -18,14 +18,14 @@ type (
 	}
 
 	AuthConfirmationRepository interface {
-		InsertAuthConfirmation(ctx context.Context, chatID int, token string, expiresIn time.Duration) error
-		IsConfirmed(ctx context.Context, chatID int, token string) (bool, error)
-		ConfirmAuthConfirmation(ctx context.Context, chatID int, token string) error
-		DeleteAuthConfirmation(ctx context.Context, chatID int, token string) error
+		InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error
+		IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error)
+		ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error
+		DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error
 	}
 )
 
-func (r *PostgreSQLRepository) InsertAuthConfirmation(ctx context.Context, chatID int, token string, expiresIn time.Duration) error {
+func (r *PostgreSQLRepository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
 	if chatID == 0 {
 		return fmt.Errorf("chat id is required")
 	}
@@ -44,7 +44,7 @@ func (r *PostgreSQLRepository) InsertAuthConfirmation(ctx context.Context, chatI
 	return nil
 }
 
-func (r *PostgreSQLRepository) IsConfirmed(ctx context.Context, chatID int, token string) (bool, error) {
+func (r *PostgreSQLRepository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
 	var confirmed bool
 	err := r.client.QueryRow(ctx, `
 			SELECT confirmed
@@ -61,7 +61,7 @@ func (r *PostgreSQLRepository) IsConfirmed(ctx context.Context, chatID int, toke
 	return confirmed, nil
 }
 
-func (r *PostgreSQLRepository) ConfirmAuthConfirmation(ctx context.Context, chatID int, token string) error {
+func (r *PostgreSQLRepository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE auth_confirmations
 		SET confirmed = true
@@ -74,7 +74,7 @@ func (r *PostgreSQLRepository) ConfirmAuthConfirmation(ctx context.Context, chat
 	return nil
 }
 
-func (r *PostgreSQLRepository) DeleteAuthConfirmation(ctx context.Context, chatID int, token string) error {
+func (r *PostgreSQLRepository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
 	_, err := r.client.Exec(ctx, `
 		DELETE FROM auth_confirmations
 		WHERE chat_id = $1 AND token = $2

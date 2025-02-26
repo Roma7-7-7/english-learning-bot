@@ -37,7 +37,7 @@ func NewJWTProcessor(conf config.JWT, authExpireIn, accessExpireIn time.Duration
 	}
 }
 
-func (p *JWTProcessor) ToAuthToken(chatID int, key string) (string, error) {
+func (p *JWTProcessor) ToAuthToken(chatID int64, key string) (string, error) {
 	now := time.Now()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
@@ -61,7 +61,7 @@ func (p *JWTProcessor) ToAuthToken(chatID int, key string) (string, error) {
 	return signedString, nil
 }
 
-func (p *JWTProcessor) ParseAuthToken(token string) (chatID int, key string, err error) {
+func (p *JWTProcessor) ParseAuthToken(token string) (chatID int64, key string, err error) {
 	var parsed *jwt.Token
 	parsed, err = jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return p.secret, nil
@@ -80,7 +80,7 @@ func (p *JWTProcessor) ParseAuthToken(token string) (chatID int, key string, err
 	return
 }
 
-func (p *JWTProcessor) ToAccessToken(chatID int) (string, error) {
+func (p *JWTProcessor) ToAccessToken(chatID int64) (string, error) {
 	now := time.Now()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
@@ -104,7 +104,7 @@ func (p *JWTProcessor) ToAccessToken(chatID int) (string, error) {
 	return signedString, nil
 }
 
-func (p *JWTProcessor) ParseAccessToken(token string) (chatID int, err error) {
+func (p *JWTProcessor) ParseAccessToken(token string) (chatID int64, err error) {
 	var parsed *jwt.Token
 	parsed, err = jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return p.secret, nil

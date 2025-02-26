@@ -289,14 +289,14 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	}
 
 	if parts[0] == callbackAuthConfirm {
-		if err := b.repo.ConfirmAuthConfirmation(ctx, int(c.Chat().ID), parts[1]); err != nil {
+		if err := b.repo.ConfirmAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
 			b.log.ErrorContext(ctx, "failed to confirm callback data", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
 
 		return c.Delete()
 	} else if parts[0] == callbackAuthDecline {
-		if err := b.repo.DeleteAuthConfirmation(ctx, int(c.Chat().ID), parts[1]); err != nil {
+		if err := b.repo.DeleteAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
 			b.log.ErrorContext(ctx, "failed to decline callback data", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}

@@ -2,11 +2,9 @@ package views
 
 templ LoginPage(errorMessage string) {
     @base() {
-        <div class="container">
-            <div class="row justify-content-center" style="margin-top: 100px;">
-                <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-4" style="background-color: #f6f6f6; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px;">
-                    @LoginForm("", errorMessage)
-                </div>
+        <div class="row justify-content-center" style="margin-top: 100px;">
+            <div class="col-12 col-sm-10 col-md-8 col-lg-8 col-xl-6" style="background-color: #f6f6f6; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px;">
+                @LoginForm("", errorMessage)
             </div>
         </div>
     }
@@ -66,7 +64,7 @@ templ AuthAwaiting(token string) {
                 .then(response => response.text())
                 .then(data => {
                     if (data === "CONFIRMED") {
-                        window.location.href = "/dashboard";
+                        window.location.href = "/";
                     } else if (data === "DECLINED") {
                         window.location.href = "/login?error=Authorization%20declined%20or%20expired";
                     }

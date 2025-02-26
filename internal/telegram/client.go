@@ -12,7 +12,7 @@ import (
 
 type (
 	SendMessageRequest struct {
-		ChatID      int                  `json:"chat_id"`
+		ChatID      int64                `json:"chat_id"`
 		Text        string               `json:"text"`
 		ReplyMarkup InlineKeyboardMarkup `json:"reply_markup,omitempty"`
 	}
@@ -48,7 +48,7 @@ func NewClient(token string, log *slog.Logger) *Client {
 	}
 }
 
-func (c *Client) AskAuthConfirmation(ctx context.Context, chatID int, token string) error {
+func (c *Client) AskAuthConfirmation(ctx context.Context, chatID int64, token string) error {
 	reqBody := &SendMessageRequest{
 		ChatID: chatID,
 		Text:   "Someone is trying to login to web portal. Do you authorize it?",
