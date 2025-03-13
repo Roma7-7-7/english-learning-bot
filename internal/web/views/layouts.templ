@@ -4,6 +4,11 @@ import (
     "strconv"
 )
 
+type Stats struct {
+    Learned int
+    Total   int
+}
+
 templ ErrorAlertDiv(err string) {
     <div id="errorAlert" class={ "alert", "alert-danger", templ.KV("d-none", err == "") } role="alert">
         { err }
@@ -18,7 +23,7 @@ templ base() {
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>English learning bot</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-        <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous" defer></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     </head>
     <body>
         <div class="container">
@@ -33,20 +38,19 @@ templ base() {
     </html>
 }
 
-templ navbar(learned, total int) {
+templ navbar(stats Stats) {
     <nav class="navbar bg-dark navbar-expand-lg bg-body-tertiary mb-3" data-bs-theme="dark" style="border-radius: 0 0 10px 10px;">
       <div class="container-fluid">
-        <a class="navbar-brand" href="/">Home</a>
+        <a class="navbar-brand" href="/"></a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
-              <a class="nav-link active" aria-current="page" href="/add">Add</a>
             </li>
           </ul>
-        <span style="margin: 0 15px; "><span style="color: forestgreen">{ strconv.Itoa(learned) }</span> <span style="color: whitesmoke"> / </span> <span style="color: indianred"> { strconv.Itoa(total) }</span></span>
+        <span style="margin: 0 15px; "><span style="color: forestgreen">{ strconv.Itoa(stats.Learned) }</span> <span style="color: whitesmoke"> / </span> <span style="color: indianred"> { strconv.Itoa(stats.Total) }</span></span>
         <a class="btn btn-outline-danger" href="/logout">Log out</a>
         </div>
       </div>

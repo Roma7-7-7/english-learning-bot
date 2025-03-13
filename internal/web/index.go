@@ -28,32 +28,38 @@ func (h *IndexHandler) IndexPage(c echo.Context) error {
 	if !ok {
 		return redirectToLogin(c, http.StatusFound)
 	}
-	stats, err := h.repo.GetStats(c.Request().Context(), chatID)
+
+	var stats views.Stats
+	var p views.Pagination
+	wStats, err := h.repo.GetStats(c.Request().Context(), chatID)
 	if err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
-		return views.IndexPage(stats.GreaterThanOrEqual15, stats.Total, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+		return views.IndexPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
+	stats.Learned = wStats.GreaterThanOrEqual15
+	stats.Total = wStats.Total
 
-	offset, err := strconv.Atoi(defString(c.QueryParam("offset"), "0"))
-	if err != nil {
-		h.log.DebugContext(c.Request().Context(), "failed to parse offset", "error", err)
-		return views.IndexPage(stats.GreaterThanOrEqual15, stats.Total, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
-	}
 	limit, err := strconv.Atoi(defString(c.QueryParam("limit"), "25"))
 	if err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to parse limit", "error", err)
-		return views.IndexPage(stats.GreaterThanOrEqual15, stats.Total, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+		return views.IndexPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
+	p.Page, err = strconv.Atoi(defString(c.QueryParam("page"), "1"))
+	if err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to parse page", "error", err)
+		return views.IndexPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+	}
+	offset := (p.Page - 1) * limit
 	filter := dal.WordTranslationsFilter{
 		Word:     "",
 		ToReview: false,
 		Offset:   offset,
 		Limit:    limit,
 	}
-	words, err := h.repo.FindWordTranslations(c.Request().Context(), chatID, filter)
+	words, totalWords, err := h.repo.FindWordTranslations(c.Request().Context(), chatID, filter)
 	if err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to find word translations", "error", err)
-		return views.IndexPage(stats.GreaterThanOrEqual15, stats.Total, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+		return views.IndexPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
 
 	viewWords := make([]views.WordTranslation, len(words))
@@ -64,8 +70,28 @@ func (h *IndexHandler) IndexPage(c echo.Context) error {
 			ToReview:    word.ToReview,
 		}
 	}
+	p.TotalPages = totalWords/limit + 1
 
-	return views.IndexPage(stats.GreaterThanOrEqual15, stats.Total, viewWords, "").Render(c.Request().Context(), c.Response().Writer)
+	return views.IndexPage(stats, p, viewWords, "").Render(c.Request().Context(), c.Response().Writer)
+}
+
+func (h *IndexHandler) DeleteWord(c echo.Context) error {
+	chatID, ok := context.ChatIDFromContext(c.Request().Context())
+	if !ok {
+		return redirectToLogin(c, http.StatusFound)
+	}
+
+	word := c.Param("word")
+	if word == "" {
+		return c.Redirect(http.StatusFound, "/?error=word not found")
+	}
+
+	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, word); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to delete word translation", "error", err)
+		return c.Redirect(http.StatusFound, "/?error=failed to delete word translation")
+	}
+
+	return c.String(http.StatusOK, "OK")
 }
 
 func defString(val, def string) string {

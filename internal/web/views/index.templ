@@ -1,14 +1,28 @@
 package views
 
+import (
+    "fmt"
+    "strconv"
+)
+
 type WordTranslation struct {
     Word        string
     Translation string
     ToReview    bool
 }
 
-templ IndexPage(learned, total int, rows []WordTranslation, err string) {
+type Pagination struct {
+    Page       int
+    TotalPages int
+}
+
+func (p Pagination) PageToHref(page int) templ.SafeURL {
+    return templ.SafeURL(fmt.Sprintf("?page=%d", page))
+}
+
+templ IndexPage(stats Stats, p Pagination, rows []WordTranslation, err string) {
     @base() {
-        @navbar(learned, total)
+        @navbar(stats)
         <div class="p-3">
             <div class="row">
                 <div class="col-12">
@@ -34,8 +48,12 @@ templ IndexPage(learned, total int, rows []WordTranslation, err string) {
                                             No
                                         }
                                     </td>
-                                    <td><a href="#">Edit</a></td>
-                                    <td><a href="#">Delete</a></td>
+                                    <td class="text-center">
+                                        <button class="btn btn-link bi bi-pencil" data-word={ row.Word }></button>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-link bi bi-trash" data-word={ row.Word }></button>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -45,6 +63,90 @@ templ IndexPage(learned, total int, rows []WordTranslation, err string) {
             <div class="row">
                 @ErrorAlertDiv(err)
             </div>
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-center">
+                        @pagination(p)
+                    </div>
+                </div>
+            </div>
         </div>
+    }
+        <script type="text/javascript">
+            document.querySelectorAll('button.btn.bi-pencil').forEach(function (button) {
+                button.addEventListener('click', function (event) {
+                    var word = event.target.getAttribute('data-word');
+                    window.location.href = '/edit?word=' + word;
+                });
+            });
+            document.querySelectorAll('button.btn.bi-trash').forEach(function (button) {
+                button.addEventListener('click', function (event) {
+                    var word = event.target.getAttribute('data-word');
+                    fetch('/words/' + word, {
+                        method: 'DELETE',
+                    }).then(function (response) {
+                        if (response.ok) {
+                            window.location.reload();
+                        }
+                    });
+                });
+            });
+        </script>
+}
+
+templ pagination(p Pagination) {
+    switch p.TotalPages {
+    case 0, 1:
+        <span></span>
+    case 2, 3, 4, 5, 6, 7:
+        <ul class="pagination">
+            for i := range p.TotalPages {
+                <li class="page-item">
+                    <a class={ "page-link", templ.KV("active", p.Page == i + 1) } href={ templ.URL(fmt.Sprintf("?page=%d", i + 1)) }>{ strconv.Itoa(i + 1) }</a>
+                </li>
+            }
+        </ul>
+    default:
+        <ul class="pagination">
+            <li class={ "page-item", templ.KV("disabled", p.Page == 1) }>
+                <a class="page-link" href={ p.PageToHref(1) }>
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            &nbsp;&nbsp;
+
+            if p.Page > 2 {
+                <li class={ "page-item", templ.KV("disabled", p.Page == 1) }>
+                    <a class="page-link" href={ p.PageToHref(p.Page - 2)}>{ strconv.Itoa(p.Page - 2) }</a>
+                </li>
+            }
+            if p.Page > 1 {
+                <li class={ "page-item", templ.KV("disabled", p.Page == 1) }>
+                    <a class="page-link" href={ p.PageToHref(p.Page - 1)}>{ strconv.Itoa(p.Page - 1) }</a>
+                </li>
+            }
+
+            <li class="page-item active disabled">
+                <a class="page-link" href={ p.PageToHref(p.Page)}>{ strconv.Itoa(p.Page) }</a>
+            </li>
+
+            if p.Page < p.TotalPages - 1 {
+                <li class={ "page-item", templ.KV("disabled", p.Page == p.TotalPages) }>
+                    <a class="page-link" href={ p.PageToHref(p.Page + 1)}>{ strconv.Itoa(p.Page + 1) }</a>
+                </li>
+            }
+            if p.Page < p.TotalPages {
+                <li class={ "page-item", templ.KV("disabled", p.Page == p.TotalPages) }>
+                    <a class="page-link" href={ p.PageToHref(p.Page + 2)}>{ strconv.Itoa(p.Page + 2) }</a>
+                </li>
+            }
+
+            &nbsp;&nbsp;
+            <li class={ "page-item", templ.KV("disabled", p.Page == p.TotalPages) } aria-label="Last">
+                <a class="page-link" href={ p.PageToHref(p.TotalPages)}>
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+        </ul>
     }
 }

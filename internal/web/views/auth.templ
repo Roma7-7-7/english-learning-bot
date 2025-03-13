@@ -11,7 +11,7 @@ templ LoginPage(errorMessage string) {
 }
 
 templ LoginForm(chatID, errorMessage string) {
-    <form id="loginForm" class="align-items-center" hx-post="/login" hx-swap="outerHTML">
+    <form id="loginForm" class="align-items-center" method="post" action="/login">
         <div class="row mb-3">
             <div class="col text-center">
                 <h2>Enter Chat ID</h2>

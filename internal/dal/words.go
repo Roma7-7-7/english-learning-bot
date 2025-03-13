@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -31,7 +32,7 @@ type (
 		AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
 		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
 		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
-		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, error)
+		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error)
 		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
 		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
 		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
@@ -95,7 +96,7 @@ func (r *PostgreSQLRepository) AddWordTranslation(ctx context.Context, chatID in
 	return nil
 }
 
-func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, error) {
+func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error) {
 	argsCount := 1
 	conditions := []string{"chat_id = $1"}
 	arguments := []any{chatID}
@@ -114,34 +115,56 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 
 	arguments = append(arguments, filter.Offset, filter.Limit)
 
-	query := fmt.Sprintf(`
-		SELECT chat_id, word, translation, COALESCE(description, ''), guessed_streak, to_review, created_at, updated_at
+	eg, ctx := errgroup.WithContext(ctx)
+	res := make([]WordTranslation, 0, filter.Limit)
+	total := 0
+	eg.Go(func() error {
+		query := fmt.Sprintf(`
+			SELECT chat_id, word, translation, COALESCE(description, ''), guessed_streak, to_review, created_at, updated_at
+			FROM word_translations
+			WHERE %s
+			ORDER BY word
+			OFFSET $%d
+			LIMIT $%d`, strings.Join(conditions, " AND "), argsCount+1, argsCount+2)
+
+		rows, err := r.client.Query(ctx, query, arguments...)
+		if err != nil {
+			return fmt.Errorf("find translations: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			wt, err := hydrateWordTranslation(rows)
+			if err != nil {
+				return fmt.Errorf("scan word translation: %w", err)
+			}
+			res = append(res, *wt)
+		}
+
+		if rows.Err() != nil {
+			return fmt.Errorf("iterate word translations: %w", rows.Err())
+		}
+
+		return nil
+	})
+	eg.Go(func() error {
+		totalQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
 		FROM word_translations
 		WHERE %s
-		ORDER BY word
-		OFFSET $%d
-		LIMIT $%d`, strings.Join(conditions, " AND "), argsCount+1, argsCount+2)
-
-	rows, err := r.client.Query(ctx, query, arguments...)
-	if err != nil {
-		return nil, fmt.Errorf("find translations: %w", err)
-	}
-	defer rows.Close()
-
-	res := make([]WordTranslation, 0, filter.Limit)
-	for rows.Next() {
-		wt, err := hydrateWordTranslation(rows)
-		if err != nil {
-			return nil, fmt.Errorf("scan word translation: %w", err)
+	`, strings.Join(conditions, " AND "))
+		if err := r.client.QueryRow(ctx, totalQuery, arguments[:argsCount]...).Scan(&total); err != nil {
+			return fmt.Errorf("get total: %w", err)
 		}
-		res = append(res, *wt)
+
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, 0, err
 	}
 
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("iterate word translations: %w", rows.Err())
-	}
-
-	return res, nil
+	return res, total, nil
 }
 
 func (r *PostgreSQLRepository) DeleteWordTranslation(ctx context.Context, chatID int64, word string) error {
