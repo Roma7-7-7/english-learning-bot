@@ -44,10 +44,11 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 	e.GET("/login/status", auth.LoginStatus)
 	e.GET("/logout", auth.LogOut)
 
-	index := NewIndexHandler(deps.Repo, deps.Logger)
+	words := NewWordsHandler(deps.Repo, deps.Logger)
 	securedGroup := e.Group("", AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger))
-	securedGroup.GET("/", index.IndexPage)
-	securedGroup.DELETE("/words/:word", index.DeleteWord)
+	securedGroup.GET("/", redirectHandleFunc(http.StatusFound, "/home"))
+	securedGroup.GET("/home", words.ListWordsPage)
+	securedGroup.DELETE("/words/:word", words.DeleteWord)
 
 	return e
 }
@@ -76,7 +77,14 @@ func loggingMiddleware(ctx context.Context, log *slog.Logger) echo.MiddlewareFun
 	})
 }
 
+func redirectHandleFunc(status int, to string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return redirect(c, status, to)
+	}
+}
+
 func redirect(c echo.Context, status int, to string) error {
+	c.Response().Header().Set("HX-Redirect", to)
 	return c.Redirect(status, to)
 }
 

@@ -84,7 +84,7 @@ func LoginForm(chatID, errorMessage string) templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<form id=\"loginForm\" class=\"align-items-center\" method=\"post\" action=\"/login\"><div class=\"row mb-3\"><div class=\"col text-center\"><h2>Enter Chat ID</h2></div></div><div class=\"row mb-4 align-items-center\"><div class=\"col-12 col-sm-auto mb-2 mb-sm-0\"><label for=\"chatID\" class=\"col-form-label mb-0\">Chat ID: </label></div><div class=\"col-12 col-sm\"><input type=\"text\" class=\"form-control\" id=\"chatID\" name=\"chatID\" placeholder=\"Enter your chat ID\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<form id=\"loginForm\" class=\"align-items-center\" hx-post=\"/login\" hx-swap=\"outerHTML\"><div class=\"row mb-3\"><div class=\"col text-center\"><h2>Enter Chat ID</h2></div></div><div class=\"row mb-4 align-items-center\"><div class=\"col-12 col-sm-auto mb-2 mb-sm-0\"><label for=\"chatID\" class=\"col-form-label mb-0\">Chat ID: </label></div><div class=\"col-12 col-sm\"><input type=\"text\" class=\"form-control\" id=\"chatID\" name=\"chatID\" placeholder=\"Enter your chat ID\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

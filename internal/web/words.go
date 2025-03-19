@@ -11,19 +11,19 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type IndexHandler struct {
+type WordsHandler struct {
 	repo dal.WordTranslationsRepository
 	log  *slog.Logger
 }
 
-func NewIndexHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *IndexHandler {
-	return &IndexHandler{
+func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *WordsHandler {
+	return &WordsHandler{
 		repo: repo,
 		log:  log,
 	}
 }
 
-func (h *IndexHandler) IndexPage(c echo.Context) error {
+func (h *WordsHandler) ListWordsPage(c echo.Context) error {
 	chatID, ok := context.ChatIDFromContext(c.Request().Context())
 	if !ok {
 		return redirectToLogin(c, http.StatusFound)
@@ -34,20 +34,20 @@ func (h *IndexHandler) IndexPage(c echo.Context) error {
 	wStats, err := h.repo.GetStats(c.Request().Context(), chatID)
 	if err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
-		return views.IndexPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+		return views.ListWordsPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
 	stats.Learned = wStats.GreaterThanOrEqual15
 	stats.Total = wStats.Total
 
-	limit, err := strconv.Atoi(defString(c.QueryParam("limit"), "25"))
+	limit, err := strconv.Atoi(defString(c.QueryParam("limit"), "20"))
 	if err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to parse limit", "error", err)
-		return views.IndexPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+		return views.ListWordsPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
 	p.Page, err = strconv.Atoi(defString(c.QueryParam("page"), "1"))
 	if err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to parse page", "error", err)
-		return views.IndexPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+		return views.ListWordsPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
 	offset := (p.Page - 1) * limit
 	filter := dal.WordTranslationsFilter{
@@ -59,7 +59,7 @@ func (h *IndexHandler) IndexPage(c echo.Context) error {
 	words, totalWords, err := h.repo.FindWordTranslations(c.Request().Context(), chatID, filter)
 	if err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to find word translations", "error", err)
-		return views.IndexPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+		return views.ListWordsPage(stats, p, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
 
 	viewWords := make([]views.WordTranslation, len(words))
@@ -72,10 +72,10 @@ func (h *IndexHandler) IndexPage(c echo.Context) error {
 	}
 	p.TotalPages = totalWords/limit + 1
 
-	return views.IndexPage(stats, p, viewWords, "").Render(c.Request().Context(), c.Response().Writer)
+	return views.ListWordsPage(stats, p, viewWords, "").Render(c.Request().Context(), c.Response().Writer)
 }
 
-func (h *IndexHandler) DeleteWord(c echo.Context) error {
+func (h *WordsHandler) DeleteWord(c echo.Context) error {
 	chatID, ok := context.ChatIDFromContext(c.Request().Context())
 	if !ok {
 		return redirectToLogin(c, http.StatusFound)

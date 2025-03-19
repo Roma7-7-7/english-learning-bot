@@ -20,7 +20,7 @@ func (p Pagination) PageToHref(page int) templ.SafeURL {
     return templ.SafeURL(fmt.Sprintf("?page=%d", page))
 }
 
-templ IndexPage(stats Stats, p Pagination, rows []WordTranslation, err string) {
+templ ListWordsPage(stats Stats, p Pagination, rows []WordTranslation, err string) {
     @base() {
         @navbar(stats)
         <div class="p-3">
@@ -81,6 +81,9 @@ templ IndexPage(stats Stats, p Pagination, rows []WordTranslation, err string) {
             });
             document.querySelectorAll('button.btn.bi-trash').forEach(function (button) {
                 button.addEventListener('click', function (event) {
+                    if (!confirm('Are you sure you want to delete this word?')) {
+                        return;
+                    }
                     var word = event.target.getAttribute('data-word');
                     fetch('/words/' + word, {
                         method: 'DELETE',
