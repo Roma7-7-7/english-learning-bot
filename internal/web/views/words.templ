@@ -12,6 +12,7 @@ type WordTranslation struct {
 }
 
 type Pagination struct {
+    Limit      int
     Page       int
     TotalPages int
 }
@@ -20,81 +21,88 @@ func (p Pagination) PageToHref(page int) templ.SafeURL {
     return templ.SafeURL(fmt.Sprintf("?page=%d", page))
 }
 
-templ ListWordsPage(stats Stats, p Pagination, rows []WordTranslation, err string) {
+func (p Pagination) Offset() int {
+    return (p.Page - 1) * p.Limit
+}
+
+func (p Pagination) CalcTotalPages(totalWords int) int {
+	return int(totalWords/p.Limit) + 1
+}
+
+type WordsQueryParams struct {
+    Search   string
+    Paginate Pagination
+}
+
+templ ListWordsPage(stats Stats, q WordsQueryParams, err string) {
     @base() {
         @navbar(stats)
-        <div class="p-3">
-            <div class="row">
-                <div class="col-12">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Word</th>
-                                <th>Translation</th>
-                                <th>To Review</th>
-                                <th>Edit</th>
-                                <th>Delete</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            for _, row := range rows {
-                                <tr>
-                                    <td>{ row.Word }</td>
-                                    <td>{ row.Translation }</td>
-                                    <td>
-                                        if row.ToReview {
-                                            Yes
-                                        } else {
-                                            No
-                                        }
-                                    </td>
-                                    <td class="text-center">
-                                        <button class="btn btn-link bi bi-pencil" data-word={ row.Word }></button>
-                                    </td>
-                                    <td class="text-center">
-                                        <button class="btn btn-link bi bi-trash" data-word={ row.Word }></button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div id="content" class="p-3">
+            @ListWords(q, nil, err)
             <div class="row">
                 @ErrorAlertDiv(err)
             </div>
-            <div class="row">
-                <div class="col-12">
-                    <div class="d-flex justify-content-center">
-                        @pagination(p)
+        </div>
+    }
+}
+
+templ ListWords(q WordsQueryParams, rows []WordTranslation, err string) {
+    <div id="words">
+        <div class="row">
+            <div class="col-12">
+                <form id="searchForm" class="form-inline" hx-get="/words" hx-target="#words" hx-swap="outerHTML" hx-trigger="load">
+                    <div class="form-group">
+                        <label><input class="form-control" type="text" name="search" placeholder="Search" value={ q.Search }></label>
                     </div>
+                    <input type="hidden" name="page" value={ strconv.Itoa(q.Paginate.Page) }>
+                    <button class="btn btn-primary" type="submit">Search</button>
+                </form>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Word</th>
+                            <th>Translation</th>
+                            <th>To Review</th>
+                            <th>Edit</th>
+                            <th>Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        for _, row := range rows {
+                            <tr>
+                                <td>{ row.Word }</td>
+                                <td>{ row.Translation }</td>
+                                <td>
+                                    if row.ToReview {
+                                        Yes
+                                    } else {
+                                        No
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-link bi bi-pencil" data-word={ row.Word }></button>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-link bi bi-trash" data-word={ row.Word }></button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-center">
+                    @pagination(q.Paginate)
                 </div>
             </div>
         </div>
-    }
-        <script type="text/javascript">
-            document.querySelectorAll('button.btn.bi-pencil').forEach(function (button) {
-                button.addEventListener('click', function (event) {
-                    var word = event.target.getAttribute('data-word');
-                    window.location.href = '/edit?word=' + word;
-                });
-            });
-            document.querySelectorAll('button.btn.bi-trash').forEach(function (button) {
-                button.addEventListener('click', function (event) {
-                    if (!confirm('Are you sure you want to delete this word?')) {
-                        return;
-                    }
-                    var word = event.target.getAttribute('data-word');
-                    fetch('/words/' + word, {
-                        method: 'DELETE',
-                    }).then(function (response) {
-                        if (response.ok) {
-                            window.location.reload();
-                        }
-                    });
-                });
-            });
-        </script>
+    </div>
 }
 
 templ pagination(p Pagination) {

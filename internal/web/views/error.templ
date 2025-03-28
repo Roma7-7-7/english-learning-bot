@@ -1,0 +1,23 @@
+package views
+
+templ ErrorPage(err string) {
+    if err == "" {
+        err = "Something went wrong"
+    }
+    @base() {
+        @navbar(Stats{})
+        <div class="container">
+            <div class="row">
+                <div class="col-md-12">
+                    <h1 style="color: indianred">{ err }</h1>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+templ ErrorAlertDiv(err string) {
+    <div id="pageGlobalErrorAlert" class={ "alert", "alert-danger", "alert-dismissible", "fade", templ.KV("d-none", err == "") } role="alert">
+        { err }
+    </div>
+}
