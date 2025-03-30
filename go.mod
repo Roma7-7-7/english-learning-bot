@@ -1,6 +1,6 @@
 module github.com/Roma7-7-7/english-learning-bot
 
-go 1.24.0
+go 1.24.1
 
 tool github.com/a-h/templ/cmd/templ
 
