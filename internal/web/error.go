@@ -9,8 +9,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-const pageGlobalErrorAlertSelector = "#pageGlobalErrorAlert"
-
 func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 	return func(err error, c echo.Context) {
 		log.ErrorContext(c.Request().Context(), "failed to process request", "error", err)
@@ -22,10 +20,9 @@ func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 		var echoError *echo.HTTPError
 		if errors.As(err, &echoError) {
 			if echoError.Code == http.StatusTooManyRequests {
-				c.Response().WriteHeader(http.StatusTooManyRequests)
-				err = views.ErrorPage("Too many requests").Render(c.Request().Context(), c.Response().Writer)
+				err = c.JSON(http.StatusTooManyRequests, echoError)
 				if err != nil {
-					log.ErrorContext(c.Request().Context(), "failed to render error page", "error", err)
+					log.ErrorContext(c.Request().Context(), "failed to respond with error", "error", err)
 				}
 				return
 			}

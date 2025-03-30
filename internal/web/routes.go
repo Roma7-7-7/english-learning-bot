@@ -7,11 +7,12 @@ import (
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
-	"github.com/Roma7-7-7/english-learning-bot/internal/web/views"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
 )
+
+const wordsPage = "/words"
 
 type Dependencies struct {
 	Repo           dal.Repository
@@ -26,15 +27,6 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 	e.Use(loggingMiddleware(ctx, deps.Logger))
 	e.Use(middleware.Recover())
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(conf.API.RateLimit))))
-	//e.Use(middleware.RateLimiterWithConfig(
-	//	middleware.RateLimiterConfig{
-	//		Store: middleware.NewRateLimiterMemoryStore(rate.Limit(conf.API.RateLimit)),
-	//		DenyHandler: func(c echo.Context, identifier string, err error) error {
-	//			c.Response().Header().Set("HX-Retarget", "html")
-	//			return views.ErrorPage("Too many requests").Render(c.Request().Context(), c.Response().Writer)
-	//		},
-	//	},
-	//))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: conf.API.CORS.AllowOrigins,
 	}))
@@ -57,9 +49,8 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 
 	words := NewWordsHandler(deps.Repo, deps.Logger)
 	securedGroup := e.Group("", AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger))
-	securedGroup.GET("/", redirectHandleFunc(http.StatusFound, "/home"))
-	securedGroup.GET("/home", words.ListWordsPage)
-	securedGroup.GET("/words", words.ListWords)
+	securedGroup.GET("/", redirectHandleFunc(http.StatusFound, wordsPage))
+	securedGroup.GET(wordsPage, words.ListWordsPage)
 	securedGroup.DELETE("/words/:word", words.DeleteWord)
 
 	securedGroup.GET("/error", ErrorPage)
@@ -97,15 +88,13 @@ func redirectHandleFunc(status int, to string) echo.HandlerFunc {
 	}
 }
 
-func retargetErrorDiv(c echo.Context, status int, error string, selector string) error {
-	c.Response().Header().Set("HX-Retarget", selector)
-	c.Response().Status = status
-	return views.ErrorAlertDiv(error).Render(c.Request().Context(), c.Response().Writer)
-}
-
 func redirect(c echo.Context, status int, to string) error {
 	c.Response().Header().Set("HX-Redirect", to)
 	return c.Redirect(status, to)
+}
+
+func redirectError(c echo.Context, status int, err string) error {
+	return c.Redirect(status, "/error?error="+err)
 }
 
 func redirectToLogin(c echo.Context, status int) error {

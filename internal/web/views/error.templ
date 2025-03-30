@@ -17,7 +17,7 @@ templ ErrorPage(err string) {
 }
 
 templ ErrorAlertDiv(err string) {
-    <div id="pageGlobalErrorAlert" class={ "alert", "alert-danger", "alert-dismissible", "fade", templ.KV("d-none", err == "") } role="alert">
+    <div id="pageGlobalErrorAlert" class={ "alert", "alert-danger", templ.KV("d-none", err == "") } role="alert">
         { err }
     </div>
 }

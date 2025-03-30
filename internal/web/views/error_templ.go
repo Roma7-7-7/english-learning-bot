@@ -99,7 +99,7 @@ func ErrorAlertDiv(err string) templ.Component {
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var5 = []any{"alert", "alert-danger", "alert-dismissible", "fade", templ.KV("d-none", err == "")}
+		var templ_7745c5c3_Var5 = []any{"alert", "alert-danger", templ.KV("d-none", err == "")}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var5...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err

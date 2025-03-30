@@ -42,31 +42,16 @@ func (h *WordsHandler) ListWordsPage(c echo.Context) error {
 	qp, err := parseWordsPageQueryParams(c)
 	if err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to parse query params", "error", err)
-		return views.ListWordsPage(stats, qp, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
-	}
-
-	return views.ListWordsPage(stats, qp, "").Render(c.Request().Context(), c.Response().Writer)
-}
-
-func (h *WordsHandler) ListWords(c echo.Context) error {
-	chatID, ok := context.ChatIDFromContext(c.Request().Context())
-	if !ok {
-		return redirectToLogin(c, http.StatusFound)
-	}
-
-	qp, err := parseWordsPageQueryParams(c)
-	if err != nil {
-		h.log.DebugContext(c.Request().Context(), "failed to parse query params", "error", err)
-		return retargetErrorDiv(c, http.StatusBadRequest, "Something went wrong", pageGlobalErrorAlertSelector)
+		return views.ListWordsPage(stats, qp, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
 
 	qp, words, err := h.listWords(c, chatID, qp)
 	if err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to list words", "error", err)
-		return retargetErrorDiv(c, http.StatusInternalServerError, "Something went wrong", pageGlobalErrorAlertSelector)
+		return views.ListWordsPage(stats, qp, words, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
 	}
 
-	return views.ListWords(qp, words, "").Render(c.Request().Context(), c.Response().Writer)
+	return views.ListWordsPage(stats, qp, words, "").Render(c.Request().Context(), c.Response().Writer)
 }
 
 func (h *WordsHandler) DeleteWord(c echo.Context) error {
@@ -82,18 +67,18 @@ func (h *WordsHandler) DeleteWord(c echo.Context) error {
 
 	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, word); err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to delete word translation", "error", err)
-		return retargetErrorDiv(c, http.StatusInternalServerError, "Something went wrong", pageGlobalErrorAlertSelector)
+		return redirectError(c, http.StatusFound, "Something went wrong")
 	}
 
-	return c.String(http.StatusOK, "OK")
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word deleted"})
 }
 
 func (h *WordsHandler) listWords(c echo.Context, chatID int64, qp views.WordsQueryParams) (views.WordsQueryParams, []views.WordTranslation, error) {
 	filter := dal.WordTranslationsFilter{
 		Word:     qp.Search,
-		ToReview: false,
-		Offset:   qp.Paginate.Offset(),
-		Limit:    qp.Paginate.Limit,
+		ToReview: qp.ToReview,
+		Offset:   qp.Pagination.Offset(),
+		Limit:    qp.Pagination.Limit,
 	}
 	words, totalWords, err := h.repo.FindWordTranslations(c.Request().Context(), chatID, filter)
 	if err != nil {
@@ -108,7 +93,7 @@ func (h *WordsHandler) listWords(c echo.Context, chatID int64, qp views.WordsQue
 			ToReview:    word.ToReview,
 		}
 	}
-	qp.Paginate.TotalPages = qp.Paginate.CalcTotalPages(totalWords)
+	qp.Pagination.TotalPages = qp.Pagination.CalcTotalPages(totalWords)
 
 	return qp, viewWords, nil
 }
@@ -122,10 +107,15 @@ func parseWordsPageQueryParams(c echo.Context) (views.WordsQueryParams, error) {
 	if err != nil {
 		return views.WordsQueryParams{}, fmt.Errorf("parse page: %w", err)
 	}
+	var toReview bool
+	if c.QueryParam("to_review") == "on" {
+		toReview = true
+	}
 
 	return views.WordsQueryParams{
-		Search: defString(c.QueryParam("search"), ""),
-		Paginate: views.Pagination{
+		Search:   defString(c.QueryParam("search"), ""),
+		ToReview: toReview,
+		Pagination: views.Pagination{
 			Limit: limit,
 			Page:  page,
 		},

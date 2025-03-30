@@ -5,6 +5,16 @@ import (
     "strconv"
 )
 
+type WordsQueryParams struct {
+    Search     string
+    ToReview   bool
+    Pagination Pagination
+}
+
+func (qp WordsQueryParams) PageToHref(page int) templ.SafeURL {
+    return templ.SafeURL(fmt.Sprintf("/words?search=%s&page=%d", qp.Search, page))
+}
+
 type WordTranslation struct {
     Word        string
     Translation string
@@ -17,144 +27,162 @@ type Pagination struct {
     TotalPages int
 }
 
-func (p Pagination) PageToHref(page int) templ.SafeURL {
-    return templ.SafeURL(fmt.Sprintf("?page=%d", page))
-}
-
 func (p Pagination) Offset() int {
     return (p.Page - 1) * p.Limit
 }
 
 func (p Pagination) CalcTotalPages(totalWords int) int {
+    if totalWords % p.Limit == 0 {
+        return int(totalWords/p.Limit)
+    }
 	return int(totalWords/p.Limit) + 1
 }
 
-type WordsQueryParams struct {
-    Search   string
-    Paginate Pagination
-}
-
-templ ListWordsPage(stats Stats, q WordsQueryParams, err string) {
+templ ListWordsPage(stats Stats, qp WordsQueryParams, words []WordTranslation, err string) {
     @base() {
         @navbar(stats)
         <div id="content" class="p-3">
-            @ListWords(q, nil, err)
+            <form id="searchForm" class="row form-inline form-group align-items-center mb-3">
+                <div class="col-3">
+                    <label><input class="form-control" type="text" name="search" placeholder="Search" value={ qp.Search }></label>
+                </div>
+                <div class="col-2">
+                    <div class="form-check d-flex align-items-center h-100">
+                        <label class="form-check-label ms-2">
+                            To Review: <input name="to_review" type="checkbox" class="form-check-input" checked?={ qp.ToReview }>
+                        </label>
+                    </div>
+                </div>
+                <div class="col-3"></div>
+                <input id="pageInput" type="hidden" name="page" value={ strconv.Itoa(qp.Pagination.Page) }>
+                <div class="col-3">
+                    <button class="btn btn-primary" style="width: 100%" type="submit">Submit</button>
+                </div>
+                <div class="col-1">
+                    <a href="/words" class="btn btn-secondary"><span aria-hidden="true">&times;</span></a>
+                </div>
+            </form>
+            <div id="words">
+                <div class="row">
+                    <div class="col-12">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Word</th>
+                                    <th>Translation</th>
+                                    <th>To Review</th>
+                                    <th>Edit</th>
+                                    <th>Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                for _, word := range words {
+                                    <tr>
+                                        <td>{ word.Word }</td>
+                                        <td>{ word.Translation }</td>
+                                        <td>
+                                            if word.ToReview {
+                                                Yes
+                                            } else {
+                                                No
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-link bi bi-pencil" data-word={ word.Word }></button>
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-link bi bi-trash" data-word={ word.Word }></button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-center">
+                            @pagination(qp)
+                        </div>
+                    </div>
+                </div>
+                <script>
+                </script>
+            </div>
             <div class="row">
                 @ErrorAlertDiv(err)
             </div>
+            <script>
+                document.querySelectorAll('.bi-trash').forEach((el) => {
+                    el.addEventListener('click', (e) => {
+                        const word = e.target.getAttribute('data-word');
+                        if (!confirm(`Are you sure you want to delete the word "${word}"?`)) {word
+                            return;
+                        }
+                        fetch(`/words/${word}`, {
+                            method: 'DELETE',
+                        }).then((response) => {
+                            if (response.ok) {
+                                window.location.reload();
+                            }
+                        });
+                    });
+                });
+            </script>
         </div>
     }
 }
 
-templ ListWords(q WordsQueryParams, rows []WordTranslation, err string) {
-    <div id="words">
-        <div class="row">
-            <div class="col-12">
-                <form id="searchForm" class="form-inline" hx-get="/words" hx-target="#words" hx-swap="outerHTML" hx-trigger="load">
-                    <div class="form-group">
-                        <label><input class="form-control" type="text" name="search" placeholder="Search" value={ q.Search }></label>
-                    </div>
-                    <input type="hidden" name="page" value={ strconv.Itoa(q.Paginate.Page) }>
-                    <button class="btn btn-primary" type="submit">Search</button>
-                </form>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Word</th>
-                            <th>Translation</th>
-                            <th>To Review</th>
-                            <th>Edit</th>
-                            <th>Delete</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        for _, row := range rows {
-                            <tr>
-                                <td>{ row.Word }</td>
-                                <td>{ row.Translation }</td>
-                                <td>
-                                    if row.ToReview {
-                                        Yes
-                                    } else {
-                                        No
-                                    }
-                                </td>
-                                <td class="text-center">
-                                    <button class="btn btn-link bi bi-pencil" data-word={ row.Word }></button>
-                                </td>
-                                <td class="text-center">
-                                    <button class="btn btn-link bi bi-trash" data-word={ row.Word }></button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12">
-                <div class="d-flex justify-content-center">
-                    @pagination(q.Paginate)
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-templ pagination(p Pagination) {
-    switch p.TotalPages {
+templ pagination(qp WordsQueryParams) {
+    switch qp.Pagination.TotalPages {
     case 0, 1:
         <span></span>
     case 2, 3, 4, 5, 6, 7:
         <ul class="pagination">
-            for i := range p.TotalPages {
+            for i := range qp.Pagination.TotalPages {
                 <li class="page-item">
-                    <a class={ "page-link", templ.KV("active", p.Page == i + 1) } href={ templ.URL(fmt.Sprintf("?page=%d", i + 1)) }>{ strconv.Itoa(i + 1) }</a>
+                    <a class={ "page-link", templ.KV("active", qp.Pagination.Page == i + 1) } href={ qp.PageToHref(i + 1) }>{ strconv.Itoa(i + 1) }</a>
                 </li>
             }
         </ul>
     default:
         <ul class="pagination">
-            <li class={ "page-item", templ.KV("disabled", p.Page == 1) }>
-                <a class="page-link" href={ p.PageToHref(1) }>
+            <li class={ "page-item", templ.KV("disabled", qp.Pagination.Page == 1) }>
+                <a class="page-link"  href={ qp.PageToHref(1) }>
                     <span aria-hidden="true">&laquo;</span>
                 </a>
             </li>
             &nbsp;&nbsp;
 
-            if p.Page > 2 {
-                <li class={ "page-item", templ.KV("disabled", p.Page == 1) }>
-                    <a class="page-link" href={ p.PageToHref(p.Page - 2)}>{ strconv.Itoa(p.Page - 2) }</a>
+            if qp.Pagination.Page > 2 {
+                <li class={ "page-item", templ.KV("disabled", qp.Pagination.Page == 1) }>
+                    <a class="page-link" href={ qp.PageToHref(qp.Pagination.Page - 2) }>{ strconv.Itoa(qp.Pagination.Page - 2) }</a>
                 </li>
             }
-            if p.Page > 1 {
-                <li class={ "page-item", templ.KV("disabled", p.Page == 1) }>
-                    <a class="page-link" href={ p.PageToHref(p.Page - 1)}>{ strconv.Itoa(p.Page - 1) }</a>
+            if qp.Pagination.Page > 1 {
+                <li class={ "page-item", templ.KV("disabled", qp.Pagination.Page == 1) }>
+                    <a class="page-link" href={ qp.PageToHref(qp.Pagination.Page - 1) }>{ strconv.Itoa(qp.Pagination.Page - 1) }</a>
                 </li>
             }
 
             <li class="page-item active disabled">
-                <a class="page-link" href={ p.PageToHref(p.Page)}>{ strconv.Itoa(p.Page) }</a>
+                <a class="page-link" href={ qp.PageToHref(qp.Pagination.Page) }>{ strconv.Itoa(qp.Pagination.Page) }</a>
             </li>
 
-            if p.Page < p.TotalPages - 1 {
-                <li class={ "page-item", templ.KV("disabled", p.Page == p.TotalPages) }>
-                    <a class="page-link" href={ p.PageToHref(p.Page + 1)}>{ strconv.Itoa(p.Page + 1) }</a>
+            if qp.Pagination.Page <= qp.Pagination.TotalPages - 1 {
+                <li class={ "page-item", templ.KV("disabled", qp.Pagination.Page == qp.Pagination.TotalPages) }>
+                    <a class="page-link" href={ qp.PageToHref(qp.Pagination.Page + 1) }>{ strconv.Itoa(qp.Pagination.Page + 1) }</a>
                 </li>
             }
-            if p.Page < p.TotalPages {
-                <li class={ "page-item", templ.KV("disabled", p.Page == p.TotalPages) }>
-                    <a class="page-link" href={ p.PageToHref(p.Page + 2)}>{ strconv.Itoa(p.Page + 2) }</a>
+            if qp.Pagination.Page <= qp.Pagination.TotalPages - 2 {
+                <li class={ "page-item", templ.KV("disabled", qp.Pagination.Page == qp.Pagination.TotalPages) }>
+                    <a class="page-link" href={ qp.PageToHref(qp.Pagination.Page + 2) }>{ strconv.Itoa(qp.Pagination.Page + 2) }</a>
                 </li>
             }
 
             &nbsp;&nbsp;
-            <li class={ "page-item", templ.KV("disabled", p.Page == p.TotalPages) } aria-label="Last">
-                <a class="page-link" href={ p.PageToHref(p.TotalPages)}>
+            <li class={ "page-item", templ.KV("disabled", qp.Pagination.Page == qp.Pagination.TotalPages) } aria-label="Last">
+                <a class="page-link" href={ qp.PageToHref(qp.Pagination.TotalPages) }>
                     <span aria-hidden="true">&raquo;</span>
                 </a>
             </li>
