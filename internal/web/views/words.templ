@@ -12,12 +12,28 @@ type WordsQueryParams struct {
 }
 
 func (qp WordsQueryParams) PageToHref(page int) templ.SafeURL {
-    return templ.SafeURL(fmt.Sprintf("/words?search=%s&page=%d", qp.Search, page))
+    return qp.toHref("/words", "", page)
+}
+
+func (qp WordsQueryParams) EditPageToHref(word string) templ.SafeURL {
+    return qp.toHref("/words/edit", word, qp.Pagination.Page)
+}
+
+func (qp WordsQueryParams) toHref(path, word string, page int) templ.SafeURL {
+    res := fmt.Sprintf("%s?search=%s&page=%d", path, qp.Search, page)
+    if word != "" {
+        res = fmt.Sprintf("%s&word=%s", res, word)
+    }
+    if qp.ToReview {
+        res = fmt.Sprintf("%s&to_review=on", res)
+    }
+    return templ.SafeURL(res)
 }
 
 type WordTranslation struct {
     Word        string
     Translation string
+    Description string
     ToReview    bool
 }
 
@@ -49,7 +65,7 @@ templ ListWordsPage(stats Stats, qp WordsQueryParams, words []WordTranslation, e
                 <div class="col-2">
                     <div class="form-check d-flex align-items-center h-100">
                         <label class="form-check-label ms-2">
-                            To Review: <input name="to_review" type="checkbox" class="form-check-input" checked?={ qp.ToReview }>
+                            <input name="to_review" type="checkbox" class="form-check-input" checked?={ qp.ToReview }> To Review
                         </label>
                     </div>
                 </div>
@@ -88,7 +104,7 @@ templ ListWordsPage(stats Stats, qp WordsQueryParams, words []WordTranslation, e
                                             }
                                         </td>
                                         <td class="text-center">
-                                            <button class="btn btn-link bi bi-pencil" data-word={ word.Word }></button>
+                                            <a href={ qp.EditPageToHref(word.Word) } class="btn btn-link bi bi-pencil"></a>
                                         </td>
                                         <td class="text-center">
                                             <button class="btn btn-link bi bi-trash" data-word={ word.Word }></button>
@@ -130,6 +146,85 @@ templ ListWordsPage(stats Stats, qp WordsQueryParams, words []WordTranslation, e
                 });
             </script>
         </div>
+    }
+}
+
+templ WordPage(stats Stats, wt WordTranslation, redirectTo templ.SafeURL, err string) {
+    @base() {
+        @navbar(stats)
+        <div id="content" class="p-3">
+            <div class="row">
+                <div class="col-3"></div>
+                <div class="col-6">
+                    <div class="row">
+                        <form class="needs-validation" novalidate>
+                            <div class="col-12">
+                                <label class="form-label ms-2">
+                                    Word: <input class="form-control" type="text" name="word" value={ wt.Word } required>
+                                </label>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label ms-2">
+                                    Translation: <input class="form-control" type="text" name="translation" value={ wt.Translation } required>
+                                </label>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label ms-2">
+                                    Description: <input class="form-control" type="text" name="translation" value={ wt.Description }>
+                                </label>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-check-label ms-2">
+                                    To Review:
+                                    <input name="to_review" type="checkbox" class="form-check-input" checked?={ wt.ToReview }>
+                                </label>
+                            </div>
+                            <div class="col-12 d-flex justify-content-center">
+                                <div class="row">
+                                    <div class="col-6 d-flex justify-content-center">
+                                        <button class="btn btn-primary" type="submit">Submit</button>
+                                    </div>
+                                    <div class="col-6 d-flex justify-content-center">
+                                        <a id="cancelBtn" class="btn btn-secondary" href={ redirectTo }>Cancel</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="row">
+                        @ErrorAlertDiv(err)
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+            (() => {
+              'use strict'
+
+              // Fetch all the forms we want to apply custom Bootstrap validation styles to
+              const forms = document.querySelectorAll('.needs-validation')
+
+              // Loop over them and prevent submission
+              Array.from(forms).forEach(form => {
+                form.addEventListener('submit', event => {
+                  if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }
+
+                  form.classList.add('was-validated')
+                }, false)
+              })
+            })();
+
+            document.getElementById("cancelBtn").addEventListener('click', (e) => {
+                e.preventDefault();
+                if (confirm("Are you sure? All changes will be lost")) {
+                    document.location.href = e.target.getAttribute('href');
+                }
+            });
+
+        </script>
     }
 }
 

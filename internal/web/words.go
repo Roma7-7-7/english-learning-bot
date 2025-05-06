@@ -54,6 +54,46 @@ func (h *WordsHandler) ListWordsPage(c echo.Context) error {
 	return views.ListWordsPage(stats, qp, words, "").Render(c.Request().Context(), c.Response().Writer)
 }
 
+func (h *WordsHandler) WordPage(c echo.Context) error {
+	chatID, ok := context.ChatIDFromContext(c.Request().Context())
+	if !ok {
+		return redirectToLogin(c, http.StatusFound)
+	}
+
+	qp, err := parseWordsPageQueryParams(c)
+	if err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to parse query params", "error", err)
+		return redirectError(c, http.StatusFound, "Something went wrong")
+	}
+
+	var stats views.Stats
+	wStats, err := h.repo.GetStats(c.Request().Context(), chatID)
+	if err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
+		return views.WordPage(stats, views.WordTranslation{}, qp.PageToHref(qp.Pagination.Page), "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
+	}
+	stats.Learned = wStats.GreaterThanOrEqual15
+	stats.Total = wStats.Total
+
+	var wt views.WordTranslation
+	word := c.QueryParam("word")
+	if word != "" {
+		w, err := h.repo.FindWordTranslation(c.Request().Context(), chatID, word)
+		if err != nil {
+			h.log.ErrorContext(c.Request().Context(), "failed to get word translation", "error", err)
+			return redirectError(c, http.StatusFound, "Something went wrong")
+		}
+		wt = views.WordTranslation{
+			Word:        w.Word,
+			Translation: w.Translation,
+			Description: w.Description,
+			ToReview:    w.ToReview,
+		}
+	}
+
+	return views.WordPage(stats, wt, qp.PageToHref(qp.Pagination.Page), "").Render(c.Request().Context(), c.Response().Writer)
+}
+
 func (h *WordsHandler) DeleteWord(c echo.Context) error {
 	chatID, ok := context.ChatIDFromContext(c.Request().Context())
 	if !ok {
@@ -90,6 +130,7 @@ func (h *WordsHandler) listWords(c echo.Context, chatID int64, qp views.WordsQue
 		viewWords[i] = views.WordTranslation{
 			Word:        word.Word,
 			Translation: word.Translation,
+			Description: word.Description,
 			ToReview:    word.ToReview,
 		}
 	}

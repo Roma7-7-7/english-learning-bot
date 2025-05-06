@@ -12,8 +12,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-const wordsPage = "/words"
-
 type Dependencies struct {
 	Repo           dal.Repository
 	TelegramClient TelegramClient
@@ -49,8 +47,9 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 
 	words := NewWordsHandler(deps.Repo, deps.Logger)
 	securedGroup := e.Group("", AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger))
-	securedGroup.GET("/", redirectHandleFunc(http.StatusFound, wordsPage))
-	securedGroup.GET(wordsPage, words.ListWordsPage)
+	securedGroup.GET("/", redirectHandleFunc(http.StatusFound, "/words"))
+	securedGroup.GET("/words", words.ListWordsPage)
+	securedGroup.GET("/words/edit", words.WordPage)
 	securedGroup.DELETE("/words/:word", words.DeleteWord)
 
 	securedGroup.GET("/error", ErrorPage)
