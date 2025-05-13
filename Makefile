@@ -8,11 +8,8 @@ fix-nolint:
 deps:
 	go mod download
 
-generate-templ: deps
-	go tool github.com/a-h/templ/cmd/templ generate -path ./internal/web/views
-
-build: generate-templ
-	CGO_ENABLED=0 go build -o ./bin/english-learning-bot ./cmd/bot/main.go
+run-web:
+	cd web && npm run dev
 
 docker-build:
 	docker build -t english-learning-bot .

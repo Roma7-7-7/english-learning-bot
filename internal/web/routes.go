@@ -12,11 +12,13 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type Dependencies struct {
-	Repo           dal.Repository
-	TelegramClient TelegramClient
-	Logger         *slog.Logger
-}
+type (
+	Dependencies struct {
+		Repo           dal.Repository
+		TelegramClient TelegramClient
+		Logger         *slog.Logger
+	}
+)
 
 func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Handler {
 	e := echo.New()
@@ -33,26 +35,21 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 	}))
 	e.Use(middleware.Secure())
 
-	e.HTTPErrorHandler = HTTPErrorHandler(deps.Logger)
-
 	jwtProcessor := NewJWTProcessor(conf.API.JWT, conf.API.Cookie.AuthExpiresIn, conf.API.Cookie.AccessExpiresIn)
 	cookiesProcessor := NewCookiesProcessor(conf.API.Cookie)
 
 	auth := NewAuthHandler(deps.Repo, jwtProcessor, cookiesProcessor, deps.TelegramClient, deps.Logger)
-
-	e.GET("/login", auth.Login)
 	e.POST("/login", auth.SubmitChatID)
-	e.GET("/login/status", auth.LoginStatus)
+	e.GET("/status", auth.Status)
 	e.GET("/logout", auth.LogOut)
 
-	words := NewWordsHandler(deps.Repo, deps.Logger)
-	securedGroup := e.Group("", AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger))
-	securedGroup.GET("/", redirectHandleFunc(http.StatusFound, "/words"))
-	securedGroup.GET("/words", words.ListWordsPage)
-	securedGroup.GET("/words/edit", words.WordPage)
-	securedGroup.DELETE("/words/:word", words.DeleteWord)
+	securedGroup := e.Group("/", AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger))
 
-	securedGroup.GET("/error", ErrorPage)
+	words := NewWordsHandler(deps.Repo, deps.Logger)
+	//securedGroup.GET("/", redirectHandleFunc(http.StatusFound, "/words"))
+	//securedGroup.GET("/words", words.ListWordsPage)
+	//securedGroup.GET("/words/edit", words.WordPage)
+	securedGroup.DELETE("/words/:word", words.DeleteWord)
 
 	return e
 }
