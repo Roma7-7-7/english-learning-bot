@@ -4,6 +4,8 @@ import {BrowserRouter, Route, Routes} from "react-router-dom";
 
 import {Home} from './routes/Home.tsx'
 import {Login} from "./routes/Login.tsx";
+import {AppStateProvider} from "./context.tsx";
+import {Navbar} from "./components/Navbar.tsx";
 
 const App: React.FC = () => {
     return (
@@ -18,6 +20,9 @@ const App: React.FC = () => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-        <App />
+        <AppStateProvider>
+            <Navbar />
+            <App />
+        </AppStateProvider>
     </React.StrictMode>
 )

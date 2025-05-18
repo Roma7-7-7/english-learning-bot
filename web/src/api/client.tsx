@@ -1,6 +1,16 @@
+export interface Auth {
+    chat_id: bigint;
+    authenticated: boolean;
+}
+
 export interface Status {
     chat_id: string;
     authenticated: boolean;
+}
+
+export interface Stats {
+    total: number;
+    learned: number;
 }
 
 class ApiClient {
@@ -17,15 +27,29 @@ class ApiClient {
         return this.request('/words');
     }
 
+    async getAuth(): Promise<Response> {
+        return this.request('/auth/info');
+    }
+
     async getStatus(): Promise<Response> {
-        return this.request('/status', {});
+        return this.request('/auth/status', {});
     }
 
     async login(chatID: string): Promise<Response> {
-        return this.request('/login', {
+        return this.request('/auth/login', {
             method: 'POST',
             body: JSON.stringify({chat_id: parseInt(chatID)}),
         });
+    }
+
+    async logout(): Promise<Response> {
+        return this.request('/auth/logout', {
+            method: 'POST',
+        });
+    }
+
+    async getStats(): Promise<Response> {
+        return this.request('/words/stats');
     }
 
     private async request(

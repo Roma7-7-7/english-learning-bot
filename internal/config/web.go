@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"time"
 )
@@ -51,7 +52,11 @@ type (
 	}
 )
 
-func NewWeb(_ Env) (Web, error) {
+func NewWeb(env Env) (Web, error) {
+	if env == EnvProd {
+		return Web{}, errors.New("web environment is prod")
+	}
+
 	return Web{
 		DB: DB{
 			URL: os.Getenv("DB_URL"),
@@ -60,7 +65,7 @@ func NewWeb(_ Env) (Web, error) {
 			Timeout:   10 * time.Second,
 			RateLimit: 10,
 			CORS: CORS{
-				AllowOrigins: []string{"*"},
+				AllowOrigins: []string{"http://localhost:5173"},
 			},
 			Cookie: Cookie{
 				Path:            "/",

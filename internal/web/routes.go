@@ -28,28 +28,41 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 	e.Use(middleware.Recover())
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(conf.API.RateLimit))))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: conf.API.CORS.AllowOrigins,
+		AllowOrigins:     conf.API.CORS.AllowOrigins,
+		AllowCredentials: true,
 	}))
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 		Timeout: conf.API.Timeout,
 	}))
 	e.Use(middleware.Secure())
 
+	e.HTTPErrorHandler = HTTPErrorHandler(deps.Logger)
+
 	jwtProcessor := NewJWTProcessor(conf.API.JWT, conf.API.Cookie.AuthExpiresIn, conf.API.Cookie.AccessExpiresIn)
 	cookiesProcessor := NewCookiesProcessor(conf.API.Cookie)
 
-	auth := NewAuthHandler(deps.Repo, jwtProcessor, cookiesProcessor, deps.TelegramClient, deps.Logger)
-	e.POST("/login", auth.SubmitChatID)
-	e.GET("/status", auth.Status)
-	e.GET("/logout", auth.LogOut)
+	authMiddleware := AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger)
+	auth := NewAuthHandler(AuthDependencies{
+		Repo:             deps.Repo,
+		JWTProcessor:     jwtProcessor,
+		CookiesProcessor: cookiesProcessor,
+		TelegramClient:   deps.TelegramClient,
+		Logger:           deps.Logger,
+	})
 
-	securedGroup := e.Group("/", AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger))
+	e.POST("/auth/login", auth.Login)
+	e.GET("/auth/status", auth.Status)
+	e.POST("/auth/logout", auth.LogOut)
+
+	securedGroup := e.Group("", authMiddleware)
+	securedGroup.GET("/auth/info", auth.Info)
 
 	words := NewWordsHandler(deps.Repo, deps.Logger)
+	securedGroup.GET("/words/stats", words.Stats)
 	//securedGroup.GET("/", redirectHandleFunc(http.StatusFound, "/words"))
 	//securedGroup.GET("/words", words.ListWordsPage)
 	//securedGroup.GET("/words/edit", words.WordPage)
-	securedGroup.DELETE("/words/:word", words.DeleteWord)
+	//securedGroup.DELETE("/words/:word", words.DeleteWord)
 
 	return e
 }
@@ -76,23 +89,4 @@ func loggingMiddleware(ctx context.Context, log *slog.Logger) echo.MiddlewareFun
 			return nil
 		},
 	})
-}
-
-func redirectHandleFunc(status int, to string) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		return redirect(c, status, to)
-	}
-}
-
-func redirect(c echo.Context, status int, to string) error {
-	c.Response().Header().Set("HX-Redirect", to)
-	return c.Redirect(status, to)
-}
-
-func redirectError(c echo.Context, status int, err string) error {
-	return c.Redirect(status, "/error?error="+err)
-}
-
-func redirectToLogin(c echo.Context, status int) error {
-	return redirect(c, status, "/login")
 }

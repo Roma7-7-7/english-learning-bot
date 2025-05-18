@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	appctx "github.com/Roma7-7-7/english-learning-bot/internal/context"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/labstack/echo/v4"
 )
@@ -17,8 +18,12 @@ type (
 		AskAuthConfirmation(ctx context.Context, chatID int64, token string) error
 	}
 
-	SubmitChatIDRequest struct {
-		ChatID int64 `json:"chat_id"`
+	AuthDependencies struct {
+		Repo             dal.AuthConfirmationRepository
+		JWTProcessor     *JWTProcessor
+		CookiesProcessor *CookiesProcessor
+		TelegramClient   TelegramClient
+		Logger           *slog.Logger
 	}
 
 	AuthHandler struct {
@@ -29,26 +34,37 @@ type (
 
 		log *slog.Logger
 	}
+
+	submitChatIDRequest struct {
+		ChatID int64 `json:"chat_id"`
+	}
+
+	statusResponse struct {
+		Authenticated bool  `json:"authenticated"`
+		ChatID        int64 `json:"chat_id"`
+	}
 )
 
-func NewAuthHandler(repo dal.AuthConfirmationRepository, jwtProc *JWTProcessor, cookiesProc *CookiesProcessor, teleClient TelegramClient, log *slog.Logger) *AuthHandler {
+func NewAuthHandler(deps AuthDependencies) *AuthHandler {
 	return &AuthHandler{
-		repo:             repo,
-		teleClient:       teleClient,
-		jwtProcessor:     jwtProc,
-		cookiesProcessor: cookiesProc,
+		repo:             deps.Repo,
+		teleClient:       deps.TelegramClient,
+		jwtProcessor:     deps.JWTProcessor,
+		cookiesProcessor: deps.CookiesProcessor,
 
-		log: log,
+		log: deps.Logger,
 	}
 }
 
-func (h *AuthHandler) LogOut(c echo.Context) error {
-	c.SetCookie(h.cookiesProcessor.ExpireAccessTokenCookie())
-	return redirectToLogin(c, http.StatusFound)
+func (h *AuthHandler) Info(c echo.Context) error {
+	chatID := appctx.MustChatIDFromContext(c.Request().Context())
+	return c.JSON(http.StatusOK, echo.Map{
+		"chat_id": chatID,
+	})
 }
 
-func (h *AuthHandler) SubmitChatID(c echo.Context) error {
-	var req SubmitChatIDRequest
+func (h *AuthHandler) Login(c echo.Context) error {
+	var req submitChatIDRequest
 	var err error
 	if err = c.Bind(&req); err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to bind request", "error", err)
@@ -78,9 +94,7 @@ func (h *AuthHandler) SubmitChatID(c echo.Context) error {
 }
 
 func (h *AuthHandler) Status(c echo.Context) error {
-	res := echo.Map{
-		"authenticated": false,
-	}
+	var res statusResponse
 
 	token, ok := h.cookiesProcessor.GetAuthToken(c)
 	if !ok {
@@ -93,7 +107,7 @@ func (h *AuthHandler) Status(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, res)
 	}
 
-	res["chatID"] = chatID
+	res.ChatID = chatID
 
 	confirmed, err := h.repo.IsConfirmed(c.Request().Context(), chatID, key)
 	if err != nil {
@@ -109,7 +123,7 @@ func (h *AuthHandler) Status(c echo.Context) error {
 		return c.JSON(http.StatusOK, res)
 	}
 
-	res["authenticated"] = true
+	res.Authenticated = true
 
 	accessToken, err := h.jwtProcessor.ToAccessToken(chatID)
 	if err != nil {
@@ -120,4 +134,9 @@ func (h *AuthHandler) Status(c echo.Context) error {
 	c.SetCookie(h.cookiesProcessor.NewAccessTokenCookie(accessToken))
 	c.SetCookie(h.cookiesProcessor.ExpireAuthTokenCookie())
 	return c.JSON(http.StatusOK, res)
+}
+
+func (h *AuthHandler) LogOut(c echo.Context) error {
+	c.SetCookie(h.cookiesProcessor.ExpireAccessTokenCookie())
+	return c.JSON(http.StatusOK, nil)
 }

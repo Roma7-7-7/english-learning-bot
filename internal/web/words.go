@@ -21,37 +21,21 @@ func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *Wor
 	}
 }
 
-//
-//func (h *WordsHandler) ListWordsPage(c echo.Context) error {
-//	chatID, ok := context.ChatIDFromContext(c.Request().Context())
-//	if !ok {
-//		return redirectToLogin(c, http.StatusFound)
-//	}
-//
-//	var stats views.Stats
-//	wStats, err := h.repo.GetStats(c.Request().Context(), chatID)
-//	if err != nil {
-//		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
-//		return views.ErrorPage("Something went wrong").Render(c.Request().Context(), c.Response().Writer)
-//	}
-//	stats.Learned = wStats.GreaterThanOrEqual15
-//	stats.Total = wStats.Total
-//
-//	qp, err := parseWordsPageQueryParams(c)
-//	if err != nil {
-//		h.log.DebugContext(c.Request().Context(), "failed to parse query params", "error", err)
-//		return views.ListWordsPage(stats, qp, nil, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
-//	}
-//
-//	qp, words, err := h.listWords(c, chatID, qp)
-//	if err != nil {
-//		h.log.ErrorContext(c.Request().Context(), "failed to list words", "error", err)
-//		return views.ListWordsPage(stats, qp, words, "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
-//	}
-//
-//	return views.ListWordsPage(stats, qp, words, "").Render(c.Request().Context(), c.Response().Writer)
-//}
-//
+func (h *WordsHandler) Stats(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	stats, err := h.repo.GetStats(c.Request().Context(), chatID)
+	if err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"learned": stats.GreaterThanOrEqual15,
+		"total":   stats.Total,
+	})
+}
+
 //func (h *WordsHandler) WordPage(c echo.Context) error {
 //	chatID, ok := context.ChatIDFromContext(c.Request().Context())
 //	if !ok {
@@ -92,25 +76,25 @@ func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *Wor
 //	return views.WordPage(stats, wt, qp.PageToHref(qp.Pagination.Page), "").Render(c.Request().Context(), c.Response().Writer)
 //}
 
-func (h *WordsHandler) DeleteWord(c echo.Context) error {
-	chatID, ok := context.ChatIDFromContext(c.Request().Context())
-	if !ok {
-		return redirectToLogin(c, http.StatusFound)
-	}
-
-	word := c.Param("word")
-	if word == "" {
-		return c.Redirect(http.StatusFound, "/?error=word not found")
-	}
-
-	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, word); err != nil {
-		h.log.ErrorContext(c.Request().Context(), "failed to delete word translation", "error", err)
-		return redirectError(c, http.StatusFound, "Something went wrong")
-	}
-
-	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word deleted"})
-}
-
+//func (h *WordsHandler) DeleteWord(c echo.Context) error {
+//	chatID, ok := context.ChatIDFromContext(c.Request().Context())
+//	if !ok {
+//		return redirectToLogin(c, http.StatusFound)
+//	}
+//
+//	word := c.Param("word")
+//	if word == "" {
+//		return c.Redirect(http.StatusFound, "/?error=word not found")
+//	}
+//
+//	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, word); err != nil {
+//		h.log.ErrorContext(c.Request().Context(), "failed to delete word translation", "error", err)
+//		return redirectError(c, http.StatusFound, "Something went wrong")
+//	}
+//
+//	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word deleted"})
+//}
+//
 //
 //func (h *WordsHandler) listWords(c echo.Context, chatID int64, qp views.WordsQueryParams) (views.WordsQueryParams, []views.WordTranslation, error) {
 //	filter := dal.WordTranslationsFilter{

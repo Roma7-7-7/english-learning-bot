@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -17,32 +18,39 @@ var InternalServerError = ErrorResponse{"Internal server error"}
 func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 	return func(err error, c echo.Context) {
 		log.ErrorContext(c.Request().Context(), "failed to process request", "error", err)
-		if err == nil {
-			// already handled
-			return
-		}
 
 		var echoError *echo.HTTPError
-		if errors.As(err, &echoError) {
-			if echoError.Code == http.StatusTooManyRequests {
-				err = c.JSON(http.StatusTooManyRequests, echoError)
-				if err != nil {
-					log.ErrorContext(c.Request().Context(), "failed to respond with error", "error", err)
-				}
-				return
-			}
-
-			// todo test this
-			err = redirect(c, http.StatusFound, "/error?error="+http.StatusText(echoError.Code))
-			if err != nil {
-				log.ErrorContext(c.Request().Context(), "failed to redirect echo error", "error", err)
+		if !errors.As(err, &echoError) {
+			if err := c.JSON(http.StatusInternalServerError, InternalServerError); err != nil {
+				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
 			}
 			return
 		}
 
-		err = redirect(c, http.StatusFound, "/error?error=Something went wrong")
-		if err != nil {
-			log.ErrorContext(c.Request().Context(), "failed to redirect", "error", err)
+		if message, ok := echoError.Message.(string); ok {
+			if message == "" {
+				message = "Internal server error"
+			}
+			if echoError.Code == http.StatusInternalServerError {
+				message = InternalServerError.Message
+			}
+			if err := c.JSON(echoError.Code, ErrorResponse{Message: message}); err != nil {
+				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
+			}
+
+			return
+		}
+
+		if bytes, err := json.Marshal(echoError.Message); err != nil {
+			log.ErrorContext(c.Request().Context(), "failed to marshal error message", "error", err)
+			if err := c.JSON(echoError.Code, InternalServerError); err != nil {
+				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
+			}
+		} else {
+			c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
+			if err := c.String(echoError.Code, string(bytes)); err != nil {
+				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
+			}
 		}
 	}
 }
