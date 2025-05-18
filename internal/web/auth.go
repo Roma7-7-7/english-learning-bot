@@ -67,8 +67,8 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	var req submitChatIDRequest
 	var err error
 	if err = c.Bind(&req); err != nil {
-		h.log.ErrorContext(c.Request().Context(), "failed to bind request", "error", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
 	}
 
 	chatID := req.ChatID

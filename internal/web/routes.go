@@ -59,8 +59,7 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 
 	words := NewWordsHandler(deps.Repo, deps.Logger)
 	securedGroup.GET("/words/stats", words.Stats)
-	//securedGroup.GET("/", redirectHandleFunc(http.StatusFound, "/words"))
-	//securedGroup.GET("/words", words.ListWordsPage)
+	securedGroup.GET("/words", words.FindWords)
 	//securedGroup.GET("/words/edit", words.WordPage)
 	//securedGroup.DELETE("/words/:word", words.DeleteWord)
 

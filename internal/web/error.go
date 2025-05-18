@@ -13,7 +13,10 @@ type ErrorResponse struct {
 	Message string `json:"error"`
 }
 
-var InternalServerError = ErrorResponse{"Internal server error"}
+var (
+	InternalServerError = ErrorResponse{"Internal server error"}
+	BadRequestError     = ErrorResponse{"Bad request"}
+)
 
 func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 	return func(err error, c echo.Context) {

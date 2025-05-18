@@ -13,6 +13,24 @@ export interface Stats {
     learned: number;
 }
 
+export interface WordsQueryParams {
+    search: string;
+    to_review: boolean;
+    offset: number;
+    limit: number;
+}
+
+export interface Word {
+    word: string;
+    translation: string;
+    to_review: boolean
+}
+
+export interface Words{
+    items: Word[];
+    total: number;
+}
+
 class ApiClient {
     private readonly baseUrl: string;
 
@@ -23,8 +41,30 @@ class ApiClient {
             : apiBaseUrl;
     }
 
-    async getWords(): Promise<Response> {
-        return this.request('/words');
+    async findWords(qp: WordsQueryParams): Promise<Response> {
+        const params = new URLSearchParams();
+        if (qp.search) {
+            params.append('search', qp.search);
+        }
+        if (qp.to_review) {
+            params.append('to_review', qp.to_review.toString());
+        }
+        if (qp.offset) {
+            params.append('offset', qp.offset.toString());
+        }
+        if (qp.limit) {
+            params.append('limit', qp.limit.toString());
+        }
+        let url = new URL(`${this.baseUrl}/words`);
+        if (params.toString()) {
+            url.search = params.toString();
+        }
+        return this.request(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
     }
 
     async getAuth(): Promise<Response> {
@@ -56,7 +96,15 @@ class ApiClient {
         endpoint: string,
         options: RequestInit = {},
     ): Promise<Response> {
-        const url = `${this.baseUrl}${endpoint}`;
+        if (!endpoint.startsWith('http')) {
+            // If the endpoint doesn't start with http, prepend the base URL
+            endpoint = `${this.baseUrl}${endpoint}`;
+        } else {
+            // If the endpoint starts with http, ensure it doesn't have a trailing slash
+            endpoint = endpoint.endsWith('/')
+                ? endpoint.slice(0, -1)
+                : endpoint;
+        }
 
         options['credentials'] = 'include';
 
@@ -65,7 +113,7 @@ class ApiClient {
             ...options.headers,
         };
 
-        return await fetch(url, {
+        return await fetch(endpoint, {
             ...options,
             headers,
         });
