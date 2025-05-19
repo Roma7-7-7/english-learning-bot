@@ -67,6 +67,13 @@ class ApiClient {
         });
     }
 
+    async deleteWord(word: string): Promise<Response> {
+        return this.request(`/words`, {
+            method: 'DELETE',
+            body: JSON.stringify({word}),
+        });
+    }
+
     async getAuth(): Promise<Response> {
         return this.request('/auth/info');
     }

@@ -1,13 +1,9 @@
 import {type JSX, useEffect, useState} from "react";
 import client, {type Words, type WordsQueryParams} from "../api/client.tsx";
-
-interface Pagination {
-    page: number;
-    pageSize: number;
-    totalPages: number;
-}
+import {useAppState} from "../context.tsx";
 
 export function Home() {
+    const {refreshStats} = useAppState()
     const [words, setWords] = useState<Words | null>(null);
     const [qp, setQP] = useState({
         search: "",
@@ -15,50 +11,66 @@ export function Home() {
         offset: 0,
         limit: 15,
     } as WordsQueryParams);
-    const [pagination, setPagination] = useState<Pagination>({
-        page: 1,
-        pageSize: 15,
-        totalPages: 1,
-    })
     const [error, setError] = useState<string>("");
 
-
-    useEffect(() => {
+    function fetchWords() {
         if (error !== "") {
             setError("");
         }
 
         client.findWords(qp).then(r => {
             if (r.status === 200) {
-                return r.json();
+                return r.json() as Promise<Words>;
             }
 
             throw new Error("Failed to fetch words");
         }).then(w => {
-            if (w) {
-                setWords(w);
-                setPagination({
-                    page: qp.offset / qp.limit + 1,
-                    pageSize: qp.limit,
-                    totalPages: Math.ceil(w.total / qp.limit),
-                });
-            } else {
-                setError("No words found");
+            console.log("Words:", w.items.length, w.total);
+            // It may happen if we applied some filtering which has words but current page overflows the total number of filtered words
+            if (w.items.length == 0 && w.total > 0) {
+                setQP(existing => {
+                    return {
+                        ...existing,
+                        offset: 0,
+                    }
+                })
+                return
             }
+
+            setWords(w);
         }).catch(e => {
             console.error("Error fetching words:", e);
             setError("Failed to fetch words");
             setWords(null);
         })
+    }
+
+    useEffect(() => {
+        fetchWords()
     }, [qp])
 
-    const onPageChange = (page: number) => {
-        if (error !== "") {
-            setError("");
+    function handleDeleteWord(word: string) {
+        if (confirm(`Are you sure you want to delete the word "${word}"?`)) {
+            client.deleteWord(word).then(r => {
+                if (r.status === 200) {
+                    refreshStats()
+                    fetchWords()
+                } else {
+                    setError("Failed to delete word");
+                }
+            }).catch(e => {
+                console.error("Error deleting word:", e);
+                setError("Failed to delete word");
+            })
         }
-        setQP({
-            ...qp,
-            offset: (page - 1) * qp.limit,
+    }
+
+    const onPageChange = (page: number) => {
+        setQP((existing: WordsQueryParams) => {
+            return {
+                ...existing,
+                offset: (page - 1) * existing.limit,
+            }
         });
     }
 
@@ -71,33 +83,34 @@ export function Home() {
                 <div id="content" className="p-3">
                     <form id="searchForm" className="row form-inline form-group align-items-center mb-3">
                         <div className="col-3">
-                            <label><input className="form-control" type="text" name="search" placeholder="Search" value={qp.search} onChange={present => {
-                                setQP({
-                                    ...qp,
-                                    search: present.target.value,
-                                    offset: 0,
-                                });
-                            }}/></label>
+                            <label><input className="form-control" type="text" name="search" placeholder="Search" value={qp.search}
+                                          onChange={present => {
+                                              setQP((existing: WordsQueryParams) => {
+                                                  return {
+                                                      ...existing,
+                                                      search: present.target.value,
+                                                  }
+                                              });
+                                          }}/></label>
                         </div>
                         <div className="col-2">
                             <div className="form-check d-flex align-items-center h-100">
                                 <label className="form-check-label ms-2">
-                                    <input name="to_review" type="checkbox" className="form-check-input" checked={qp.to_review} onChange={present => {
-                                        setQP({
-                                            ...qp,
-                                            to_review: present.target.checked,
-                                        });
-                                    }}/> To Review
+                                    <input name="to_review" type="checkbox" className="form-check-input" checked={qp.to_review}
+                                           onChange={present => {
+                                               setQP((existing: WordsQueryParams) => {
+                                                   return {
+                                                       ...existing,
+                                                       to_review: present.target.checked,
+                                                   }
+                                               });
+                                           }}/> To Review
                                 </label>
                             </div>
                         </div>
-                        <div className="col-3"></div>
-                        <div
-                            className="col-3">
-                            <button className="btn btn-primary" style={{width: '100%'}}>Submit</button>
-                        </div>
+                        <div className="col-6"></div>
                         <div className="col-1">
-                            <a className="btn btn-secondary" onClick={() => {
+                            <a className="btn btn-secondary" style={{width: '100%'}} onClick={() => {
                                 setQP({
                                     search: "",
                                     to_review: false,
@@ -121,17 +134,18 @@ export function Home() {
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    {words.items.map((word) => {
+                                    {words.items.map((item) => {
                                         return (
-                                            <tr key={word.word}>
-                                                <td>{word.word}</td>
-                                                <td>{word.translation}</td>
-                                                <td>{word.to_review ? "Yes" : "No"}</td>
+                                            <tr key={item.word}>
+                                                <td>{item.word}</td>
+                                                <td>{item.translation}</td>
+                                                <td>{item.to_review ? "Yes" : "No"}</td>
                                                 <td className="text-center">
-                                                    <a href={`/words/edit/${word.word}`} className="btn btn-link bi bi-pencil"></a>
+                                                    <a href={`/words/edit/${item.word}`} className="btn btn-link bi bi-pencil"></a>
                                                 </td>
                                                 <td className="text-center">
-                                                    <button className="btn btn-link bi bi-trash" data-word={word.word}></button>
+                                                    <button className="btn btn-link bi bi-trash"
+                                                            onClick={() => handleDeleteWord(item.word)}></button>
                                                 </td>
                                             </tr>
                                         )
@@ -143,7 +157,7 @@ export function Home() {
                         <div className="row">
                             <div className="col-12">
                                 <div className="d-flex justify-content-center">
-                                    {paginationFooter(pagination, onPageChange)}
+                                    {paginationFooter(qp, words.total, onPageChange)}
                                 </div>
                             </div>
                         </div>
@@ -161,10 +175,13 @@ export function Home() {
     )
 }
 
-function paginationFooter(pagination: Pagination, onPageChange: (page: number) => void): JSX.Element {
-    if (pagination.totalPages <= 1) {
+function paginationFooter(qp: WordsQueryParams, totalItems: number, onPageChange: (page: number) => void): JSX.Element {
+    const totalPages = Math.ceil(totalItems / qp.limit);
+    const page = getPage(qp)
+    if (totalPages <= 1) {
         return (<></>)
     }
+
 
     interface li {
         active: boolean;
@@ -175,10 +192,10 @@ function paginationFooter(pagination: Pagination, onPageChange: (page: number) =
 
     const items: li[] = [];
 
-    if (pagination.totalPages <= 7) {
-        for (let i = 1; i <= pagination.totalPages; i++) {
+    if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) {
             items.push({
-                active: i === pagination.page,
+                active: i === page,
                 disabled: false,
                 page: i
             });
@@ -186,48 +203,48 @@ function paginationFooter(pagination: Pagination, onPageChange: (page: number) =
     } else {
         items.push({
             active: false,
-            disabled: pagination.page === 1,
+            disabled: page === 1,
             page: 1,
             isArrow: true
         });
 
         // &nbsp;&nbsp;
 
-        if (pagination.page > 2) {
+        if (page > 2) {
             items.push({
                 active: false,
                 disabled: false,
-                page: pagination.page - 2
+                page: page - 2
             });
         }
 
-        if (pagination.page > 1) {
+        if (page > 1) {
             items.push({
                 active: false,
                 disabled: false,
-                page: pagination.page - 1
+                page: page - 1
             });
         }
 
         items.push({
             active: true,
             disabled: true,
-            page: pagination.page
+            page: page
         });
 
-        if (pagination.page < pagination.totalPages) {
+        if (page < totalPages) {
             items.push({
                 active: false,
                 disabled: false,
-                page: pagination.page + 1
+                page: page + 1
             });
         }
 
-        if (pagination.page < pagination.totalPages - 1) {
+        if (page < totalPages - 1) {
             items.push({
                 active: false,
                 disabled: false,
-                page: pagination.page + 2
+                page: page + 2
             });
         }
 
@@ -235,8 +252,8 @@ function paginationFooter(pagination: Pagination, onPageChange: (page: number) =
 
         items.push({
             active: false,
-            disabled: pagination.page === pagination.totalPages,
-            page: pagination.totalPages,
+            disabled: page === totalPages,
+            page: totalPages,
             isArrow: true
         });
     }
@@ -258,4 +275,8 @@ function paginationFooter(pagination: Pagination, onPageChange: (page: number) =
             )
         }))}
     </ul>
+}
+
+function getPage(qp: WordsQueryParams): number {
+    return Math.floor(qp.offset / qp.limit) + 1;
 }

@@ -89,68 +89,19 @@ func (h *WordsHandler) FindWords(c echo.Context) error {
 	})
 }
 
-//func (h *WordsHandler) WordPage(c echo.Context) error {
-//	chatID, ok := context.ChatIDFromContext(c.Request().Context())
-//	if !ok {
-//		return redirectToLogin(c, http.StatusFound)
-//	}
-//
-//	qp, err := parseWordsPageQueryParams(c)
-//	if err != nil {
-//		h.log.DebugContext(c.Request().Context(), "failed to parse query params", "error", err)
-//		return redirectError(c, http.StatusFound, "Something went wrong")
-//	}
-//
-//	var stats views.Stats
-//	wStats, err := h.repo.GetStats(c.Request().Context(), chatID)
-//	if err != nil {
-//		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
-//		return views.WordPage(stats, views.WordTranslation{}, qp.PageToHref(qp.Pagination.Page), "Something went wrong").Render(c.Request().Context(), c.Response().Writer)
-//	}
-//	stats.Learned = wStats.GreaterThanOrEqual15
-//	stats.Total = wStats.Total
-//
-//	var wt views.WordTranslation
-//	word := c.QueryParam("word")
-//	if word != "" {
-//		w, err := h.repo.FindWordTranslation(c.Request().Context(), chatID, word)
-//		if err != nil {
-//			h.log.ErrorContext(c.Request().Context(), "failed to get word translation", "error", err)
-//			return redirectError(c, http.StatusFound, "Something went wrong")
-//		}
-//		wt = views.WordTranslation{
-//			Word:        w.Word,
-//			Translation: w.Translation,
-//			Description: w.Description,
-//			ToReview:    w.ToReview,
-//		}
-//	}
-//
-//	return views.WordPage(stats, wt, qp.PageToHref(qp.Pagination.Page), "").Render(c.Request().Context(), c.Response().Writer)
-//}
+func (h *WordsHandler) DeleteWord(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
 
-//func (h *WordsHandler) DeleteWord(c echo.Context) error {
-//	chatID, ok := context.ChatIDFromContext(c.Request().Context())
-//	if !ok {
-//		return redirectToLogin(c, http.StatusFound)
-//	}
-//
-//	word := c.Param("word")
-//	if word == "" {
-//		return c.Redirect(http.StatusFound, "/?error=word not found")
-//	}
-//
-//	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, word); err != nil {
-//		h.log.ErrorContext(c.Request().Context(), "failed to delete word translation", "error", err)
-//		return redirectError(c, http.StatusFound, "Something went wrong")
-//	}
-//
-//	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word deleted"})
-//}
-//
-//func defString(val, def string) string {
-//	if val == "" {
-//		return def
-//	}
-//	return val
-//}
+	var wt WordTranslation
+	if err := c.Bind(&wt); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, wt.Word); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to delete word translation", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word deleted"})
+}

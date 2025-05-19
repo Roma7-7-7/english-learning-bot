@@ -51,7 +51,6 @@ function appReducer(state: AppState, action: Action): AppState {
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
     const [state, dispatch] = useReducer(appReducer, initialState);
 
-    // Automatically load stats when user is set
     useEffect(() => {
         if (state.user) {
             refreshStats();
