@@ -2,6 +2,15 @@ import { type JSX, useEffect, useState } from "react";
 import client, { type Words, type WordsQueryParams } from "../api/client.tsx";
 import { useAppState } from "../context.tsx";
 import { Container, Row, Col, Form, Button, Table, Pagination, Alert, Spinner } from 'react-bootstrap';
+import {WordModal} from "../components/WordModal.tsx";
+
+interface ModalState {
+    show: boolean;
+    action: 'add' | 'edit';
+    word: string;
+    translation: string;
+    description?: string;
+}
 
 export function Home() {
     const { refreshStats } = useAppState()
@@ -13,6 +22,14 @@ export function Home() {
         limit: 15,
     } as WordsQueryParams);
     const [error, setError] = useState<string>("");
+
+    const [modalState, setModalState] = useState<ModalState>({
+        show: false,
+        action: 'add',
+        word: '',
+        translation: '',
+        description: undefined,
+    });
 
     function fetchWords() {
         if (error !== "") {
@@ -74,6 +91,18 @@ export function Home() {
         });
     }
 
+    const handleCloseModal = () => {
+        setModalState({
+            ...modalState,
+            show: false,
+        });
+    }
+
+    const handleWordSuccess = () => {
+        refreshStats()
+        fetchWords()
+    }
+
     return (
         <>
             {!words ? (
@@ -119,7 +148,7 @@ export function Home() {
                                 }}
                             />
                         </Col>
-                        <Col xs={12} md={6}></Col>
+                        <Col xs={12} md={5}></Col>
                         <Col xs={12} md={1}>
                             <Button
                                 variant="secondary"
@@ -134,6 +163,23 @@ export function Home() {
                                 }}
                             >
                                 <span aria-hidden="true">&times;</span>
+                            </Button>
+                        </Col>
+                        <Col xs={12} md={1}>
+                            <Button
+                                variant="primary"
+                                className="w-100"
+                                onClick={() => {
+                                    setModalState({
+                                        show: true,
+                                        action: 'add',
+                                        word: '',
+                                        translation: '',
+                                        description: undefined,
+                                    });
+                                }}
+                            >
+                                Add
                             </Button>
                         </Col>
                     </Row>
@@ -159,9 +205,17 @@ export function Home() {
                                             <td>{item.to_review ? "Yes" : "No"}</td>
                                             <td className="text-center">
                                                 <Button
-                                                    href={`/words/edit/${item.word}`}
                                                     variant="link"
-                                                    className="bi bi-pencil"
+                                                    className="bi bi-pencil-square"
+                                                    onClick={() => {
+                                                        setModalState({
+                                                            show: true,
+                                                            action: 'edit',
+                                                            word: item.word,
+                                                            translation: item.translation,
+                                                            description: item.description,
+                                                        });
+                                                    }}
                                                 />
                                             </td>
                                             <td className="text-center">
@@ -197,6 +251,15 @@ export function Home() {
                     )}
                 </Container>
             )}
+            <WordModal
+                show={modalState.show}
+                action={modalState.action}
+                word={modalState.word}
+                translation={modalState.translation}
+                description={modalState.description}
+                onHide={handleCloseModal}
+                onSuccess={handleWordSuccess}
+            />
         </>
     )
 }
