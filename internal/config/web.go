@@ -84,7 +84,7 @@ func NewWeb(env Env) (Web, error) {
 			Token: os.Getenv("TELEGRAM_TOKEN"),
 		},
 		Server: Server{
-			ReadHeaderTimeout: 10 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second, //nolint:mnd // ignore mnd
 			Addr:              ":8080",
 		},
 	}, nil

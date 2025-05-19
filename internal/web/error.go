@@ -18,7 +18,7 @@ var (
 	BadRequestError     = ErrorResponse{"Bad request"}           //nolint:gochecknoglobals // this is a constant response for bad request
 )
 
-// nolint:gocognit // no more changes are needed
+//nolint:gocognit // no more changes are needed
 func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 	return func(err error, c echo.Context) {
 		log.ErrorContext(c.Request().Context(), "failed to process request", "error", err)
