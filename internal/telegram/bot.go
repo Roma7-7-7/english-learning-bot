@@ -341,7 +341,7 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	case callbackWordMissed:
 		err = b.repo.ResetGuessedStreak(ctx, c.Chat().ID, cData.Word)
 	case callbackWordToReview:
-		err = b.repo.MarkToReview(ctx, c.Chat().ID, cData.Word)
+		err = b.repo.MarkToReview(ctx, c.Chat().ID, cData.Word, true)
 	default:
 		b.log.Warn("unknown callback action", "action", parts[0])
 		return c.RespondText(somethingWentWrongMsg)

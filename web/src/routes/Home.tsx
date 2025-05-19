@@ -103,6 +103,26 @@ export function Home() {
         fetchWords()
     }
 
+    const handleMarkToReview = (word: string, to_review: boolean) => {
+        if (error !== "") {
+            setError("");
+        }
+        if (!to_review && !confirm("Are you sure you want to mark/unmark this word for review?")) {
+            return;
+        }
+        client.markToReview({ word, to_review }).then(r => {
+            if (r.status === 200) {
+                refreshStats()
+                fetchWords()
+            } else {
+                setError("Failed to mark word");
+            }
+        }).catch(e => {
+            console.error("Error marking word:", e);
+            setError("Failed to mark word");
+        })
+    }
+
     return (
         <>
             {!words ? (
@@ -203,7 +223,14 @@ export function Home() {
                                             <td>{item.word}</td>
                                             <td>{item.translation}</td>
                                             <td className="text-center">
-                                                {item.to_review ? "Yes" : "No"}
+                                                <Form.Check
+                                                    type="checkbox"
+                                                    id={`to-review-${item.word}`}
+                                                    checked={item.to_review}
+                                                    onChange={present => {
+                                                        handleMarkToReview(item.word, present.target.checked);
+                                                    }}
+                                                />
                                             </td>
                                             <td className="text-center">
                                                 <Button

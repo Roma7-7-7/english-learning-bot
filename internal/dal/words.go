@@ -41,7 +41,7 @@ type (
 		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetToReview(ctx context.Context, chatID int64) error
-		MarkToReview(ctx context.Context, chatID int64, word string) error
+		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
 		DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error)
 	}
 
@@ -216,12 +216,12 @@ func (r *PostgreSQLRepository) ResetGuessedStreak(ctx context.Context, chatID in
 	return nil
 }
 
-func (r *PostgreSQLRepository) MarkToReview(ctx context.Context, chatID int64, word string) error {
+func (r *PostgreSQLRepository) MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE word_translations
-		SET to_review = true
-		WHERE chat_id = $1 AND word = $2
-	`, chatID, word)
+		SET to_review = $1
+		WHERE chat_id = $2 AND word = $3
+	`, toReview, chatID, word)
 	if err != nil {
 		return fmt.Errorf("mark review and reset streak: %w", err)
 	}

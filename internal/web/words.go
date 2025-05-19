@@ -140,3 +140,25 @@ func (h *WordsHandler) DeleteWord(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word deleted"})
 }
+
+type MarkToReviewRequest struct {
+	Word     string `json:"word"`
+	ToReview bool   `json:"to_review"`
+}
+
+func (h *WordsHandler) MarkToReview(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	var r MarkToReviewRequest
+	if err := c.Bind(&r); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := h.repo.MarkToReview(c.Request().Context(), chatID, r.Word, r.ToReview); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to mark word to review", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word marked"})
+}

@@ -33,6 +33,11 @@ export interface Words{
     total: number;
 }
 
+export interface MarkToReview {
+    word: string;
+    to_review: boolean;
+}
+
 class ApiClient {
     private readonly baseUrl: string;
 
@@ -87,6 +92,13 @@ class ApiClient {
         return this.request(`/words`, {
             method: 'DELETE',
             body: JSON.stringify({word}),
+        });
+    }
+
+    async markToReview(word: MarkToReview): Promise<Response> {
+        return this.request('/words/review', {
+            method: 'PUT',
+            body: JSON.stringify(word),
         });
     }
 

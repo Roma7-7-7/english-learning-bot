@@ -73,6 +73,12 @@ export function WordModal({
             }
 
             if (response.status >= 200 && response.status < 300) {
+                if (action === 'edit') {
+                    client.markToReview({
+                        word: newWordInput,
+                        to_review: false,
+                    })
+                }
                 onSuccess();
                 onHide();
             } else {
