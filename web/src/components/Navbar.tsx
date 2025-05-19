@@ -24,10 +24,6 @@ export function Navbar() {
         });
     }
 
-    if (!state.user) {
-        return <></>
-    }
-
     return (
         <BSNavbar bg="dark" variant="dark" expand="lg" className="mb-3" style={{borderRadius: "0 0 10px 10px"}}>
             <Container fluid>
@@ -40,7 +36,7 @@ export function Navbar() {
                         <span style={{color: 'whitesmoke'}}> / </span>
                         <span style={{color: 'indianred'}}>{state.stats?.total}</span>
                     </span>
-                    <Button variant="outline-danger" onClick={handleLogout}>Log out</Button>
+                    {state.user && <Button variant="outline-danger" onClick={handleLogout}>Log out</Button>}
                 </BSNavbar.Collapse>
             </Container>
         </BSNavbar>

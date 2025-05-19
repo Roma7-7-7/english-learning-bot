@@ -15,7 +15,6 @@ export function AuthenticationGuard({children}: AuthenticationGuardProps) {
     const location = useLocation();
 
     useEffect(() => {
-        // todo do we need /error here?
         const isPublicRoute = ['/login', '/logout', "/error"].includes(location.pathname);
         if (isPublicRoute) {
             setIsLoading(false);
@@ -46,7 +45,7 @@ export function AuthenticationGuard({children}: AuthenticationGuardProps) {
                         return;
                     }
                     console.error(e);
-                    navigate("/error?message=Something went wrong"); // todo create error route
+                    navigate("/error?message=Something went wrong");
                 })
             } finally {
                 setIsLoading(false);

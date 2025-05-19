@@ -7,6 +7,7 @@ import {Login} from "./routes/Login.tsx";
 import {AppStateProvider} from "./context.tsx";
 import {Navbar} from "./components/Navbar.tsx";
 import {AuthenticationGuard} from "./components/AuthenticationGuard.tsx";
+import {ErrorPage} from "./routes/Error.tsx";
 
 const App: React.FC = () => {
     return (
@@ -20,6 +21,7 @@ const App: React.FC = () => {
                                 <Navbar />
                                 <Routes>
                                     <Route path="/" element={<Home />} />
+                                    <Route path="/error" element={<ErrorPage />} />
                                 </Routes>
                             </>
                         </AuthenticationGuard>
