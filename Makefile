@@ -11,6 +11,19 @@ deps:
 run-web:
 	cd web && npm run dev
 
+build-bot:
+	go mod download
+	CGO_ENABLED=0 go build -o ./bin/english-learning-bot ./cmd/bot/main.go
+
+build-api:
+	go mod download
+	CGO_ENABLED=0 go build -o ./bin/english-learning-api ./cmd/web/main.go
+
+build-web:
+	cd web && npm install && npm run build
+
+build: build-bot build-api build-web
+
 docker-build:
 	docker build -t english-learning-bot .
 
