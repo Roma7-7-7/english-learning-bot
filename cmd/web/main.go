@@ -55,11 +55,7 @@ func run(env config.Env, ctx context.Context) int {
 	}
 	defer db.Close()
 
-	deps, err := dependencies(ctx, conf, db, log)
-	if err != nil {
-		log.ErrorContext(ctx, "failed to create dependencies", "error", err)
-		return exitCodeDependenciesCreate
-	}
+	deps := dependencies(ctx, conf, db, log)
 	router := web.NewRouter(ctx, conf, deps)
 	log.InfoContext(ctx, "starting web server", "config", conf)
 
@@ -70,7 +66,7 @@ func run(env config.Env, ctx context.Context) int {
 
 	go func() {
 		<-ctx.Done()
-		cCtx, cCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		cCtx, cCancel := context.WithTimeout(context.Background(), 15*time.Second) //nolint:mnd // ignore mnd
 		defer cCancel()
 
 		if sErr := server.Shutdown(cCtx); sErr != nil {
@@ -88,12 +84,12 @@ func run(env config.Env, ctx context.Context) int {
 	return exitCodeOK
 }
 
-func dependencies(ctx context.Context, conf config.Web, db *pgxpool.Pool, log *slog.Logger) (web.Dependencies, error) {
+func dependencies(ctx context.Context, conf config.Web, db *pgxpool.Pool, log *slog.Logger) web.Dependencies {
 	return web.Dependencies{
 		Repo:           dal.NewPostgreSQLRepository(ctx, db, log),
 		TelegramClient: telegram.NewClient(conf.Telegram.Token, log),
 		Logger:         log,
-	}, nil
+	}
 }
 
 func mustLogger(env config.Env) *slog.Logger {

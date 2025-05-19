@@ -125,7 +125,7 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 			WHERE %s
 			ORDER BY word
 			OFFSET $%d
-			LIMIT $%d`, strings.Join(conditions, " AND "), argsCount+1, argsCount+2)
+			LIMIT $%d`, strings.Join(conditions, " AND "), argsCount+1, argsCount+2) //nolint:mnd // ignore mnd
 
 		rows, err := r.client.Query(ctx, query, arguments...)
 		if err != nil {

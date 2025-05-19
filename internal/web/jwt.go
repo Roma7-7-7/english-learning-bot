@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -41,7 +42,7 @@ func (p *JWTProcessor) ToAuthToken(chatID int64, key string) (string, error) {
 	now := time.Now()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		Username: fmt.Sprintf("%d", chatID),
+		Username: strconv.FormatInt(chatID, 10),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    p.issuer,
 			Subject:   fmt.Sprintf("%d:%s", chatID, key),
@@ -61,9 +62,9 @@ func (p *JWTProcessor) ToAuthToken(chatID int64, key string) (string, error) {
 	return signedString, nil
 }
 
-func (p *JWTProcessor) ParseAuthToken(token string) (chatID int64, key string, err error) {
+func (p *JWTProcessor) ParseAuthToken(token string) (int64, string, error) {
 	var parsed *jwt.Token
-	parsed, err = jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return p.secret, nil
 	})
 	if err != nil {
@@ -73,11 +74,13 @@ func (p *JWTProcessor) ParseAuthToken(token string) (chatID int64, key string, e
 	if err != nil {
 		return 0, "", fmt.Errorf("get subject: %w", err)
 	}
+	var chatID int64
+	var key string
 	_, err = fmt.Sscanf(subject, "%d:%s", &chatID, &key)
 	if err != nil {
 		return 0, "", fmt.Errorf("parse subject: %w", err)
 	}
-	return
+	return chatID, key, nil
 }
 
 func (p *JWTProcessor) ToAccessToken(chatID int64) (string, error) {
@@ -87,7 +90,7 @@ func (p *JWTProcessor) ToAccessToken(chatID int64) (string, error) {
 		Username: fmt.Sprintf("%d", chatID),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    p.issuer,
-			Subject:   fmt.Sprintf("%d", chatID),
+			Subject:   strconv.FormatInt(chatID, 10),
 			Audience:  p.audience,
 			ExpiresAt: jwt.NewNumericDate(now.Add(p.accessExpireIn)),
 			NotBefore: jwt.NewNumericDate(now),
@@ -104,9 +107,9 @@ func (p *JWTProcessor) ToAccessToken(chatID int64) (string, error) {
 	return signedString, nil
 }
 
-func (p *JWTProcessor) ParseAccessToken(token string) (chatID int64, err error) {
+func (p *JWTProcessor) ParseAccessToken(token string) (int64, error) {
 	var parsed *jwt.Token
-	parsed, err = jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return p.secret, nil
 	})
 	if err != nil {
@@ -116,9 +119,10 @@ func (p *JWTProcessor) ParseAccessToken(token string) (chatID int64, err error) 
 	if err != nil {
 		return 0, fmt.Errorf("get subject: %w", err)
 	}
+	var chatID int64
 	_, err = fmt.Sscanf(subject, "%d", &chatID)
 	if err != nil {
 		return 0, fmt.Errorf("parse subject: %w", err)
 	}
-	return
+	return chatID, nil
 }

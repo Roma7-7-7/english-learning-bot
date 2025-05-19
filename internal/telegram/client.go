@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
+	"strconv"
 )
 
 type (
@@ -85,9 +86,9 @@ func (c *Client) AskAuthConfirmation(ctx context.Context, chatID int64, token st
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 300 {
-		tags := make([]any, 0, 4)
-		tags = append(tags, "status", fmt.Sprint(resp.StatusCode))
+	if resp.StatusCode >= 300 { //nolint:mnd // ignore mnd
+		tags := make([]any, 0, 4) //nolint:mnd // ignore mnd
+		tags = append(tags, "status", strconv.Itoa(resp.StatusCode))
 		if response, err := httputil.DumpResponse(resp, true); err != nil {
 			c.log.DebugContext(ctx, "failed to dump response", "error", err)
 		} else {

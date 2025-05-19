@@ -27,10 +27,10 @@ type (
 
 func (r *PostgreSQLRepository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
 	if chatID == 0 {
-		return fmt.Errorf("chat id is required")
+		return errors.New("chat id is required")
 	}
 	if expiresIn <= 0 {
-		return fmt.Errorf("expires in is required")
+		return errors.New("expires in is required")
 	}
 
 	_, err := r.client.Exec(ctx, `
