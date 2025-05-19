@@ -1,9 +1,10 @@
-import {type JSX, useEffect, useState} from "react";
-import client, {type Words, type WordsQueryParams} from "../api/client.tsx";
-import {useAppState} from "../context.tsx";
+import { type JSX, useEffect, useState } from "react";
+import client, { type Words, type WordsQueryParams } from "../api/client.tsx";
+import { useAppState } from "../context.tsx";
+import { Container, Row, Col, Form, Button, Table, Pagination, Alert, Spinner } from 'react-bootstrap';
 
 export function Home() {
-    const {refreshStats} = useAppState()
+    const { refreshStats } = useAppState()
     const [words, setWords] = useState<Words | null>(null);
     const [qp, setQP] = useState({
         search: "",
@@ -25,7 +26,6 @@ export function Home() {
 
             throw new Error("Failed to fetch words");
         }).then(w => {
-            console.log("Words:", w.items.length, w.total);
             // It may happen if we applied some filtering which has words but current page overflows the total number of filtered words
             if (w.items.length == 0 && w.total > 0) {
                 setQP(existing => {
@@ -76,54 +76,72 @@ export function Home() {
 
     return (
         <>
-            {!words && (
-                <div><h1>Loading...</h1></div>
-            )}
-            {words && (
-                <div id="content" className="p-3">
-                    <form id="searchForm" className="row form-inline form-group align-items-center mb-3">
-                        <div className="col-3">
-                            <label><input className="form-control" type="text" name="search" placeholder="Search" value={qp.search}
-                                          onChange={present => {
-                                              setQP((existing: WordsQueryParams) => {
-                                                  return {
-                                                      ...existing,
-                                                      search: present.target.value,
-                                                  }
-                                              });
-                                          }}/></label>
-                        </div>
-                        <div className="col-2">
-                            <div className="form-check d-flex align-items-center h-100">
-                                <label className="form-check-label ms-2">
-                                    <input name="to_review" type="checkbox" className="form-check-input" checked={qp.to_review}
-                                           onChange={present => {
-                                               setQP((existing: WordsQueryParams) => {
-                                                   return {
-                                                       ...existing,
-                                                       to_review: present.target.checked,
-                                                   }
-                                               });
-                                           }}/> To Review
-                                </label>
-                            </div>
-                        </div>
-                        <div className="col-6"></div>
-                        <div className="col-1">
-                            <a className="btn btn-secondary" style={{width: '100%'}} onClick={() => {
-                                setQP({
-                                    search: "",
-                                    to_review: false,
-                                    offset: 0,
-                                    limit: 15,
-                                });
-                            }}><span aria-hidden="true">&times;</span></a>
-                        </div>
-                    </form>
+            {!words ? (
+                <Container className="text-center mt-5">
+                    <Spinner animation="border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </Spinner>
+                    <h1>Loading...</h1>
+                </Container>
+            ) : (
+                <Container id="content" className="p-3">
+                    <Row className="mb-3 align-items-center">
+                        <Col xs={12} md={3}>
+                            <Form.Group>
+                                <Form.Control
+                                    type="text"
+                                    placeholder="Search"
+                                    value={qp.search}
+                                    onChange={present => {
+                                        setQP((existing: WordsQueryParams) => {
+                                            return {
+                                                ...existing,
+                                                search: present.target.value,
+                                            }
+                                        });
+                                    }}
+                                />
+                            </Form.Group>
+                        </Col>
+                        <Col xs={12} md={2}>
+                            <Form.Check
+                                type="checkbox"
+                                id="to-review-checkbox"
+                                label="To Review"
+                                checked={qp.to_review}
+                                onChange={present => {
+                                    setQP((existing: WordsQueryParams) => {
+                                        return {
+                                            ...existing,
+                                            to_review: present.target.checked,
+                                        }
+                                    });
+                                }}
+                            />
+                        </Col>
+                        <Col xs={12} md={6}></Col>
+                        <Col xs={12} md={1}>
+                            <Button
+                                variant="secondary"
+                                className="w-100"
+                                onClick={() => {
+                                    setQP({
+                                        search: "",
+                                        to_review: false,
+                                        offset: 0,
+                                        limit: 15,
+                                    });
+                                }}
+                            >
+                                <span aria-hidden="true">&times;</span>
+                            </Button>
+                        </Col>
+                    </Row>
+
                     <div id="words">
-                        <div className="row">
-                            <div className="col-12">
-                                <table className="table">
+                        <Row>
+                            <Col xs={12}>
+                                <Table hover>
                                     <thead>
                                     <tr>
                                         <th>Word</th>
@@ -134,42 +152,50 @@ export function Home() {
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    {words.items.map((item) => {
-                                        return (
-                                            <tr key={item.word}>
-                                                <td>{item.word}</td>
-                                                <td>{item.translation}</td>
-                                                <td>{item.to_review ? "Yes" : "No"}</td>
-                                                <td className="text-center">
-                                                    <a href={`/words/edit/${item.word}`} className="btn btn-link bi bi-pencil"></a>
-                                                </td>
-                                                <td className="text-center">
-                                                    <button className="btn btn-link bi bi-trash"
-                                                            onClick={() => handleDeleteWord(item.word)}></button>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
+                                    {words.items.map((item) => (
+                                        <tr key={item.word}>
+                                            <td>{item.word}</td>
+                                            <td>{item.translation}</td>
+                                            <td>{item.to_review ? "Yes" : "No"}</td>
+                                            <td className="text-center">
+                                                <Button
+                                                    href={`/words/edit/${item.word}`}
+                                                    variant="link"
+                                                    className="bi bi-pencil"
+                                                />
+                                            </td>
+                                            <td className="text-center">
+                                                <Button
+                                                    variant="link"
+                                                    className="bi bi-trash"
+                                                    onClick={() => handleDeleteWord(item.word)}
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))}
                                     </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div className="row">
-                            <div className="col-12">
+                                </Table>
+                            </Col>
+                        </Row>
+                        <Row>
+                            <Col xs={12}>
                                 <div className="d-flex justify-content-center">
                                     {paginationFooter(qp, words.total, onPageChange)}
                                 </div>
-                            </div>
-                        </div>
+                            </Col>
+                        </Row>
                     </div>
-                    <div className="row">
-                        {error && (
-                            <div className="alert alert-danger" role="alert">
-                                {error}
-                            </div>
-                        )}
-                    </div>
-                </div>
+
+                    {error && (
+                        <Row>
+                            <Col>
+                                <Alert variant="danger">
+                                    {error}
+                                </Alert>
+                            </Col>
+                        </Row>
+                    )}
+                </Container>
             )}
         </>
     )
@@ -182,15 +208,14 @@ function paginationFooter(qp: WordsQueryParams, totalItems: number, onPageChange
         return (<></>)
     }
 
-
-    interface li {
+    interface PaginationItem {
         active: boolean;
         disabled: boolean;
         page: number;
         isArrow?: boolean;
     }
 
-    const items: li[] = [];
+    const items: PaginationItem[] = [];
 
     if (totalPages <= 7) {
         for (let i = 1; i <= totalPages; i++) {
@@ -207,8 +232,6 @@ function paginationFooter(qp: WordsQueryParams, totalItems: number, onPageChange
             page: 1,
             isArrow: true
         });
-
-        // &nbsp;&nbsp;
 
         if (page > 2) {
             items.push({
@@ -248,8 +271,6 @@ function paginationFooter(qp: WordsQueryParams, totalItems: number, onPageChange
             });
         }
 
-        // &nbsp;&nbsp;
-
         items.push({
             active: false,
             disabled: page === totalPages,
@@ -258,23 +279,26 @@ function paginationFooter(qp: WordsQueryParams, totalItems: number, onPageChange
         });
     }
 
-    return <ul className="pagination">
-        {items.map(((item, idx) => {
-            return (
-                <li key={"page-" + idx} className={`page-item ${item.active ? "active" : ""} ${item.disabled ? "disabled" : ""}`}>
-                    <a className="page-link" onClick={() => {
+    return (
+        <Pagination>
+            {items.map(((item, idx) => (
+                <Pagination.Item
+                    key={"page-" + idx}
+                    active={item.active}
+                    disabled={item.disabled}
+                    onClick={() => {
                         if (!item.disabled) {
                             onPageChange(item.page);
                         }
-                    }}>
-                        {item.isArrow && idx === 0 && <span aria-hidden="true">&laquo;</span>}
-                        {!item.isArrow && item.page}
-                        {item.isArrow && idx === items.length - 1 && <span aria-hidden="true">&raquo;</span>}
-                    </a>
-                </li>
-            )
-        }))}
-    </ul>
+                    }}
+                >
+                    {item.isArrow && idx === 0 && <span aria-hidden="true">&laquo;</span>}
+                    {!item.isArrow && item.page}
+                    {item.isArrow && idx === items.length - 1 && <span aria-hidden="true">&raquo;</span>}
+                </Pagination.Item>
+            )))}
+        </Pagination>
+    );
 }
 
 function getPage(qp: WordsQueryParams): number {

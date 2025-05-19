@@ -1,6 +1,7 @@
-import {useAppState} from "../context.tsx";
+import { useAppState } from "../context.tsx";
 import client from "../api/client.tsx";
-import {useNavigate} from "react-router-dom";
+import {Link, useNavigate} from "react-router-dom";
+import {Navbar as BSNavbar, Container, Nav, Button} from 'react-bootstrap';
 
 export function Navbar() {
     const { state, dispatch } = useAppState();
@@ -27,23 +28,21 @@ export function Navbar() {
         return <></>
     }
 
-    return <nav className="navbar bg-dark navbar-expand-lg bg-body-tertiary mb-3" data-bs-theme="dark"
-                style={{borderRadius: "0 0 10px 10px"}}>
-        <div className="container-fluid">
-            <a className="navbar-brand" href="/">Home</a>
-            <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                    aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                <span className="navbar-toggler-icon"></span>
-            </button>
-            <div className="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul className="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li className="nav-item">
-                    </li>
-                </ul>
-                <span style={{margin: '0 15px'}}><span style={{color: 'forestgreen'}}>{state.stats?.learned }</span> <span
-                    style={{color: 'whitesmoke'}}> / </span> <span style={{color: 'indianred'}}> {state.stats?.total}</span></span>
-                <a className="btn btn-outline-danger" onClick={handleLogout}>Log out</a>
-            </div>
-        </div>
-    </nav>
+    return (
+        <BSNavbar bg="dark" variant="dark" expand="lg" className="mb-3" style={{borderRadius: "0 0 10px 10px"}}>
+            <Container fluid>
+                <Link to="/" className="navbar-brand">Home</Link>
+                <BSNavbar.Toggle aria-controls="navbarScroll" />
+                <BSNavbar.Collapse id="navbarScroll">
+                    <Nav className="me-auto my-2 my-lg-0" />
+                    <span style={{margin: '0 15px'}}>
+                        <span style={{color: 'forestgreen'}}>{state.stats?.learned}</span>
+                        <span style={{color: 'whitesmoke'}}> / </span>
+                        <span style={{color: 'indianred'}}>{state.stats?.total}</span>
+                    </span>
+                    <Button variant="outline-danger" onClick={handleLogout}>Log out</Button>
+                </BSNavbar.Collapse>
+            </Container>
+        </BSNavbar>
+    );
 }
