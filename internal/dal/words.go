@@ -134,7 +134,7 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 		defer rows.Close()
 
 		for rows.Next() {
-			wt, err := hydrateWordTranslation(rows)
+			wt, err := hydrateWordTranslation(rows) //nolint:govet // ignore shadow declaration
 			if err != nil {
 				return fmt.Errorf("scan word translation: %w", err)
 			}

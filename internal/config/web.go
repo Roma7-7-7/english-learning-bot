@@ -37,7 +37,8 @@ type (
 	}
 
 	Server struct {
-		Addr string `json:"addr"`
+		ReadHeaderTimeout time.Duration `json:"read_header_timeout"`
+		Addr              string        `json:"addr"`
 	}
 
 	Telegram struct {
@@ -62,16 +63,16 @@ func NewWeb(env Env) (Web, error) {
 			URL: os.Getenv("DB_URL"),
 		},
 		API: WebAPI{
-			Timeout:   10 * time.Second,
-			RateLimit: 10,
+			Timeout:   10 * time.Second, //nolint:mnd // ignore mnd
+			RateLimit: 25,               //nolint:mnd // ignore mnd
 			CORS: CORS{
 				AllowOrigins: []string{"http://localhost:5173"},
 			},
 			Cookie: Cookie{
 				Path:            "/",
 				Domain:          "localhost",
-				AuthExpiresIn:   15 * time.Minute,
-				AccessExpiresIn: 24 * time.Hour,
+				AuthExpiresIn:   15 * time.Minute, //nolint:mnd // ignore mnd
+				AccessExpiresIn: 24 * time.Hour,   //nolint:mnd // ignore mnd
 			},
 			JWT: JWT{
 				Issuer:   "english-learning-web",
@@ -83,7 +84,8 @@ func NewWeb(env Env) (Web, error) {
 			Token: os.Getenv("TELEGRAM_TOKEN"),
 		},
 		Server: Server{
-			Addr: ":8080",
+			ReadHeaderTimeout: 10 * time.Second,
+			Addr:              ":8080",
 		},
 	}, nil
 }

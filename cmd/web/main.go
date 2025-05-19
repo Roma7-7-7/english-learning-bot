@@ -21,15 +21,14 @@ const (
 	exitCodeOK int = iota
 	exitCodeConfigParse
 	exitCodeDBConnect
-	exitCodeDependenciesCreate
 	exitCodeServerStart
 )
 
 func main() {
-	os.Exit(run(config.GetEnv(), context.Background()))
+	os.Exit(run(context.Background(), config.GetEnv()))
 }
 
-func run(env config.Env, ctx context.Context) int {
+func run(ctx context.Context, env config.Env) int {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -60,8 +59,9 @@ func run(env config.Env, ctx context.Context) int {
 	log.InfoContext(ctx, "starting web server", "config", conf)
 
 	server := &http.Server{
-		Addr:    conf.Server.Addr,
-		Handler: router,
+		ReadHeaderTimeout: conf.Server.ReadHeaderTimeout,
+		Addr:              conf.Server.Addr,
+		Handler:           router,
 	}
 
 	go func() {
@@ -77,9 +77,9 @@ func run(env config.Env, ctx context.Context) int {
 	if err = server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.ErrorContext(ctx, "failed to start web server", "error", err)
 		return exitCodeServerStart
-	} else {
-		log.InfoContext(ctx, "web server is stopped")
 	}
+
+	log.InfoContext(ctx, "web server is stopped")
 
 	return exitCodeOK
 }

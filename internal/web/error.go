@@ -14,10 +14,11 @@ type ErrorResponse struct {
 }
 
 var (
-	InternalServerError = ErrorResponse{"Internal server error"}
-	BadRequestError     = ErrorResponse{"Bad request"}
+	InternalServerError = ErrorResponse{"Internal server error"} //nolint:gochecknoglobals // this is a constant response for internal server error
+	BadRequestError     = ErrorResponse{"Bad request"}           //nolint:gochecknoglobals // this is a constant response for bad request
 )
 
+// nolint:gocognit // no more changes are needed
 func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 	return func(err error, c echo.Context) {
 		log.ErrorContext(c.Request().Context(), "failed to process request", "error", err)
@@ -44,9 +45,9 @@ func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 			return
 		}
 
-		if bytes, err := json.Marshal(echoError.Message); err != nil {
+		if bytes, err := json.Marshal(echoError.Message); err != nil { //nolint:govet // ignore shadow declaration
 			log.ErrorContext(c.Request().Context(), "failed to marshal error message", "error", err)
-			if err := c.JSON(echoError.Code, InternalServerError); err != nil {
+			if err := c.JSON(echoError.Code, InternalServerError); err != nil { //nolint:govet // ignore shadow declaration
 				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
 			}
 		} else {

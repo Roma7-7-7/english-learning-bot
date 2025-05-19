@@ -64,7 +64,7 @@ func (p *JWTProcessor) ToAuthToken(chatID int64, key string) (string, error) {
 
 func (p *JWTProcessor) ParseAuthToken(token string) (int64, string, error) {
 	var parsed *jwt.Token
-	parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	parsed, err := jwt.Parse(token, func(_ *jwt.Token) (interface{}, error) {
 		return p.secret, nil
 	})
 	if err != nil {
@@ -87,7 +87,7 @@ func (p *JWTProcessor) ToAccessToken(chatID int64) (string, error) {
 	now := time.Now()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		Username: fmt.Sprintf("%d", chatID),
+		Username: strconv.FormatInt(chatID, 10),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    p.issuer,
 			Subject:   strconv.FormatInt(chatID, 10),
@@ -109,7 +109,7 @@ func (p *JWTProcessor) ToAccessToken(chatID int64) (string, error) {
 
 func (p *JWTProcessor) ParseAccessToken(token string) (int64, error) {
 	var parsed *jwt.Token
-	parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	parsed, err := jwt.Parse(token, func(_ *jwt.Token) (interface{}, error) {
 		return p.secret, nil
 	})
 	if err != nil {

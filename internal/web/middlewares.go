@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-var unauthorizedResponse = ErrorResponse{"Unauthorized"}
+var unauthorizedResponse = ErrorResponse{"Unauthorized"} //nolint:gochecknoglobals // this is a constant response for unauthorized access
 
 func AuthMiddleware(cookieProc *CookiesProcessor, jwtProc *JWTProcessor, log *slog.Logger) func(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {

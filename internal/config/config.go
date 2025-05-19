@@ -19,12 +19,10 @@ type Env string
 
 func GetEnv() Env {
 	res := os.Getenv("ENV")
-	switch Env(res) {
-	case EnvDev:
+	if Env(res) == EnvDev {
 		return EnvDev
-	default:
-		return EnvProd
 	}
+	return EnvProd
 }
 
 func parseChatIDs(chatIDsStr string) ([]int64, error) {
