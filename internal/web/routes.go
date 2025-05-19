@@ -61,7 +61,7 @@ func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Han
 	securedGroup.GET("/words/stats", words.Stats)
 	securedGroup.GET("/words", words.FindWords)
 	securedGroup.POST("/words", words.CreateWord)
-	//securedGroup.GET("/words/edit", words.WordPage)
+	securedGroup.PUT("/words", words.UpdateWord)
 	securedGroup.DELETE("/words", words.DeleteWord)
 
 	return e

@@ -24,6 +24,7 @@ export function WordModal({
                               onSuccess
                           }: WordModalProps) {
     const [wordInput, setWordInput] = useState(word);
+    const [newWordInput, setNewWordInput] = useState(word);
     const [translationInput, setTranslationInput] = useState(translation);
     const [descriptionInput, setDescriptionInput] = useState(description);
     const [error, setError] = useState<string>("");
@@ -33,15 +34,17 @@ export function WordModal({
     useEffect(() => {
         if (show) {
             setWordInput(word);
+            setNewWordInput(word);
             setTranslationInput(translation);
             setDescriptionInput(description);
             setError("");
-            const wordInputElement = document.getElementById("word-input");
-            if (wordInputElement) {
-                (wordInputElement as HTMLInputElement).focus();
+            const focusElement = action === 'add' ? "word-input" : "new-word-input";
+            const element = document.getElementById(focusElement);
+            if (element) {
+                (element as HTMLInputElement).focus();
             }
         }
-    }, [show, word, translation, description]);
+    }, [show, word, translation, description, action]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,6 +54,9 @@ export function WordModal({
         try {
             let response;
 
+            if (!confirm("Are you sure you want to proceed?")) {
+                return;
+            }
             if (action === 'add') {
                 response = await client.createWord({
                     word: wordInput,
@@ -58,8 +64,9 @@ export function WordModal({
                     description: descriptionInput,
                 });
             } else {
-                response = await client.updateWord(word, {
+                response = await client.updateWord({
                     word: wordInput,
+                    new_word: newWordInput,
                     translation: translationInput,
                     description: descriptionInput,
                 });
@@ -90,18 +97,43 @@ export function WordModal({
             </Modal.Header>
             <Form onSubmit={handleSubmit}>
                 <Modal.Body>
-                    <Form.Group className="mb-3">
-                        <Form.Label>Word</Form.Label>
-                        <Form.Control
-                            id="word-input"
-                            type="text"
-                            value={wordInput}
-                            onChange={(e) => setWordInput(e.target.value)}
-                            placeholder="Enter word"
-                            disabled={action === 'edit'}
-                            required
-                        />
-                    </Form.Group>
+                    {action === 'edit' && (
+                        <Form.Group className="mb-3">
+                            <Form.Label>Original Word</Form.Label>
+                            <Form.Control
+                                type="text"
+                                value={wordInput}
+                                readOnly
+                                disabled
+                            />
+                        </Form.Group>
+                    )}
+
+                    {action === 'edit' ? (
+                        <Form.Group className="mb-3">
+                            <Form.Label>New Word</Form.Label>
+                            <Form.Control
+                                id="new-word-input"
+                                type="text"
+                                value={newWordInput}
+                                onChange={(e) => setNewWordInput(e.target.value)}
+                                placeholder="Enter new word"
+                                required
+                            />
+                        </Form.Group>
+                    ) : (
+                        <Form.Group className="mb-3">
+                            <Form.Label>Word</Form.Label>
+                            <Form.Control
+                                id="word-input"
+                                type="text"
+                                value={wordInput}
+                                onChange={(e) => setWordInput(e.target.value)}
+                                placeholder="Enter word"
+                                required
+                            />
+                        </Form.Group>
+                    )}
 
                     <Form.Group className="mb-3">
                         <Form.Label>Translation</Form.Label>

@@ -192,9 +192,9 @@ export function Home() {
                                     <tr>
                                         <th>Word</th>
                                         <th>Translation</th>
-                                        <th>To Review</th>
-                                        <th>Edit</th>
-                                        <th>Delete</th>
+                                        <th className="text-center">To Review</th>
+                                        <th className="text-center">Edit</th>
+                                        <th className="text-center">Delete</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -202,7 +202,9 @@ export function Home() {
                                         <tr key={item.word}>
                                             <td>{item.word}</td>
                                             <td>{item.translation}</td>
-                                            <td>{item.to_review ? "Yes" : "No"}</td>
+                                            <td className="text-center">
+                                                {item.to_review ? "Yes" : "No"}
+                                            </td>
                                             <td className="text-center">
                                                 <Button
                                                     variant="link"

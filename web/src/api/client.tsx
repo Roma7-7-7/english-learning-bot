@@ -22,6 +22,7 @@ export interface WordsQueryParams {
 
 export interface Word {
     word: string;
+    new_word?: string;
     translation: string;
     description?: string;
     to_review?: boolean;
@@ -75,8 +76,8 @@ class ApiClient {
         });
     }
 
-    async updateWord(word: string, updatedWord: Word): Promise<Response> {
-        return this.request(`/words/${word}`, {
+    async updateWord(updatedWord: Word): Promise<Response> {
+        return this.request(`/words`, {
             method: 'PUT',
             body: JSON.stringify(updatedWord),
         });
