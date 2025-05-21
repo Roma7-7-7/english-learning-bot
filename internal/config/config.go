@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -16,14 +15,6 @@ const (
 )
 
 type Env string
-
-func GetEnv() Env {
-	res := os.Getenv("ENV")
-	if Env(res) == EnvDev {
-		return EnvDev
-	}
-	return EnvProd
-}
 
 func parseChatIDs(chatIDsStr string) ([]int64, error) {
 	if chatIDsStr == "" {

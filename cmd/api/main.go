@@ -25,10 +25,10 @@ const (
 )
 
 func main() {
-	os.Exit(run(context.Background(), config.GetEnv()))
+	os.Exit(run(context.Background()))
 }
 
-func run(ctx context.Context, env config.Env) int {
+func run(ctx context.Context) int {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -39,13 +39,12 @@ func run(ctx context.Context, env config.Env) int {
 	}()
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	log := mustLogger(env)
-
-	conf, err := config.NewAPI(env)
+	conf, err := config.NewAPI()
 	if err != nil {
-		log.ErrorContext(ctx, "failed to get config", "error", err)
+		slog.ErrorContext(ctx, "failed to get config", "error", err)
 		return exitCodeConfigParse
 	}
+	log := mustLogger(conf.Dev)
 
 	db, err := pgxpool.New(ctx, conf.DB.URL)
 	if err != nil {
@@ -92,16 +91,16 @@ func dependencies(ctx context.Context, conf config.API, db *pgxpool.Pool, log *s
 	}
 }
 
-func mustLogger(env config.Env) *slog.Logger {
-	var handler slog.Handler
-	if env == config.EnvProd {
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		})
-	} else {
+func mustLogger(dev bool) *slog.Logger {
+	var handler slog.Handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+
+	if dev {
 		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		})
 	}
+	
 	return slog.New(handler)
 }

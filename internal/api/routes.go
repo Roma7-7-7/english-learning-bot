@@ -32,7 +32,7 @@ func NewRouter(ctx context.Context, conf config.API, deps Dependencies) http.Han
 		AllowCredentials: true,
 	}))
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
-		Timeout: conf.HTTP.Timeout,
+		Timeout: conf.HTTP.ProcessTimeout,
 	}))
 	e.Use(middleware.Secure())
 

@@ -155,4 +155,4 @@ class ApiClient {
     }
 }
 
-export default new ApiClient('http://localhost:8080');
+export default new ApiClient(import.meta.env.VITE_API_BASE_URL);

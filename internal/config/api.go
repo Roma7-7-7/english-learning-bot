@@ -1,91 +1,69 @@
 package config
 
 import (
-	"errors"
-	"os"
+	"fmt"
 	"time"
+
+	"github.com/kelseyhightower/envconfig"
 )
 
 type (
 	DB struct {
-		URL string `json:"url"`
+		URL string `envconfig:"DB_URL" required:"true"`
 	}
 
 	CORS struct {
-		AllowOrigins []string `json:"allow_origins"`
+		AllowOrigins []string `envconfig:"ALLOW_ORIGINS" required:"true"`
 	}
 
 	JWT struct {
-		Issuer   string   `json:"issuer"`
-		Audience []string `json:"audience"`
-		Secret   string   `json:"secret"`
+		Issuer   string   `envconfig:"ISSUER" default:"english-learning-api"`
+		Audience []string `envconfig:"AUDIENCE" required:"true"`
+		Secret   string   `envconfig:"SECRET" required:"true"`
 	}
 
 	Cookie struct {
-		Path            string        `json:"path"`
-		Domain          string        `json:"domain"`
-		AuthExpiresIn   time.Duration `json:"auth_expires_in"`
-		AccessExpiresIn time.Duration `json:"access_expires_in"`
+		Path            string        `envconfig:"CPATH" default:"/"` // not using PATH here because it may conflict with os.Path
+		Domain          string        `envconfig:"DOMAIN" required:"true"`
+		AuthExpiresIn   time.Duration `envconfig:"AUTH_EXPIRES_IN" default:"15m"`
+		AccessExpiresIn time.Duration `envconfig:"ACCESS_EXPIRES_IN" default:"24h"`
 	}
 
 	HTTP struct {
-		Timeout   time.Duration `json:"timeout"`
-		RateLimit float64       `json:"rate_limit"`
-		CORS      CORS          `json:"cors"`
-		Cookie    Cookie        `json:"cookie"`
-		JWT       JWT           `json:"jwt"`
+		ProcessTimeout time.Duration `envconfig:"PROCESS_TIMEOUT" default:"10s"`
+		RateLimit      float64       `envconfig:"RATE_LIMIT" default:"25"`
+		CORS           CORS
+		Cookie         Cookie
+		JWT            JWT
 	}
 
 	Server struct {
-		ReadHeaderTimeout time.Duration `json:"read_header_timeout"`
-		Addr              string        `json:"addr"`
+		ReadHeaderTimeout time.Duration `envconfig:"READ_HEADER_TIMEOUT" default:"10s"`
+		Addr              string        `envconfig:"ADDR" default:":8080"`
 	}
 
 	Telegram struct {
-		Token string
+		Token string `envconfig:"TELEGRAM_TOKEN" required:"true"`
 	}
 
 	API struct {
+		Dev      bool `envconfig:"DEV" default:"false"`
 		DB       DB
-		HTTP     HTTP `json:"http"`
+		HTTP     HTTP
 		Telegram Telegram
 		Server   Server
 	}
 )
 
-func NewAPI(env Env) (API, error) {
-	if env == EnvProd {
-		return API{}, errors.New("api environment is prod")
+func NewAPI() (API, error) {
+	var res API
+	if err := envconfig.Process("API", &res); err != nil {
+		return API{}, fmt.Errorf("parse api environment: %w", err)
 	}
 
-	return API{
-		DB: DB{
-			URL: os.Getenv("DB_URL"),
-		},
-		HTTP: HTTP{
-			Timeout:   10 * time.Second, //nolint:mnd // ignore mnd
-			RateLimit: 25,               //nolint:mnd // ignore mnd
-			CORS: CORS{
-				AllowOrigins: []string{"http://localhost:5173"},
-			},
-			Cookie: Cookie{
-				Path:            "/",
-				Domain:          "localhost",
-				AuthExpiresIn:   15 * time.Minute, //nolint:mnd // ignore mnd
-				AccessExpiresIn: 24 * time.Hour,   //nolint:mnd // ignore mnd
-			},
-			JWT: JWT{
-				Issuer:   "english-learning-api",
-				Audience: []string{"http://localhost:8080"},
-				Secret:   os.Getenv("JWT_SECRET"),
-			},
-		},
-		Telegram: Telegram{
-			Token: os.Getenv("TELEGRAM_TOKEN"),
-		},
-		Server: Server{
-			ReadHeaderTimeout: 10 * time.Second, //nolint:mnd // ignore mnd
-			Addr:              ":8080",
-		},
-	}, nil
+	if !res.Dev {
+		return API{}, fmt.Errorf("not implemented prod env")
+	}
+
+	return res, nil
 }
