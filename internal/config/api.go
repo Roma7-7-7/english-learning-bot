@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,7 +9,7 @@ import (
 
 type (
 	DB struct {
-		URL string `envconfig:"DB_URL" required:"true"`
+		URL string `required:"false"`
 	}
 
 	CORS struct {
@@ -44,7 +43,8 @@ type (
 	}
 
 	Telegram struct {
-		Token string `envconfig:"TELEGRAM_TOKEN" required:"true"`
+		Token          string  `required:"true"`
+		AllowedChatIDs []int64 `envconfig:"ALLOWED_CHAT_IDS" required:"true"`
 	}
 
 	API struct {
@@ -56,15 +56,68 @@ type (
 	}
 )
 
-func NewAPI() (API, error) {
-	var res API
-	if err := envconfig.Process("API", &res); err != nil {
-		return API{}, fmt.Errorf("parse api environment: %w", err)
+func NewAPI() (*API, error) {
+	res := &API{}
+	if err := envconfig.Process("API", res); err != nil {
+		return nil, fmt.Errorf("parse api environment: %w", err)
 	}
 
 	if !res.Dev {
-		return API{}, errors.New("prod is not supported yet")
+		if err := setAPIProdConfig(res); err != nil {
+			return nil, fmt.Errorf("set api prod config: %w", err)
+		}
+	}
+
+	if err := validateAPI(res); err != nil {
+		return nil, fmt.Errorf("validate api config: %w", err)
 	}
 
 	return res, nil
+}
+
+func setAPIProdConfig(target *API) error {
+	parameters, err := FetchAWSParams(
+		"/english-learning-api/prod/db_url",
+		"/english-learning-api/prod/secret",
+		"/english-learning-api/prod/telegram_token",
+		"/english-learning-api/prod/allowed_chat_ids",
+	)
+	if err != nil {
+		return fmt.Errorf("get parameters: %w", err)
+	}
+
+	for name, value := range parameters {
+		switch name {
+		case "/english-learning-api/prod/db_url":
+			target.DB.URL = value
+		case "/english-learning-api/prod/secret":
+			target.HTTP.JWT.Secret = value
+		case "/english-learning-api/prod/telegram_token":
+			target.Telegram.Token = value
+		case "/english-learning-api/prod/allowed_chat_ids":
+			target.Telegram.AllowedChatIDs, err = parseChatIDs(value)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateAPI(target *API) error {
+	if target.DB.URL == "" {
+		return fmt.Errorf("db url is required")
+	}
+	if target.HTTP.JWT.Secret == "" {
+		return fmt.Errorf("jwt secret is required")
+	}
+	if target.Telegram.Token == "" {
+		return fmt.Errorf("telegram token is required")
+	}
+	if len(target.Telegram.AllowedChatIDs) == 0 {
+		return fmt.Errorf("allowed chat ids are required")
+	}
+
+	return nil
 }

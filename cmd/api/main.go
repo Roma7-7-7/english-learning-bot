@@ -84,7 +84,7 @@ func run(ctx context.Context) int {
 	return exitCodeOK
 }
 
-func dependencies(ctx context.Context, conf config.API, db *pgxpool.Pool, log *slog.Logger) api.Dependencies {
+func dependencies(ctx context.Context, conf *config.API, db *pgxpool.Pool, log *slog.Logger) api.Dependencies {
 	return api.Dependencies{
 		Repo:           dal.NewPostgreSQLRepository(ctx, db, log),
 		TelegramClient: telegram.NewClient(conf.Telegram.Token, log),

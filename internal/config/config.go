@@ -4,17 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 )
-
-const (
-	DefaultAWSRegion = "eu-central-1"
-
-	EnvDev  Env = "dev"
-	EnvProd Env = "prod"
-)
-
-type Env string
 
 func parseChatIDs(chatIDsStr string) ([]int64, error) {
 	if chatIDsStr == "" {
@@ -32,18 +22,4 @@ func parseChatIDs(chatIDsStr string) ([]int64, error) {
 	}
 
 	return chatIDs, nil
-}
-
-func parsePublishInterval(publishIntervalStr string, def time.Duration) (time.Duration, error) {
-	if publishIntervalStr == "" {
-		return def, nil
-	}
-	return time.ParseDuration(publishIntervalStr)
-}
-
-func parseInt(val string, def int) (int, error) {
-	if val == "" {
-		return def, nil
-	}
-	return strconv.Atoi(val)
 }
