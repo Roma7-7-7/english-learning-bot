@@ -23,6 +23,7 @@ type (
 		JWTProcessor     *JWTProcessor
 		CookiesProcessor *CookiesProcessor
 		TelegramClient   TelegramClient
+		AllowedChatIDS   []int64
 		Logger           *slog.Logger
 	}
 
@@ -31,6 +32,7 @@ type (
 		teleClient       TelegramClient
 		jwtProcessor     *JWTProcessor
 		cookiesProcessor *CookiesProcessor
+		allowedChatIDs   map[int64]bool
 
 		log *slog.Logger
 	}
@@ -46,11 +48,16 @@ type (
 )
 
 func NewAuthHandler(deps AuthDependencies) *AuthHandler {
+	allowedChatIDs := make(map[int64]bool, len(deps.AllowedChatIDS))
+	for _, chatID := range deps.AllowedChatIDS {
+		allowedChatIDs[chatID] = true
+	}
 	return &AuthHandler{
 		repo:             deps.Repo,
 		teleClient:       deps.TelegramClient,
 		jwtProcessor:     deps.JWTProcessor,
 		cookiesProcessor: deps.CookiesProcessor,
+		allowedChatIDs:   allowedChatIDs,
 
 		log: deps.Logger,
 	}
@@ -72,6 +79,12 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	}
 
 	chatID := req.ChatID
+	if _, ok := h.allowedChatIDs[chatID]; !ok {
+		h.log.DebugContext(c.Request().Context(), "chat ID not allowed", "chat_id", chatID)
+		return c.JSON(http.StatusForbidden, ErrorResponse{
+			Message: "chat ID not allowed",
+		})
+	}
 	key := uuid.NewString()
 	if err = h.repo.InsertAuthConfirmation(c.Request().Context(), chatID, key, h.cookiesProcessor.authExpiresIn); err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to insert auth confirmation", "error", err)

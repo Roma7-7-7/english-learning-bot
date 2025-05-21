@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -58,7 +59,7 @@ func GetBot() (*Bot, error) {
 
 func validateBot(conf *Bot) (*Bot, error) {
 	if conf.DBURL == "" {
-		return nil, fmt.Errorf("db url is required")
+		return nil, errors.New("db url is required")
 	}
 
 	errs := make([]string, 0, 10) //nolint:mnd // 10 is a reasonable default value

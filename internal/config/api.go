@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -107,16 +108,16 @@ func setAPIProdConfig(target *API) error {
 
 func validateAPI(target *API) error {
 	if target.DB.URL == "" {
-		return fmt.Errorf("db url is required")
+		return errors.New("db url is required")
 	}
 	if target.HTTP.JWT.Secret == "" {
-		return fmt.Errorf("jwt secret is required")
+		return errors.New("jwt secret is required")
 	}
 	if target.Telegram.Token == "" {
-		return fmt.Errorf("telegram token is required")
+		return errors.New("telegram token is required")
 	}
 	if len(target.Telegram.AllowedChatIDs) == 0 {
-		return fmt.Errorf("allowed chat ids are required")
+		return errors.New("allowed chat ids are required")
 	}
 
 	return nil

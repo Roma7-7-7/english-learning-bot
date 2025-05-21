@@ -47,6 +47,7 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 		JWTProcessor:     jwtProcessor,
 		CookiesProcessor: cookiesProcessor,
 		TelegramClient:   deps.TelegramClient,
+		AllowedChatIDS:   conf.Telegram.AllowedChatIDs,
 		Logger:           deps.Logger,
 	})
 
