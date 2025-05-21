@@ -9,6 +9,14 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+    # Group all dependencies into a single PR
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     # Additional configuration options
     open-pull-requests-limit: 10
     labels:
@@ -27,6 +35,14 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+    # Group all dependencies into a single PR
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     # Additional configuration options
     open-pull-requests-limit: 10
     labels:
