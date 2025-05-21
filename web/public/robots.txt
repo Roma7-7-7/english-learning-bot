@@ -1,0 +1,110 @@
+# Complete website blocking for all bots, crawlers, and scrapers
+User-agent: *
+Disallow: /
+
+# Explicitly block major search engines
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+# Explicitly block AI crawlers
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: Claude-API
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: Omgili
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+# Block archive bots
+User-agent: archive.org_bot
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+# Block common scraping tools
+User-agent: scrapy
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: rogerbot
+Disallow: /
+
+User-agent: BLEXBot
+Disallow: /
+
+# Additional crawlers
+User-agent: dotbot
+Disallow: /
+
+User-agent: MauiBot
+Disallow: /
+
+User-agent: ScoutJet
+Disallow: /
+
+User-agent: Cliqzbot
+Disallow: /
+
+# Block all image search engines
+User-agent: Googlebot-Image
+Disallow: /
+
+User-agent: Bingbot-Image
+Disallow: /
+
+# Crawl-delay directive (some bots respect this)
+User-agent: *
+Crawl-delay: 3600
+
+# Additional modern restriction (not supported by all bots)
+# But respected by some major engines
+Sitemap: noindex

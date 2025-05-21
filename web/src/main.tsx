@@ -9,6 +9,9 @@ import {Navbar} from "./components/Navbar.tsx";
 import {AuthenticationGuard} from "./components/AuthenticationGuard.tsx";
 import {ErrorPage} from "./routes/Error.tsx";
 
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+
 const App: React.FC = () => {
     return (
         <AppStateProvider>

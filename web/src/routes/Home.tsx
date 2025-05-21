@@ -4,6 +4,8 @@ import { useAppState } from "../context.tsx";
 import { Container, Row, Col, Form, Button, Table, Pagination, Alert, Spinner } from 'react-bootstrap';
 import {WordModal} from "../components/WordModal.tsx";
 
+import { PencilSquare, Trash } from 'react-bootstrap-icons';
+
 interface ModalState {
     show: boolean;
     action: 'add' | 'edit';
@@ -244,15 +246,16 @@ export function Home() {
                                                             translation: item.translation,
                                                             description: item.description,
                                                         });
-                                                    }}
-                                                />
+                                                    }}>
+                                                    <PencilSquare />
+                                                </Button>
                                             </td>
                                             <td className="text-center">
                                                 <Button
                                                     variant="link"
-                                                    className="bi bi-trash"
-                                                    onClick={() => handleDeleteWord(item.word)}
-                                                />
+                                                    onClick={() => handleDeleteWord(item.word)}>
+                                                    <Trash />
+                                                </Button>
                                             </td>
                                         </tr>
                                     ))}
