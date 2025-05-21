@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	
+
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
