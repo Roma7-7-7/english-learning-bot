@@ -1,0 +1,164 @@
+package api
+
+import (
+	"log/slog"
+	"net/http"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/context"
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
+	"github.com/labstack/echo/v4"
+)
+
+type (
+	WordTranslation struct {
+		Word        string `json:"word"`
+		NewWord     string `json:"new_word,omitempty"`
+		Translation string `json:"translation"`
+		Description string `json:"description"`
+		ToReview    bool   `json:"to_review"`
+	}
+
+	WordsQueryParams struct {
+		Search   string `query:"search"`
+		ToReview bool   `query:"to_review"`
+		Offset   int    `query:"offset"`
+		Limit    int    `query:"limit"`
+	}
+
+	WordsHandler struct {
+		repo dal.WordTranslationsRepository
+		log  *slog.Logger
+	}
+)
+
+func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *WordsHandler {
+	return &WordsHandler{
+		repo: repo,
+		log:  log,
+	}
+}
+
+func (h *WordsHandler) Stats(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	stats, err := h.repo.GetStats(c.Request().Context(), chatID)
+	if err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"learned": stats.GreaterThanOrEqual15,
+		"total":   stats.Total,
+	})
+}
+
+func (h *WordsHandler) FindWords(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	var qp WordsQueryParams
+	if err := c.Bind(&qp); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	filter := dal.WordTranslationsFilter{
+		Word:     qp.Search,
+		ToReview: qp.ToReview,
+		Offset:   qp.Offset,
+		Limit:    qp.Limit,
+	}
+	words, totalWords, err := h.repo.FindWordTranslations(c.Request().Context(), chatID, filter)
+	if err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to find word translations", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	viewWords := make([]WordTranslation, len(words))
+	for i, word := range words {
+		viewWords[i] = WordTranslation{
+			Word:        word.Word,
+			Translation: word.Translation,
+			Description: word.Description,
+			ToReview:    word.ToReview,
+		}
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"items": viewWords,
+		"total": totalWords,
+	})
+}
+
+func (h *WordsHandler) CreateWord(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	var wt WordTranslation
+	if err := c.Bind(&wt); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := h.repo.AddWordTranslation(c.Request().Context(), chatID, wt.Word, wt.Translation, wt.Description); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to create word translation", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word created"})
+}
+
+func (h *WordsHandler) UpdateWord(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	var wt WordTranslation
+	if err := c.Bind(&wt); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := h.repo.UpdateWordTranslation(c.Request().Context(), chatID, wt.Word, wt.NewWord, wt.Translation, wt.Description); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to update word translation", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word updated"})
+}
+
+func (h *WordsHandler) DeleteWord(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	var wt WordTranslation
+	if err := c.Bind(&wt); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, wt.Word); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to delete word translation", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word deleted"})
+}
+
+type MarkToReviewRequest struct {
+	Word     string `json:"word"`
+	ToReview bool   `json:"to_review"`
+}
+
+func (h *WordsHandler) MarkToReview(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	var r MarkToReviewRequest
+	if err := c.Bind(&r); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := h.repo.MarkToReview(c.Request().Context(), chatID, r.Word, r.ToReview); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to mark word to review", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word marked"})
+}

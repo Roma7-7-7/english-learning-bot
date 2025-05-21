@@ -58,3 +58,13 @@ CREATE TABLE callback_data
 
     PRIMARY KEY (chat_id, uuid)
 );
+
+CREATE TABLE auth_confirmations
+(
+    chat_id    INT          NOT NULL,
+    token      UUID         NOT NULL,
+    expires_at TIMESTAMP    NOT NULL,
+    confirmed  BOOL         NOT NULL DEFAULT FALSE,
+
+    PRIMARY KEY (chat_id, token)
+);

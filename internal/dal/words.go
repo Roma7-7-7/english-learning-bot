@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -18,11 +20,19 @@ var (
 )
 
 type (
+	WordTranslationsFilter struct {
+		Word     string
+		ToReview bool
+		Offset   int
+		Limit    int
+	}
+
 	WordTranslationsRepository interface {
 		GetStats(ctx context.Context, chatID int64) (*WordTranslationStats, error)
 		AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
-		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
 		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
+		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
+		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error)
 		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
 		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
 		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
@@ -31,7 +41,7 @@ type (
 		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetToReview(ctx context.Context, chatID int64) error
-		MarkToReview(ctx context.Context, chatID int64, word string) error
+		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
 		DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error)
 	}
 
@@ -86,6 +96,77 @@ func (r *PostgreSQLRepository) AddWordTranslation(ctx context.Context, chatID in
 	return nil
 }
 
+func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error) {
+	argsCount := 1
+	conditions := []string{"chat_id = $1"}
+	arguments := []any{chatID}
+
+	if filter.Word != "" {
+		argsCount++
+		conditions = append(conditions, fmt.Sprintf("LOWER(word) SIMILAR TO $%d", argsCount))
+		arguments = append(arguments, fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word)))
+	}
+
+	if filter.ToReview {
+		argsCount++
+		conditions = append(conditions, fmt.Sprintf("to_review = $%d", argsCount))
+		arguments = append(arguments, filter.ToReview)
+	}
+
+	arguments = append(arguments, filter.Offset, filter.Limit)
+
+	eg, ctx := errgroup.WithContext(ctx)
+	res := make([]WordTranslation, 0, filter.Limit)
+	total := 0
+	eg.Go(func() error {
+		query := fmt.Sprintf(`
+			SELECT chat_id, word, translation, COALESCE(description, ''), guessed_streak, to_review, created_at, updated_at
+			FROM word_translations
+			WHERE %s
+			ORDER BY word
+			OFFSET $%d
+			LIMIT $%d`, strings.Join(conditions, " AND "), argsCount+1, argsCount+2) //nolint:mnd // ignore mnd
+
+		rows, err := r.client.Query(ctx, query, arguments...)
+		if err != nil {
+			return fmt.Errorf("find translations: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			wt, err := hydrateWordTranslation(rows) //nolint:govet // ignore shadow declaration
+			if err != nil {
+				return fmt.Errorf("scan word translation: %w", err)
+			}
+			res = append(res, *wt)
+		}
+
+		if rows.Err() != nil {
+			return fmt.Errorf("iterate word translations: %w", rows.Err())
+		}
+
+		return nil
+	})
+	eg.Go(func() error {
+		totalQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM word_translations
+		WHERE %s
+	`, strings.Join(conditions, " AND "))
+		if err := r.client.QueryRow(ctx, totalQuery, arguments[:argsCount]...).Scan(&total); err != nil {
+			return fmt.Errorf("get total: %w", err)
+		}
+
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, 0, err
+	}
+
+	return res, total, nil
+}
+
 func (r *PostgreSQLRepository) DeleteWordTranslation(ctx context.Context, chatID int64, word string) error {
 	_, err := r.client.Exec(ctx, `
 		DELETE FROM word_translations
@@ -135,12 +216,12 @@ func (r *PostgreSQLRepository) ResetGuessedStreak(ctx context.Context, chatID in
 	return nil
 }
 
-func (r *PostgreSQLRepository) MarkToReview(ctx context.Context, chatID int64, word string) error {
+func (r *PostgreSQLRepository) MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE word_translations
-		SET to_review = true
-		WHERE chat_id = $1 AND word = $2
-	`, chatID, word)
+		SET to_review = $1
+		WHERE chat_id = $2 AND word = $3
+	`, toReview, chatID, word)
 	if err != nil {
 		return fmt.Errorf("mark review and reset streak: %w", err)
 	}
@@ -191,7 +272,7 @@ func (r *PostgreSQLRepository) GetBatchedWordTranslationsCount(ctx context.Conte
 
 func (r *PostgreSQLRepository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error) {
 	row := r.client.QueryRow(ctx, `
-		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.created_at, wt.updated_at
+		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
 		FROM word_translations wt
 		WHERE wt.chat_id = $1 AND wt.word = $2
 	`, chatID, word)
@@ -229,7 +310,7 @@ func (r *PostgreSQLRepository) FindRandomWordTranslation(ctx context.Context, ch
 			FROM learning_batches lb
 			WHERE lb.chat_id = $1
 		)
-		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.created_at, wt.updated_at
+		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
 		FROM word_translations wt
 		WHERE wt.chat_id = $1 AND wt.guessed_streak %s $2 AND wt.word NOT IN (SELECT word FROM batched_words)
 		ORDER BY random()
@@ -252,7 +333,7 @@ func (r *PostgreSQLRepository) FindRandomWordTranslation(ctx context.Context, ch
 
 func (r *PostgreSQLRepository) FindWordsToReview(ctx context.Context, chatID int64) ([]WordTranslation, error) {
 	rows, err := r.client.Query(ctx, `
-		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.created_at, wt.updated_at
+		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
 		FROM word_translations wt
 		WHERE wt.chat_id = $1 AND wt.to_review = true
 	`, chatID)
@@ -303,6 +384,7 @@ func hydrateWordTranslation(row pgx.Row) (*WordTranslation, error) {
 		&wt.Translation,
 		&wt.Description,
 		&wt.GuessedStreak,
+		&wt.ToReview,
 		&wt.CreatedAt,
 		&wt.UpdatedAt,
 	)

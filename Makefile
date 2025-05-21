@@ -5,9 +5,24 @@ lint:
 fix-nolint:
 	find . -type f -name "*.go" -exec sed -i '' 's|// nolint|//nolint|g' {} +
 
-build:
+deps:
+	go mod download
+
+run-web:
+	cd web && npm run dev
+
+build-bot:
 	go mod download
 	CGO_ENABLED=0 go build -o ./bin/english-learning-bot ./cmd/bot/main.go
+
+build-api:
+	go mod download
+	CGO_ENABLED=0 go build -o ./bin/english-learning-api ./cmd/api/main.go
+
+build-web:
+	cd web && npm install && npm run build
+
+build: build-bot build-api build-web
 
 docker-build:
 	docker build -t english-learning-bot .

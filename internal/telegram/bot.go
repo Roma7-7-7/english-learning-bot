@@ -29,6 +29,8 @@ const (
 	commandToReview = "/to_review"
 	commandRandom   = "/random"
 
+	callbackAuthConfirm    = "callback#auth#confirm"
+	callbackAuthDecline    = "callback#auth#decline"
 	callbackSeeTranslation = "callback#see_translation"
 	callbackResetToReview  = "callback#reset_to_review"
 	callbackWordGuessed    = "callback#word#guessed"
@@ -39,7 +41,6 @@ const (
 
 	processTimeout = 10 * time.Second
 
-	muteDuration               = 1 * time.Hour
 	callbackDataExpirationTime = 24 * 7 * time.Hour
 )
 
@@ -287,6 +288,21 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 		return c.RespondText(somethingWentWrongMsg)
 	}
 
+	if parts[0] == callbackAuthConfirm {
+		if err := b.repo.ConfirmAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
+			b.log.ErrorContext(ctx, "failed to confirm callback data", "error", err)
+			return c.RespondText(somethingWentWrongMsg)
+		}
+
+		return c.Delete()
+	} else if parts[0] == callbackAuthDecline {
+		if err := b.repo.DeleteAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
+			b.log.ErrorContext(ctx, "failed to decline callback data", "error", err)
+			return c.RespondText(somethingWentWrongMsg)
+		}
+		return c.Delete()
+	}
+
 	if parts[0] == callbackResetToReview {
 		if err := b.repo.ResetToReview(ctx, c.Chat().ID); err != nil {
 			b.log.ErrorContext(ctx, "failed to reset to review", "error", err)
@@ -325,7 +341,7 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	case callbackWordMissed:
 		err = b.repo.ResetGuessedStreak(ctx, c.Chat().ID, cData.Word)
 	case callbackWordToReview:
-		err = b.repo.MarkToReview(ctx, c.Chat().ID, cData.Word)
+		err = b.repo.MarkToReview(ctx, c.Chat().ID, cData.Word, true)
 	default:
 		b.log.Warn("unknown callback action", "action", parts[0])
 		return c.RespondText(somethingWentWrongMsg)

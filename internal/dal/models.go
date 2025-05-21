@@ -17,6 +17,7 @@ type (
 		Translation   string
 		Description   string
 		GuessedStreak int
+		ToReview      bool
 		CreatedAt     time.Time
 		UpdatedAt     time.Time
 	}
