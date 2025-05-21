@@ -23,7 +23,7 @@ type (
 		JWTProcessor     *JWTProcessor
 		CookiesProcessor *CookiesProcessor
 		TelegramClient   TelegramClient
-		AllowedChatIDS   []int64
+		AllowedChatIDs   []int64
 		Logger           *slog.Logger
 	}
 
@@ -48,8 +48,8 @@ type (
 )
 
 func NewAuthHandler(deps AuthDependencies) *AuthHandler {
-	allowedChatIDs := make(map[int64]bool, len(deps.AllowedChatIDS))
-	for _, chatID := range deps.AllowedChatIDS {
+	allowedChatIDs := make(map[int64]bool, len(deps.AllowedChatIDs))
+	for _, chatID := range deps.AllowedChatIDs {
 		allowedChatIDs[chatID] = true
 	}
 	return &AuthHandler{
