@@ -28,7 +28,7 @@ type (
 		AccessExpiresIn time.Duration `json:"access_expires_in"`
 	}
 
-	WebAPI struct {
+	HTTP struct {
 		Timeout   time.Duration `json:"timeout"`
 		RateLimit float64       `json:"rate_limit"`
 		CORS      CORS          `json:"cors"`
@@ -45,24 +45,24 @@ type (
 		Token string
 	}
 
-	Web struct {
+	API struct {
 		DB       DB
-		API      WebAPI `json:"api"`
+		HTTP     HTTP `json:"http"`
 		Telegram Telegram
 		Server   Server
 	}
 )
 
-func NewWeb(env Env) (Web, error) {
+func NewAPI(env Env) (API, error) {
 	if env == EnvProd {
-		return Web{}, errors.New("web environment is prod")
+		return API{}, errors.New("api environment is prod")
 	}
 
-	return Web{
+	return API{
 		DB: DB{
 			URL: os.Getenv("DB_URL"),
 		},
-		API: WebAPI{
+		HTTP: HTTP{
 			Timeout:   10 * time.Second, //nolint:mnd // ignore mnd
 			RateLimit: 25,               //nolint:mnd // ignore mnd
 			CORS: CORS{
@@ -75,7 +75,7 @@ func NewWeb(env Env) (Web, error) {
 				AccessExpiresIn: 24 * time.Hour,   //nolint:mnd // ignore mnd
 			},
 			JWT: JWT{
-				Issuer:   "english-learning-web",
+				Issuer:   "english-learning-api",
 				Audience: []string{"http://localhost:8080"},
 				Secret:   os.Getenv("JWT_SECRET"),
 			},

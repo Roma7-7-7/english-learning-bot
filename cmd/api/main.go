@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Roma7-7-7/english-learning-bot/internal/api"
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
-	"github.com/Roma7-7-7/english-learning-bot/internal/web"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -41,7 +41,7 @@ func run(ctx context.Context, env config.Env) int {
 
 	log := mustLogger(env)
 
-	conf, err := config.NewWeb(env)
+	conf, err := config.NewAPI(env)
 	if err != nil {
 		log.ErrorContext(ctx, "failed to get config", "error", err)
 		return exitCodeConfigParse
@@ -55,8 +55,8 @@ func run(ctx context.Context, env config.Env) int {
 	defer db.Close()
 
 	deps := dependencies(ctx, conf, db, log)
-	router := web.NewRouter(ctx, conf, deps)
-	log.InfoContext(ctx, "starting web server", "config", conf)
+	router := api.NewRouter(ctx, conf, deps)
+	log.InfoContext(ctx, "starting api server", "config", conf)
 
 	server := &http.Server{
 		ReadHeaderTimeout: conf.Server.ReadHeaderTimeout,
@@ -70,22 +70,22 @@ func run(ctx context.Context, env config.Env) int {
 		defer cCancel()
 
 		if sErr := server.Shutdown(cCtx); sErr != nil {
-			log.ErrorContext(cCtx, "failed to shutdown web server", "error", sErr)
+			log.ErrorContext(cCtx, "failed to shutdown api server", "error", sErr)
 		}
 	}()
 
 	if err = server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.ErrorContext(ctx, "failed to start web server", "error", err)
+		log.ErrorContext(ctx, "failed to start api server", "error", err)
 		return exitCodeServerStart
 	}
 
-	log.InfoContext(ctx, "web server is stopped")
+	log.InfoContext(ctx, "api server is stopped")
 
 	return exitCodeOK
 }
 
-func dependencies(ctx context.Context, conf config.Web, db *pgxpool.Pool, log *slog.Logger) web.Dependencies {
-	return web.Dependencies{
+func dependencies(ctx context.Context, conf config.API, db *pgxpool.Pool, log *slog.Logger) api.Dependencies {
+	return api.Dependencies{
 		Repo:           dal.NewPostgreSQLRepository(ctx, db, log),
 		TelegramClient: telegram.NewClient(conf.Telegram.Token, log),
 		Logger:         log,

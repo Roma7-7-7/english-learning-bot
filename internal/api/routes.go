@@ -1,4 +1,4 @@
-package web
+package api
 
 import (
 	"context"
@@ -20,26 +20,26 @@ type (
 	}
 )
 
-func NewRouter(ctx context.Context, conf config.Web, deps Dependencies) http.Handler {
+func NewRouter(ctx context.Context, conf config.API, deps Dependencies) http.Handler {
 	e := echo.New()
 
 	e.Use(middleware.RequestID())
 	e.Use(loggingMiddleware(ctx, deps.Logger))
 	e.Use(middleware.Recover())
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(conf.API.RateLimit))))
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(conf.HTTP.RateLimit))))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     conf.API.CORS.AllowOrigins,
+		AllowOrigins:     conf.HTTP.CORS.AllowOrigins,
 		AllowCredentials: true,
 	}))
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
-		Timeout: conf.API.Timeout,
+		Timeout: conf.HTTP.Timeout,
 	}))
 	e.Use(middleware.Secure())
 
 	e.HTTPErrorHandler = HTTPErrorHandler(deps.Logger)
 
-	jwtProcessor := NewJWTProcessor(conf.API.JWT, conf.API.Cookie.AuthExpiresIn, conf.API.Cookie.AccessExpiresIn)
-	cookiesProcessor := NewCookiesProcessor(conf.API.Cookie)
+	jwtProcessor := NewJWTProcessor(conf.HTTP.JWT, conf.HTTP.Cookie.AuthExpiresIn, conf.HTTP.Cookie.AccessExpiresIn)
+	cookiesProcessor := NewCookiesProcessor(conf.HTTP.Cookie)
 
 	authMiddleware := AuthMiddleware(cookiesProcessor, jwtProcessor, deps.Logger)
 	auth := NewAuthHandler(AuthDependencies{

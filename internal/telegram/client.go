@@ -52,7 +52,7 @@ func NewClient(token string, log *slog.Logger) *Client {
 func (c *Client) AskAuthConfirmation(ctx context.Context, chatID int64, token string) error {
 	reqBody := &SendMessageRequest{
 		ChatID: chatID,
-		Text:   "Someone is trying to login to web portal. Do you authorize it?",
+		Text:   "Someone is trying to login to api portal. Do you authorize it?",
 		ReplyMarkup: InlineKeyboardMarkup{
 			InlineKeyboard: [][]InlineKeyboardButton{
 				{
