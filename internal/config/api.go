@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -62,7 +63,7 @@ func NewAPI() (API, error) {
 	}
 
 	if !res.Dev {
-		return API{}, fmt.Errorf("not implemented prod env")
+		return API{}, errors.New("prod is not supported yet")
 	}
 
 	return res, nil

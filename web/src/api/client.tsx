@@ -62,7 +62,7 @@ class ApiClient {
         if (qp.limit) {
             params.append('limit', qp.limit.toString());
         }
-        let url = new URL(`${this.baseUrl}/words`);
+        const url = new URL(`${this.baseUrl}/words`);
         if (params.toString()) {
             url.search = params.toString();
         }

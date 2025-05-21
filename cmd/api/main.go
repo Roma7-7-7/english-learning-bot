@@ -9,12 +9,13 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -41,7 +42,7 @@ func run(ctx context.Context) int {
 
 	conf, err := config.NewAPI()
 	if err != nil {
-		slog.ErrorContext(ctx, "failed to get config", "error", err)
+		slog.ErrorContext(ctx, "failed to get config", "error", err) //nolint:sloglint // ignore
 		return exitCodeConfigParse
 	}
 	log := mustLogger(conf.Dev)
@@ -101,6 +102,6 @@ func mustLogger(dev bool) *slog.Logger {
 			Level: slog.LevelDebug,
 		})
 	}
-	
+
 	return slog.New(handler)
 }

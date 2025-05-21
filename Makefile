@@ -17,7 +17,7 @@ build-bot:
 
 build-api:
 	go mod download
-	CGO_ENABLED=0 go build -o ./bin/english-learning-api ./cmd/web/main.go
+	CGO_ENABLED=0 go build -o ./bin/english-learning-api ./cmd/api/main.go
 
 build-web:
 	cd web && npm install && npm run build
