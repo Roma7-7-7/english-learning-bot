@@ -32,3 +32,5 @@ go.work.sum
 ./data/
 bin/
 **/.DS_Store
+package
+english-learning-release.zip

@@ -43,7 +43,7 @@ jobs:
         if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         run: |
           mkdir -p package
-          cp ./bin/enblish-learning-bot ./package/english-learning-bot
+          cp ./bin/english-learning-bot ./package/english-learning-bot
           cp ./bin/english-learning-api ./package/english-learning-api
           cp -r ./web/dist ./package/web
           cd package
