@@ -11,18 +11,18 @@ import (
 
 type (
 	WordCheckSchedule struct {
-		PublishInterval time.Duration `default:"15m"`
-		HourFrom        int           `default:"9"`
-		HourTo          int           `default:"21"`
-		Location        string        `default:"Europe/Kyiv"`
+		PublishInterval time.Duration `envconfig:"PUBLISH_INTERVAL" default:"15m"`
+		HourFrom        int           `envconfig:"HOUR_FROM" default:"9"`
+		HourTo          int           `envconfig:"HOUR_TO" default:"21"`
+		Location        string        `envconfig:"LOCATION" default:"Europe/Kyiv"`
 	}
 
 	Bot struct {
-		Dev            bool    `default:"false"`
-		TelegramToken  string  `envconfig:"TELEGRAM_TOKEN" default:""`
-		AllowedChatIDs []int64 `envconfig:"ALLOWED_CHAT_IDS" default:""`
-		DBURL          string  `envconfig:"DB_URL" default:""`
-		Schedule       WordCheckSchedule
+		Dev            bool              `default:"false"`
+		TelegramToken  string            `envconfig:"TELEGRAM_TOKEN" default:""`
+		AllowedChatIDs []int64           `envconfig:"ALLOWED_CHAT_IDS" default:""`
+		DBURL          string            `envconfig:"DB_URL" default:""`
+		Schedule       WordCheckSchedule `envconfig:"SCHEDULE"`
 	}
 )
 
