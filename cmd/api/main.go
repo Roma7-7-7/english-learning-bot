@@ -56,7 +56,7 @@ func run(ctx context.Context) int {
 
 	deps := dependencies(ctx, conf, db, log)
 	router := api.NewRouter(ctx, conf, deps)
-	log.InfoContext(ctx, "starting api server", "config", conf)
+	log.InfoContext(ctx, "starting api server")
 
 	server := &http.Server{
 		ReadHeaderTimeout: conf.Server.ReadHeaderTimeout,
@@ -84,7 +84,7 @@ func run(ctx context.Context) int {
 	return exitCodeOK
 }
 
-func dependencies(ctx context.Context, conf config.API, db *pgxpool.Pool, log *slog.Logger) api.Dependencies {
+func dependencies(ctx context.Context, conf *config.API, db *pgxpool.Pool, log *slog.Logger) api.Dependencies {
 	return api.Dependencies{
 		Repo:           dal.NewPostgreSQLRepository(ctx, db, log),
 		TelegramClient: telegram.NewClient(conf.Telegram.Token, log),

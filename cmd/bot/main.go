@@ -48,9 +48,10 @@ func run(ctx context.Context) int {
 		return exitCodeConfigParse
 	}
 
-	log := mustLogger(conf.Env)
+	log := mustLogger(conf.Dev)
+	loc := conf.Schedule.MustTimeLocation()
 
-	log.InfoContext(ctx, "starting bot", "config", loggableConfig(conf), "current_time_in_location", time.Now().In(conf.WordCheckSchedule.Location))
+	log.InfoContext(ctx, "starting bot", "config", loggableConfig(conf), "current_time_in_location", time.Now().In(loc))
 	defer log.InfoContext(ctx, "bot is stopped")
 
 	db, err := pgxpool.New(ctx, conf.DBURL)
@@ -69,10 +70,10 @@ func run(ctx context.Context) int {
 
 	go schedule.StartWordCheckSchedule(ctx, schedule.WordCheckConfig{
 		ChatIDs:  conf.AllowedChatIDs,
-		Interval: conf.WordCheckSchedule.PublishInterval,
-		HourFrom: conf.WordCheckSchedule.HourFrom,
-		HourTo:   conf.WordCheckSchedule.HourTo,
-		Location: conf.WordCheckSchedule.Location,
+		Interval: conf.Schedule.PublishInterval,
+		HourFrom: conf.Schedule.HourFrom,
+		HourTo:   conf.Schedule.HourTo,
+		Location: loc,
 	}, bot, log)
 	go schedule.StartUpdateBatchSchedule(ctx, conf.AllowedChatIDs, batchSize, guessedStreakLimit, repo, log)
 
@@ -82,13 +83,11 @@ func run(ctx context.Context) int {
 	return exitCodeOK
 }
 
-func mustLogger(env config.Env) *slog.Logger {
-	var handler slog.Handler
-	if env == config.EnvProd {
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		})
-	} else {
+func mustLogger(dev bool) *slog.Logger {
+	var handler slog.Handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+	if dev {
 		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		})
@@ -98,12 +97,12 @@ func mustLogger(env config.Env) *slog.Logger {
 
 func loggableConfig(conf *config.Bot) map[string]any {
 	return map[string]any{
-		"env":              conf.Env,
+		"dev":              conf.Dev,
 		"allowed-chat-ids": conf.AllowedChatIDs,
 		"word-check-schedule": map[string]any{
-			"publish-interval": fmt.Sprintf("%v", conf.WordCheckSchedule.PublishInterval),
-			"hour-from":        conf.WordCheckSchedule.HourFrom,
-			"hour-to":          conf.WordCheckSchedule.HourTo,
+			"publish-interval": fmt.Sprintf("%v", conf.Schedule.PublishInterval),
+			"hour-from":        conf.Schedule.HourFrom,
+			"hour-to":          conf.Schedule.HourTo,
 		},
 	}
 }

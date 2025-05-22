@@ -20,7 +20,7 @@ type (
 	}
 )
 
-func NewRouter(ctx context.Context, conf config.API, deps Dependencies) http.Handler {
+func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Handler {
 	e := echo.New()
 
 	e.Use(middleware.RequestID())
@@ -47,6 +47,7 @@ func NewRouter(ctx context.Context, conf config.API, deps Dependencies) http.Han
 		JWTProcessor:     jwtProcessor,
 		CookiesProcessor: cookiesProcessor,
 		TelegramClient:   deps.TelegramClient,
+		AllowedChatIDs:   conf.Telegram.AllowedChatIDs,
 		Logger:           deps.Logger,
 	})
 

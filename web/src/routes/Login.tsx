@@ -12,28 +12,42 @@ export function Login() {
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setErrorMessage("")
+        if (errorMessage) {
+            setErrorMessage("")
+        }
         const form = event.currentTarget;
         const formElements = form.elements as typeof form.elements & {
             chatID: HTMLInputElement;
         };
 
-        await client.login(formElements.chatID.value);
-
-        intervalID = setInterval(() => {
-            client.getStatus().then((r) => {
-                return r.json() as Promise<Status>;
-            }).then((s) => {
-                if (s.authenticated) {
-                    clearInterval(intervalID);
-                    navigate("/");
+        client.login(formElements.chatID.value).then((r) => {
+            if (!r.ok) {
+                if (r.status == 403) {
+                    setErrorMessage("Invalid chat ID");
+                } else {
+                    setErrorMessage("An error occurred while logging in");
                 }
-            }).catch((error) => {
-                clearInterval(intervalID)
-                setErrorMessage(error.message);
-            });
-        }, 1_000)
-        setAwaiting(true);
+                return Promise.reject()
+            }
+
+            return r.json() as Promise<Status>;
+        }).then(() => {
+            intervalID = setInterval(() => {
+                client.getStatus().then((r) => {
+                    return r.json() as Promise<Status>;
+                }).then((s) => {
+                    if (s.authenticated) {
+                        clearInterval(intervalID);
+                        navigate("/");
+                    }
+                }).catch((error) => {
+                    clearInterval(intervalID)
+                    setErrorMessage(error.message);
+                });
+            }, 1_000)
+
+            setAwaiting(true);
+        })
     };
 
     const handleCancel = () => {
