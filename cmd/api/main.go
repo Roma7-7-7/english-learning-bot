@@ -56,7 +56,7 @@ func run(ctx context.Context) int {
 
 	deps := dependencies(ctx, conf, db, log)
 	router := api.NewRouter(ctx, conf, deps)
-	log.InfoContext(ctx, "starting api server", "config", conf)
+	log.InfoContext(ctx, "starting api server")
 
 	server := &http.Server{
 		ReadHeaderTimeout: conf.Server.ReadHeaderTimeout,

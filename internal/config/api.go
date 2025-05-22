@@ -80,7 +80,7 @@ func setAPIProdConfig(target *API) error {
 	parameters, err := FetchAWSParams(
 		"/english-learning-api/prod/db_url",
 		"/english-learning-api/prod/secret",
-		"/english-learning-api/prod/telegram_token",
+		"/english-learning-api/prod/telegram-token",
 		"/english-learning-api/prod/allowed_chat_ids",
 	)
 	if err != nil {
