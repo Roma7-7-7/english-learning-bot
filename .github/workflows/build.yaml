@@ -34,7 +34,7 @@ jobs:
           go mod download
 
       - name: Run build
-        run: make build
+        run: make build-linux
 
       - name: Run testing
         run: go test -v ./...
