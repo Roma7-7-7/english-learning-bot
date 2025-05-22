@@ -19,8 +19,8 @@ type (
 
 	Bot struct {
 		Dev            bool    `default:"false"`
-		TelegramToken  string  `envconfig:"TELEGRAM_TOKEN" required:"true"`
-		AllowedChatIDs []int64 `envconfig:"ALLOWED_CHAT_IDS" required:"true"`
+		TelegramToken  string  `envconfig:"TELEGRAM_TOKEN" default:""`
+		AllowedChatIDs []int64 `envconfig:"ALLOWED_CHAT_IDS" default:""`
 		DBURL          string  `envconfig:"DB_URL" default:""`
 		Schedule       WordCheckSchedule
 	}
