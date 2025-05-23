@@ -16,9 +16,9 @@ const (
 	LimitDirectionGreaterThanOrEqual
 
 	GuessedAll     Guessed = "all"
-	GuessedLearned         = "learned"
-	GuessedBatched         = "batched"
-	GuessedToLearn         = "to_learn"
+	GuessedLearned Guessed = "learned"
+	GuessedBatched Guessed = "batched"
+	GuessedToLearn Guessed = "to_learn"
 )
 
 var (
@@ -150,8 +150,8 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 		selectQuery := baseQuery.
 			Columns("chat_id", "word", "translation", "COALESCE(description, '')", "guessed_streak", "to_review", "created_at", "updated_at").
 			OrderBy("word").
-			Offset(uint64(filter.Offset)).
-			Limit(uint64(filter.Limit))
+			Offset(filter.Offset).
+			Limit(filter.Limit)
 
 		query, args, err := selectQuery.ToSql()
 		if err != nil {
