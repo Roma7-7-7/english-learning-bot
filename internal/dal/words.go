@@ -32,8 +32,8 @@ type (
 		Word     string
 		Guessed  Guessed
 		ToReview bool
-		Offset   int
-		Limit    int
+		Offset   uint64
+		Limit    uint64
 	}
 
 	WordTranslationsRepository interface {
@@ -129,17 +129,16 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 		baseQuery = baseQuery.Where(squirrel.Eq{"to_review": filter.ToReview})
 	}
 
-	if filter.Guessed != "" && filter.Guessed != GuessedAll {
-		switch filter.Guessed {
-		case GuessedLearned:
-			baseQuery = baseQuery.Where("guessed_streak >= 15")
-		case GuessedBatched:
-			baseQuery = baseQuery.Where("guessed_streak < 15")
-		case GuessedToLearn:
-			baseQuery = baseQuery.Where("guessed_streak = 0")
-		default:
-			return nil, 0, fmt.Errorf("invalid guessed filter: %s", filter.Guessed)
-		}
+	switch filter.Guessed {
+	case "", GuessedAll:
+	case GuessedLearned:
+		baseQuery = baseQuery.Where("guessed_streak >= 15")
+	case GuessedBatched:
+		baseQuery = baseQuery.Where("guessed_streak < 15")
+	case GuessedToLearn:
+		baseQuery = baseQuery.Where("guessed_streak = 0")
+	default:
+		return nil, 0, fmt.Errorf("invalid guessed filter: %s", filter.Guessed)
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
@@ -190,7 +189,7 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 			return fmt.Errorf("build count query: %w", err)
 		}
 
-		if err := r.client.QueryRow(ctx, query, args...).Scan(&total); err != nil {
+		if err := r.client.QueryRow(ctx, query, args...).Scan(&total); err != nil { //nolint:govet // ignore shadow declaration
 			return fmt.Errorf("get total: %w", err)
 		}
 

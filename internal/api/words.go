@@ -25,8 +25,8 @@ type (
 		Search   string  `query:"search"`
 		Guessed  Guessed `query:"guessed"`
 		ToReview bool    `query:"to_review"`
-		Offset   int     `query:"offset"`
-		Limit    int     `query:"limit"`
+		Offset   uint64  `query:"offset"`
+		Limit    uint64  `query:"limit"`
 	}
 
 	WordsHandler struct {
@@ -37,9 +37,9 @@ type (
 
 const (
 	GuessedAll     Guessed = "all"
-	GuessedLearned         = "learned"
-	GuessedBatched         = "batched"
-	GuessedToLearn         = "to_learn"
+	GuessedLearned Guessed = "learned"
+	GuessedBatched Guessed = "batched"
+	GuessedToLearn Guessed = "to_learn"
 )
 
 func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *WordsHandler {
