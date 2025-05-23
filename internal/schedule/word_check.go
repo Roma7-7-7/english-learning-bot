@@ -39,7 +39,11 @@ func StartWordCheckSchedule(ctx context.Context, conf WordCheckConfig, p Publish
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			if errors.Is(ctx.Err(), context.Canceled) {
+				log.DebugContext(ctx, "word check schedule stopped")
+			} else {
+				log.ErrorContext(ctx, "word check schedule stopped", "error", ctx.Err())
+			}
 		case <-time.After(conf.Interval):
 			log.DebugContext(ctx, "word check execution started")
 			now := time.Now().In(conf.Location)
