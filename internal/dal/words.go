@@ -79,6 +79,11 @@ GROUP BY
 		&stats.Total,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &WordTranslationStats{
+				ChatID: chatID,
+			}, nil
+		}
 		return nil, fmt.Errorf("get stats: %w", err)
 	}
 	return &stats, nil
@@ -295,7 +300,7 @@ func (r *PostgreSQLRepository) FindRandomWordTranslation(ctx context.Context, ch
 	)
 	if filter.Batched {
 		query = `
-		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.created_at, wt.updated_at
+		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
 		FROM word_translations wt
 		INNER JOIN learning_batches lb ON wt.chat_id = lb.chat_id AND wt.word = lb.word
 		WHERE wt.chat_id = $1
