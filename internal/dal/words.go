@@ -134,7 +134,10 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 	case GuessedLearned:
 		baseQuery = baseQuery.Where("guessed_streak >= 15")
 	case GuessedBatched:
-		baseQuery = baseQuery.Where("guessed_streak < 15")
+		baseQuery = baseQuery.Where(squirrel.And{
+			squirrel.Lt{"guessed_streak": 15},
+			squirrel.Gt{"guessed_streak": 0},
+		})
 	case GuessedToLearn:
 		baseQuery = baseQuery.Where("guessed_streak = 0")
 	default:
