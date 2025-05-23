@@ -20,6 +20,7 @@ export function Home() {
     const [qp, setQP] = useState({
         search: "",
         to_review: false,
+        guessed: "all",
         offset: 0,
         limit: 15,
     } as WordsQueryParams);
@@ -159,6 +160,26 @@ export function Home() {
                             </Form.Group>
                         </Col>
                         <Col xs={12} md={2}>
+                            <Form.Group>
+                                <Form.Select
+                                    value={qp.guessed}
+                                    onChange={present => {
+                                        setQP((existing: WordsQueryParams) => {
+                                            return {
+                                                ...existing,
+                                                guessed: present.target.value as 'all' | 'learned' | 'batched' | 'to_learn',
+                                            }
+                                        });
+                                    }}
+                                >
+                                    <option value="all">All</option>
+                                    <option value="learned">Learned</option>
+                                    <option value="batched">Batched</option>
+                                    <option value="to_learn">To Learn</option>
+                                </Form.Select>
+                            </Form.Group>
+                        </Col>
+                        <Col xs={12} md={2}>
                             <Form.Check
                                 type="checkbox"
                                 id="to-review-checkbox"
@@ -174,7 +195,7 @@ export function Home() {
                                 }}
                             />
                         </Col>
-                        <Col xs={12} md={5}></Col>
+                        <Col xs={12} md={3}></Col>
                         <Col xs={12} md={1}>
                             <Button
                                 variant="secondary"
@@ -183,6 +204,7 @@ export function Home() {
                                     setQP({
                                         search: "",
                                         to_review: false,
+                                        guessed: "all",
                                         offset: 0,
                                         limit: 15,
                                     });

@@ -15,6 +15,7 @@ export interface Stats {
 
 export interface WordsQueryParams {
     search: string;
+    guessed: 'all' | 'learned' | 'batched' | 'to_learn';
     to_review: boolean;
     offset: number;
     limit: number;
@@ -53,6 +54,9 @@ class ApiClient {
         const params = new URLSearchParams();
         if (qp.search) {
             params.append('search', qp.search);
+        }
+        if (qp.guessed) {
+            params.append('guessed', qp.guessed);
         }
         if (qp.to_review) {
             params.append('to_review', qp.to_review.toString());

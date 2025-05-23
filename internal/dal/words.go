@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/errgroup"
 )
@@ -13,6 +14,11 @@ import (
 const (
 	LimitDirectionLessThan StreakLimitDirection = iota
 	LimitDirectionGreaterThanOrEqual
+
+	GuessedAll     Guessed = "all"
+	GuessedLearned Guessed = "learned"
+	GuessedBatched Guessed = "batched"
+	GuessedToLearn Guessed = "to_learn"
 )
 
 var (
@@ -20,11 +26,14 @@ var (
 )
 
 type (
+	Guessed string
+
 	WordTranslationsFilter struct {
 		Word     string
+		Guessed  Guessed
 		ToReview bool
-		Offset   int
-		Limit    int
+		Offset   uint64
+		Limit    uint64
 	}
 
 	WordTranslationsRepository interface {
@@ -105,37 +114,51 @@ func (r *PostgreSQLRepository) AddWordTranslation(ctx context.Context, chatID in
 }
 
 func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error) {
-	argsCount := 1
-	conditions := []string{"chat_id = $1"}
-	arguments := []any{chatID}
+	// Base query builder
+	baseQuery := squirrel.Select().
+		From("word_translations").
+		Where(squirrel.Eq{"chat_id": chatID}).
+		PlaceholderFormat(squirrel.Dollar)
 
+	// Apply filters
 	if filter.Word != "" {
-		argsCount++
-		conditions = append(conditions, fmt.Sprintf("LOWER(word) SIMILAR TO $%d", argsCount))
-		arguments = append(arguments, fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word)))
+		baseQuery = baseQuery.Where("LOWER(word) SIMILAR TO ?", fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word)))
 	}
 
 	if filter.ToReview {
-		argsCount++
-		conditions = append(conditions, fmt.Sprintf("to_review = $%d", argsCount))
-		arguments = append(arguments, filter.ToReview)
+		baseQuery = baseQuery.Where(squirrel.Eq{"to_review": filter.ToReview})
 	}
 
-	arguments = append(arguments, filter.Offset, filter.Limit)
+	switch filter.Guessed {
+	case "", GuessedAll:
+	case GuessedLearned:
+		baseQuery = baseQuery.Where("guessed_streak >= 15")
+	case GuessedBatched:
+		baseQuery = baseQuery.Where("guessed_streak < 15")
+	case GuessedToLearn:
+		baseQuery = baseQuery.Where("guessed_streak = 0")
+	default:
+		return nil, 0, fmt.Errorf("invalid guessed filter: %s", filter.Guessed)
+	}
 
 	eg, ctx := errgroup.WithContext(ctx)
 	res := make([]WordTranslation, 0, filter.Limit)
 	total := 0
-	eg.Go(func() error {
-		query := fmt.Sprintf(`
-			SELECT chat_id, word, translation, COALESCE(description, ''), guessed_streak, to_review, created_at, updated_at
-			FROM word_translations
-			WHERE %s
-			ORDER BY word
-			OFFSET $%d
-			LIMIT $%d`, strings.Join(conditions, " AND "), argsCount+1, argsCount+2) //nolint:mnd // ignore mnd
 
-		rows, err := r.client.Query(ctx, query, arguments...)
+	eg.Go(func() error {
+		// Build select query
+		selectQuery := baseQuery.
+			Columns("chat_id", "word", "translation", "COALESCE(description, '')", "guessed_streak", "to_review", "created_at", "updated_at").
+			OrderBy("word").
+			Offset(filter.Offset).
+			Limit(filter.Limit)
+
+		query, args, err := selectQuery.ToSql()
+		if err != nil {
+			return fmt.Errorf("build select query: %w", err)
+		}
+
+		rows, err := r.client.Query(ctx, query, args...)
 		if err != nil {
 			return fmt.Errorf("find translations: %w", err)
 		}
@@ -155,13 +178,18 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 
 		return nil
 	})
+
 	eg.Go(func() error {
-		totalQuery := fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM word_translations
-		WHERE %s
-	`, strings.Join(conditions, " AND "))
-		if err := r.client.QueryRow(ctx, totalQuery, arguments[:argsCount]...).Scan(&total); err != nil {
+		// Build count query
+		countQuery := baseQuery.
+			Columns("COUNT(*)")
+
+		query, args, err := countQuery.ToSql()
+		if err != nil {
+			return fmt.Errorf("build count query: %w", err)
+		}
+
+		if err := r.client.QueryRow(ctx, query, args...).Scan(&total); err != nil { //nolint:govet // ignore shadow declaration
 			return fmt.Errorf("get total: %w", err)
 		}
 
@@ -174,7 +202,6 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 
 	return res, total, nil
 }
-
 func (r *PostgreSQLRepository) DeleteWordTranslation(ctx context.Context, chatID int64, word string) error {
 	_, err := r.client.Exec(ctx, `
 		DELETE FROM word_translations

@@ -19,17 +19,27 @@ type (
 		GuessedStreak int    `json:"guessed_streak,omitempty"`
 	}
 
+	Guessed string
+
 	WordsQueryParams struct {
-		Search   string `query:"search"`
-		ToReview bool   `query:"to_review"`
-		Offset   int    `query:"offset"`
-		Limit    int    `query:"limit"`
+		Search   string  `query:"search"`
+		Guessed  Guessed `query:"guessed"`
+		ToReview bool    `query:"to_review"`
+		Offset   uint64  `query:"offset"`
+		Limit    uint64  `query:"limit"`
 	}
 
 	WordsHandler struct {
 		repo dal.WordTranslationsRepository
 		log  *slog.Logger
 	}
+)
+
+const (
+	GuessedAll     Guessed = "all"
+	GuessedLearned Guessed = "learned"
+	GuessedBatched Guessed = "batched"
+	GuessedToLearn Guessed = "to_learn"
 )
 
 func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *WordsHandler {
@@ -65,6 +75,7 @@ func (h *WordsHandler) FindWords(c echo.Context) error {
 
 	filter := dal.WordTranslationsFilter{
 		Word:     qp.Search,
+		Guessed:  toDALGuessed(qp.Guessed),
 		ToReview: qp.ToReview,
 		Offset:   qp.Offset,
 		Limit:    qp.Limit,
@@ -163,4 +174,19 @@ func (h *WordsHandler) MarkToReview(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word marked"})
+}
+
+func toDALGuessed(g Guessed) dal.Guessed {
+	switch g {
+	case GuessedAll:
+		return dal.GuessedAll
+	case GuessedLearned:
+		return dal.GuessedLearned
+	case GuessedBatched:
+		return dal.GuessedBatched
+	case GuessedToLearn:
+		return dal.GuessedToLearn
+	default:
+		return dal.GuessedAll
+	}
 }
