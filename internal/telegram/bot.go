@@ -6,28 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"math/big"
 	"strings"
-	"sync"
-	"text/template"
 	"time"
 
 	tb "gopkg.in/telebot.v3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
-	"github.com/Roma7-7-7/english-learning-bot/internal/data"
 )
 
 const (
-	commandStart    = "/start"
-	commandGet      = "/get"
-	commandAdd      = "/add"
-	commandUpdate   = "/update"
-	commandDelete   = "/delete"
-	commandStats    = "/stats"
-	commandToReview = "/to_review"
-	commandRandom   = "/random"
+	commandStart  = "/start"
+	commandStats  = "/stats"
+	commandRandom = "/random"
 
 	callbackAuthConfirm    = "callback#auth#confirm"
 	callbackAuthDecline    = "callback#auth#decline"
@@ -43,14 +34,6 @@ const (
 
 	callbackDataExpirationTime = 24 * 7 * time.Hour
 )
-
-//nolint:gochecknoglobals // it's a template for rendering words to review
-var wordsToReviewTemplate = template.Must(template.New("to_review").
-	Parse(`To Review:
-{{- range .}}
-- {{.Word}}
-{{- end}}
-`))
 
 type (
 	Bot struct {
@@ -90,15 +73,9 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 
 func (b *Bot) Start(ctx context.Context) {
 	b.bot.Handle(commandStart, b.HandleStart, b.middlewares...)
-	b.bot.Handle(commandGet, b.HandleGet, b.middlewares...)
-	b.bot.Handle(commandAdd, b.HandleAdd, b.middlewares...)
-	b.bot.Handle(commandUpdate, b.HandleUpdate, b.middlewares...)
-	b.bot.Handle(commandDelete, b.HandleDelete, b.middlewares...)
 	b.bot.Handle(commandStats, b.HandleStats, b.middlewares...)
-	b.bot.Handle(commandToReview, b.HandleToReview, b.middlewares...)
 	b.bot.Handle(commandRandom, b.HandleRandom, b.middlewares...)
 	b.bot.Handle(tb.OnCallback, b.HandleCallback, b.middlewares...)
-	b.bot.Handle(tb.OnDocument, b.HandleDocument, b.middlewares...)
 
 	go func() {
 		time.Sleep(5 * time.Second) //nolint:mnd // wait for the bot to start
@@ -129,108 +106,11 @@ func (b *Bot) HandleStats(m tb.Context) error {
 	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total))
 }
 
-func (b *Bot) HandleGet(m tb.Context) error {
-	ctx, cancel := processCtx()
-	defer cancel()
-
-	word := strings.TrimSpace(m.Text()[len(commandGet):])
-
-	wt, err := b.repo.FindWordTranslation(ctx, m.Chat().ID, word)
-	if err != nil {
-		if errors.Is(err, dal.ErrNotFound) {
-			b.log.DebugContext(ctx, "word not found", "word", word)
-			return m.Reply("word not found")
-		}
-
-		b.log.ErrorContext(ctx, "failed to get word translation", "error", err)
-		return m.Reply("failed to get word translation")
-	}
-
-	return m.Reply(fmt.Sprintf("**%s**: %s", wt.Word, wt.Translation), tb.ModeMarkdownV2)
-}
-
-func (b *Bot) HandleAdd(m tb.Context) error {
-	ctx, cancel := processCtx()
-	defer cancel()
-
-	parts := strings.Split(strings.ToLower(m.Text())[len(commandAdd):], ":")
-	if len(parts) != 2 { //nolint: mnd // word:translation
-		b.log.DebugContext(ctx, "wrong message format", "message", m.Message().Text)
-		return m.Reply("wrong message format, it should be like \"word:translation\"")
-	}
-
-	word, translation := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
-
-	if err := b.repo.AddWordTranslation(ctx, m.Chat().ID, word, translation, ""); err != nil {
-		b.log.ErrorContext(ctx, "failed to add translation", "error", err)
-		return m.Reply("failed to add translation")
-	}
-
-	return m.Reply("translation added")
-}
-
-func (b *Bot) HandleUpdate(m tb.Context) error {
-	ctx, cancel := processCtx()
-	defer cancel()
-
-	parts := strings.Split(strings.ToLower(m.Text())[len(commandUpdate):], ":")
-	if len(parts) != 3 { //nolint: mnd // word:translation
-		b.log.DebugContext(ctx, "wrong message format", "message", m.Message().Text)
-		return m.Reply("wrong message format, it should be like: \"original word:new word:new translation\"")
-	}
-
-	original, updated, translation := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])
-
-	if err := b.repo.UpdateWordTranslation(ctx, m.Chat().ID, original, updated, translation, ""); err != nil {
-		b.log.ErrorContext(ctx, "failed to update translation", "error", err)
-		return m.Reply("failed to update translation")
-	}
-
-	return m.Reply("translation updated")
-}
-
-func (b *Bot) HandleDelete(m tb.Context) error {
-	ctx, cancel := processCtx()
-	defer cancel()
-
-	word := strings.TrimSpace(m.Text()[len(commandDelete):])
-
-	if err := b.repo.DeleteWordTranslation(ctx, m.Chat().ID, word); err != nil {
-		b.log.ErrorContext(ctx, "failed to delete translation", "error", err)
-		return m.Reply("failed to delete translation")
-	}
-
-	return m.Reply("translation deleted")
-}
-
 func (b *Bot) HandleRandom(m tb.Context) error {
 	ctx, cancel := processCtx()
 	defer cancel()
 
 	return b.sendWordCheck(ctx, m.Chat().ID, dal.FindRandomWordFilter{StreakLimitDirection: dal.LimitDirectionGreaterThanOrEqual, StreakLimit: 0}, m)
-}
-
-func (b *Bot) HandleToReview(m tb.Context) error {
-	ctx, cancel := processCtx()
-	defer cancel()
-
-	words, err := b.repo.FindWordsToReview(ctx, m.Chat().ID)
-	if err != nil {
-		b.log.ErrorContext(ctx, "failed to get words to review", "error", err)
-		return m.Reply("failed to get words to review")
-	}
-
-	if len(words) == 0 {
-		return m.Reply("no words to review")
-	}
-
-	buff := &strings.Builder{}
-	if err = wordsToReviewTemplate.Execute(buff, words); err != nil {
-		b.log.ErrorContext(ctx, "failed to render words to review", "error", err)
-		return m.Reply("failed to render words to review")
-	}
-
-	return m.Reply(buff.String(), wordsToReviewMarkup())
 }
 
 func (b *Bot) SendWordCheck(ctx context.Context, chatID int64) error {
@@ -355,54 +235,6 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 	return c.Delete()
 }
 
-func (b *Bot) HandleDocument(m tb.Context) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
-	file, err := b.bot.File(&m.Message().Document.File)
-	if err != nil {
-		b.log.ErrorContext(ctx, "failed to get file", "error", err)
-		return m.Reply(somethingWentWrongMsg)
-	}
-
-	lines := make(chan data.Line)
-	addFailed := false
-	parseCtx, parseCancel := context.WithCancel(ctx)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		for line := range lines {
-			if gErr := b.repo.AddWordTranslation(ctx, m.Chat().ID, line.Word, line.Translation, line.Description); gErr != nil {
-				addFailed = true
-				parseCancel()
-				b.log.ErrorContext(ctx, "failed to add translation", "error", gErr)
-				break
-			}
-		}
-	}()
-
-	err = data.Parse(parseCtx, file, lines)
-	wg.Wait()
-	if err != nil {
-		var pErr *data.ParsingError
-		if !errors.As(err, &pErr) {
-			b.log.ErrorContext(ctx, "failed to parse document", "error", err)
-			return m.Reply(somethingWentWrongMsg)
-		}
-
-		invalidLines := pErr.InvalidLines[:int(math.Min(float64(len(pErr.InvalidLines)), 10))] //nolint:mnd // 10 is a magic number
-		return m.Reply(fmt.Sprintf("invalid lines=%v", invalidLines))
-	}
-
-	if addFailed {
-		return m.Reply(somethingWentWrongMsg)
-	}
-
-	return m.Reply("translations added")
-}
-
 func (r *noOpReplier) Reply(any, ...any) error {
 	return nil
 }
@@ -435,19 +267,6 @@ func guessedResponseMarkup(uuid string) *tb.ReplyMarkup {
 				{
 					Text: "[      ❓      ]",
 					Data: fmt.Sprintf("%s:%s", callbackWordToReview, uuid),
-				},
-			},
-		},
-	}
-}
-
-func wordsToReviewMarkup() *tb.ReplyMarkup {
-	return &tb.ReplyMarkup{
-		InlineKeyboard: [][]tb.InlineButton{
-			{
-				{
-					Text: "✅",
-					Data: callbackResetToReview,
 				},
 			},
 		},

@@ -28,16 +28,19 @@ type (
 	}
 
 	WordTranslationsRepository interface {
+		WordTransactionsOperationsRepository
 		GetStats(ctx context.Context, chatID int64) (*WordTranslationStats, error)
+		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
+		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error)
+		FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error)
 		AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
 		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
 		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
-		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error)
-		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
+	}
+
+	WordTransactionsOperationsRepository interface {
 		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
-		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
-		FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error)
-		FindWordsToReview(ctx context.Context, chatID int64) ([]WordTranslation, error)
+		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
 		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetToReview(ctx context.Context, chatID int64) error
@@ -334,29 +337,6 @@ func (r *PostgreSQLRepository) FindRandomWordTranslation(ctx context.Context, ch
 	}
 
 	return wt, nil
-}
-
-func (r *PostgreSQLRepository) FindWordsToReview(ctx context.Context, chatID int64) ([]WordTranslation, error) {
-	rows, err := r.client.Query(ctx, `
-		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
-		FROM word_translations wt
-		WHERE wt.chat_id = $1 AND wt.to_review = true
-	`, chatID)
-	if err != nil {
-		return nil, fmt.Errorf("get words to review: %w", err)
-	}
-	defer rows.Close()
-
-	var words []WordTranslation
-	for rows.Next() {
-		wt, err := hydrateWordTranslation(rows) //nolint:govet // it is supposed to be used in a loop
-		if err != nil {
-			return nil, fmt.Errorf("scan word translation: %w", err)
-		}
-		words = append(words, *wt)
-	}
-
-	return words, nil
 }
 
 func (r *PostgreSQLRepository) DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error) {
