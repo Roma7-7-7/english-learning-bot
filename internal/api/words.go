@@ -11,11 +11,12 @@ import (
 
 type (
 	WordTranslation struct {
-		Word        string `json:"word"`
-		NewWord     string `json:"new_word,omitempty"`
-		Translation string `json:"translation"`
-		Description string `json:"description"`
-		ToReview    bool   `json:"to_review"`
+		Word          string `json:"word"`
+		NewWord       string `json:"new_word,omitempty"`
+		Translation   string `json:"translation"`
+		Description   string `json:"description"`
+		ToReview      bool   `json:"to_review"`
+		GuessedStreak int    `json:"guessed_streak,omitempty"`
 	}
 
 	WordsQueryParams struct {
@@ -77,10 +78,11 @@ func (h *WordsHandler) FindWords(c echo.Context) error {
 	viewWords := make([]WordTranslation, len(words))
 	for i, word := range words {
 		viewWords[i] = WordTranslation{
-			Word:        word.Word,
-			Translation: word.Translation,
-			Description: word.Description,
-			ToReview:    word.ToReview,
+			Word:          word.Word,
+			Translation:   word.Translation,
+			Description:   word.Description,
+			ToReview:      word.ToReview,
+			GuessedStreak: word.GuessedStreak,
 		}
 	}
 

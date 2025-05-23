@@ -1,7 +1,7 @@
 import { type JSX, useEffect, useState } from "react";
 import client, { type Words, type WordsQueryParams } from "../api/client.tsx";
 import { useAppState } from "../context.tsx";
-import { Container, Row, Col, Form, Button, Table, Pagination, Alert, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Form, Button, Table, Pagination, Alert, Spinner, Badge } from 'react-bootstrap';
 import {WordModal} from "../components/WordModal.tsx";
 
 import { PencilSquare, Trash } from 'react-bootstrap-icons';
@@ -125,6 +125,10 @@ export function Home() {
         })
     }
 
+    const isWordLearned = (guessedStreak: number) => {
+        return guessedStreak >= 15;
+    }
+
     return (
         <>
             {!words ? (
@@ -214,6 +218,7 @@ export function Home() {
                                     <tr>
                                         <th>Word</th>
                                         <th>Translation</th>
+                                        <th className="text-center">Learned</th>
                                         <th className="text-center">To Review</th>
                                         <th className="text-center">Edit</th>
                                         <th className="text-center">Delete</th>
@@ -224,6 +229,17 @@ export function Home() {
                                         <tr key={item.word}>
                                             <td>{item.word}</td>
                                             <td>{item.translation}</td>
+                                            <td className="text-center">
+                                                {isWordLearned(item.guessed_streak || 0) ? (
+                                                    <Badge bg="success" title={`Streak: ${item.guessed_streak}`}>
+                                                        ✓ Learned
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge bg="secondary" title={`Streak: ${item.guessed_streak || 0}/15`}>
+                                                        {item.guessed_streak || 0}/15
+                                                    </Badge>
+                                                )}
+                                            </td>
                                             <td className="text-center">
                                                 <Form.Check
                                                     type="checkbox"

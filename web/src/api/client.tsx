@@ -26,6 +26,7 @@ export interface Word {
     translation: string;
     description?: string;
     to_review?: boolean;
+    guessed_streak?: number;
 }
 
 export interface Words{
