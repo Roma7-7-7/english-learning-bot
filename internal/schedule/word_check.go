@@ -2,8 +2,11 @@ package schedule
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
+
+	"gopkg.in/telebot.v3"
 )
 
 const (
@@ -49,6 +52,10 @@ func StartWordCheckSchedule(ctx context.Context, conf WordCheckConfig, p Publish
 				ctx, cancel := context.WithTimeout(ctx, publishTimeout) //nolint:govet // it is supposed to override ctx here
 				log.DebugContext(ctx, "sending word check", "chat_id", chatID)
 				if err := p.SendWordCheck(ctx, chatID); err != nil {
+					if errors.Is(err, telebot.ErrBlockedByUser) {
+						log.InfoContext(ctx, "user blocked bot", "chat_id", chatID)
+						continue
+					}
 					log.ErrorContext(ctx, "failed to send word check", "error", err, "chat_id", chatID)
 				}
 				cancel()
