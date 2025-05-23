@@ -34,26 +34,7 @@ jobs:
           go mod download
 
       - name: Run build
-        run: make build-linux
+        run: make build
 
       - name: Run testing
         run: go test -v ./...
-
-      - name: Package artifacts
-        if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        run: |
-          mkdir -p package
-          cp ./bin/english-learning-bot ./package/english-learning-bot
-          cp ./bin/english-learning-api ./package/english-learning-api
-          cp -r ./web/dist ./package/web
-          cd package
-          zip -r ../english-learning-release.zip .
-          cd ..
-
-      - name: Upload artifacts
-        if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: actions/upload-artifact@v4
-        with:
-          name: english-learning-release
-          path: english-learning-release.zip
-          retention-days: 30

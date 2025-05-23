@@ -2,8 +2,11 @@ package schedule
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
+
+	"gopkg.in/telebot.v3"
 )
 
 const (
@@ -36,7 +39,11 @@ func StartWordCheckSchedule(ctx context.Context, conf WordCheckConfig, p Publish
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			if errors.Is(ctx.Err(), context.Canceled) {
+				log.DebugContext(ctx, "word check schedule stopped")
+			} else {
+				log.ErrorContext(ctx, "word check schedule stopped", "error", ctx.Err())
+			}
 		case <-time.After(conf.Interval):
 			log.DebugContext(ctx, "word check execution started")
 			now := time.Now().In(conf.Location)
@@ -49,6 +56,10 @@ func StartWordCheckSchedule(ctx context.Context, conf WordCheckConfig, p Publish
 				ctx, cancel := context.WithTimeout(ctx, publishTimeout) //nolint:govet // it is supposed to override ctx here
 				log.DebugContext(ctx, "sending word check", "chat_id", chatID)
 				if err := p.SendWordCheck(ctx, chatID); err != nil {
+					if errors.Is(err, telebot.ErrBlockedByUser) {
+						log.InfoContext(ctx, "user blocked bot", "chat_id", chatID)
+						continue
+					}
 					log.ErrorContext(ctx, "failed to send word check", "error", err, "chat_id", chatID)
 				}
 				cancel()

@@ -20,7 +20,7 @@ type (
 	JWT struct {
 		Issuer   string   `envconfig:"ISSUER" default:"english-learning-api"`
 		Audience []string `envconfig:"AUDIENCE" required:"true"`
-		Secret   string   `envconfig:"SECRET" required:"true"`
+		Secret   string   `envconfig:"SECRET" required:"false"`
 	}
 
 	Cookie struct {
@@ -44,8 +44,8 @@ type (
 	}
 
 	Telegram struct {
-		Token          string  `required:"true"`
-		AllowedChatIDs []int64 `envconfig:"ALLOWED_CHAT_IDS" required:"true"`
+		Token          string  `required:"false"`
+		AllowedChatIDs []int64 `envconfig:"ALLOWED_CHAT_IDS" required:"false"`
 	}
 
 	API struct {
@@ -80,7 +80,7 @@ func setAPIProdConfig(target *API) error {
 	parameters, err := FetchAWSParams(
 		"/english-learning-api/prod/db_url",
 		"/english-learning-api/prod/secret",
-		"/english-learning-api/prod/telegram-token",
+		"/english-learning-api/prod/telegram_token",
 		"/english-learning-api/prod/allowed_chat_ids",
 	)
 	if err != nil {
