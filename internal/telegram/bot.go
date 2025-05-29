@@ -103,7 +103,21 @@ func (b *Bot) HandleStats(m tb.Context) error {
 		return m.Reply("failed to get stats")
 	}
 
-	return m.Reply(fmt.Sprintf("15+: %d\n10-14: %d\n1-9: %d\nTotal: %d", stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total))
+	dailyStats, err := b.repo.GetDailyStats(ctx, m.Chat().ID, time.Now())
+	if err != nil && !errors.Is(err, dal.ErrNotFound) {
+		b.log.ErrorContext(ctx, "failed to get daily stats", "error", err)
+		return m.Reply("failed to get stats")
+	}
+
+	msg := fmt.Sprintf("Overall Progress:\n15+: %d\n10-14: %d\n1-9: %d\nTotal: %d",
+		stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total)
+
+	if dailyStats != nil {
+		msg += fmt.Sprintf("\n\nToday's Progress:\nGuessed: %d\nMissed: %d\nMarked for Review: %d\nTotal Words Guessed: %d",
+			dailyStats.WordsGuessed, dailyStats.WordsMissed, dailyStats.WordsToReview, dailyStats.TotalWordsGuessed)
+	}
+
+	return m.Reply(msg)
 }
 
 func (b *Bot) HandleRandom(m tb.Context) error {
@@ -217,11 +231,35 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 		}
 		err = c.Send(normalizeMessage(msg), guessedResponseMarkup(cData.ID), tb.ModeMarkdownV2, tb.Silent)
 	case callbackWordGuessed:
-		err = b.repo.IncreaseGuessedStreak(ctx, c.Chat().ID, cData.Word)
+		err = b.repo.Transact(ctx, func(r dal.Repository) error {
+			if err := r.IncreaseGuessedStreak(ctx, c.Chat().ID, cData.Word); err != nil {
+				return fmt.Errorf("increase guessed streak: %w", err)
+			}
+			if err := r.IncrementWordGuessed(ctx, c.Chat().ID); err != nil {
+				return fmt.Errorf("increment word guessed: %w", err)
+			}
+			return nil
+		})
 	case callbackWordMissed:
-		err = b.repo.ResetGuessedStreak(ctx, c.Chat().ID, cData.Word)
+		err = b.repo.Transact(ctx, func(r dal.Repository) error {
+			if err := r.ResetGuessedStreak(ctx, c.Chat().ID, cData.Word); err != nil {
+				return fmt.Errorf("reset guessed streak: %w", err)
+			}
+			if err := r.IncrementWordMissed(ctx, c.Chat().ID); err != nil {
+				return fmt.Errorf("increment word missed: %w", err)
+			}
+			return nil
+		})
 	case callbackWordToReview:
-		err = b.repo.MarkToReview(ctx, c.Chat().ID, cData.Word, true)
+		err = b.repo.Transact(ctx, func(r dal.Repository) error {
+			if err := r.MarkToReview(ctx, c.Chat().ID, cData.Word, true); err != nil {
+				return fmt.Errorf("mark to review: %w", err)
+			}
+			if err := r.IncrementWordToReview(ctx, c.Chat().ID); err != nil {
+				return fmt.Errorf("increment word to review: %w", err)
+			}
+			return nil
+		})
 	default:
 		b.log.Warn("unknown callback action", "action", parts[0])
 		return c.RespondText(somethingWentWrongMsg)
