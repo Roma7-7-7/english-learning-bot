@@ -38,7 +38,7 @@ type (
 	}
 
 	submitChatIDRequest struct {
-		ChatID int64 `json:"chat_id"`
+		ChatID int64 `json:"chat_id" validate:"required,gt=0"`
 	}
 
 	statusResponse struct {
@@ -72,10 +72,14 @@ func (h *AuthHandler) Info(c echo.Context) error {
 
 func (h *AuthHandler) Login(c echo.Context) error {
 	var req submitChatIDRequest
-	var err error
-	if err = c.Bind(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
 		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := c.Validate(&req); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to validate request", "error", err)
+		return err
 	}
 
 	chatID := req.ChatID
@@ -86,12 +90,12 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		})
 	}
 	key := uuid.NewString()
-	if err = h.repo.InsertAuthConfirmation(c.Request().Context(), chatID, key, h.cookiesProcessor.authExpiresIn); err != nil {
+	if err := h.repo.InsertAuthConfirmation(c.Request().Context(), chatID, key, h.cookiesProcessor.authExpiresIn); err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to insert auth confirmation", "error", err)
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	if err = h.teleClient.AskAuthConfirmation(c.Request().Context(), chatID, key); err != nil {
+	if err := h.teleClient.AskAuthConfirmation(c.Request().Context(), chatID, key); err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to ask auth confirmation", "error", err)
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
