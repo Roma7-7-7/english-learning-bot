@@ -39,22 +39,19 @@ type (
 	}
 
 	DailyWordStats struct {
-		ChatID              int64
-		Date                time.Time
-		WordsGuessed        int
-		WordsMissed         int
-		WordsToReview       int
-		TotalWordsGuessed   int
-		AvgGuessesToSuccess float64
-		LongestStreak       int
-		CreatedAt           time.Time
+		ChatID            int64
+		Date              time.Time
+		WordsGuessed      int
+		WordsMissed       int
+		TotalWordsLearned int
+		CreatedAt         time.Time
 	}
 
 	DailyStatsRepository interface {
 		IncrementWordGuessed(ctx context.Context, chatID int64) error
 		IncrementWordMissed(ctx context.Context, chatID int64) error
-		IncrementWordToReview(ctx context.Context, chatID int64) error
 		GetDailyStats(ctx context.Context, chatID int64, date time.Time) (*DailyWordStats, error)
 		GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]DailyWordStats, error)
+		UpdateTotalWordsLearned(ctx context.Context, chatID int64) error
 	}
 )

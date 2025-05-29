@@ -74,10 +74,7 @@ CREATE TABLE daily_word_statistics (
     date DATE NOT NULL,
     words_guessed INT NOT NULL DEFAULT 0,
     words_missed INT NOT NULL DEFAULT 0,
-    words_to_review INT NOT NULL DEFAULT 0,
-    total_words_guessed INT NOT NULL DEFAULT 0,
-    avg_guesses_to_success FLOAT NOT NULL DEFAULT 0,
-    longest_streak INT NOT NULL DEFAULT 0,
+    total_words_learned INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (chat_id, date)

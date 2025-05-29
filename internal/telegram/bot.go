@@ -113,8 +113,8 @@ func (b *Bot) HandleStats(m tb.Context) error {
 		stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total)
 
 	if dailyStats != nil {
-		msg += fmt.Sprintf("\n\nToday's Progress:\nGuessed: %d\nMissed: %d\nMarked for Review: %d\nTotal Words Guessed: %d",
-			dailyStats.WordsGuessed, dailyStats.WordsMissed, dailyStats.WordsToReview, dailyStats.TotalWordsGuessed)
+		msg += fmt.Sprintf("\n\nToday's Progress:\nGuessed: %d\nMissed: %d",
+			dailyStats.WordsGuessed, dailyStats.WordsMissed)
 	}
 
 	return m.Reply(msg)
@@ -238,6 +238,9 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 			if err := r.IncrementWordGuessed(ctx, c.Chat().ID); err != nil {
 				return fmt.Errorf("increment word guessed: %w", err)
 			}
+			if err := r.UpdateTotalWordsLearned(ctx, c.Chat().ID); err != nil {
+				return fmt.Errorf("update total words learned: %w", err)
+			}
 			return nil
 		})
 	case callbackWordMissed:
@@ -248,15 +251,15 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 			if err := r.IncrementWordMissed(ctx, c.Chat().ID); err != nil {
 				return fmt.Errorf("increment word missed: %w", err)
 			}
+			if err := r.UpdateTotalWordsLearned(ctx, c.Chat().ID); err != nil {
+				return fmt.Errorf("update total words learned: %w", err)
+			}
 			return nil
 		})
 	case callbackWordToReview:
 		err = b.repo.Transact(ctx, func(r dal.Repository) error {
 			if err := r.MarkToReview(ctx, c.Chat().ID, cData.Word, true); err != nil {
 				return fmt.Errorf("mark to review: %w", err)
-			}
-			if err := r.IncrementWordToReview(ctx, c.Chat().ID); err != nil {
-				return fmt.Errorf("increment word to review: %w", err)
 			}
 			return nil
 		})

@@ -11,15 +11,10 @@ import (
 
 func (r *PostgreSQLRepository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
 	_, err := r.client.Exec(ctx, `
-		INSERT INTO daily_word_statistics (chat_id, date, words_guessed, total_words_guessed)
-		VALUES ($1, CURRENT_DATE, 1, (
-			SELECT COALESCE(MAX(total_words_guessed), 0) + 1 
-			FROM daily_word_statistics 
-			WHERE chat_id = $1
-		))
+		INSERT INTO daily_word_statistics (chat_id, date, words_guessed)
+		VALUES ($1, CURRENT_DATE, 1)
 		ON CONFLICT (chat_id, date) DO UPDATE 
-		SET words_guessed = daily_word_statistics.words_guessed + 1,
-			total_words_guessed = daily_word_statistics.total_words_guessed + 1
+		SET words_guessed = daily_word_statistics.words_guessed + 1
 	`, chatID)
 	if err != nil {
 		return fmt.Errorf("increment word guessed: %w", err)
@@ -40,15 +35,18 @@ func (r *PostgreSQLRepository) IncrementWordMissed(ctx context.Context, chatID i
 	return nil
 }
 
-func (r *PostgreSQLRepository) IncrementWordToReview(ctx context.Context, chatID int64) error {
+func (r *PostgreSQLRepository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
 	_, err := r.client.Exec(ctx, `
-		INSERT INTO daily_word_statistics (chat_id, date, words_to_review)
-		VALUES ($1, CURRENT_DATE, 1)
-		ON CONFLICT (chat_id, date) DO UPDATE 
-		SET words_to_review = daily_word_statistics.words_to_review + 1
+		UPDATE daily_word_statistics
+		SET total_words_learned = (
+			SELECT COUNT(*)
+			FROM word_translations
+			WHERE chat_id = $1 AND guessed_streak >= 15
+		)
+		WHERE chat_id = $1 AND date = CURRENT_DATE
 	`, chatID)
 	if err != nil {
-		return fmt.Errorf("increment word to review: %w", err)
+		return fmt.Errorf("update total words learned: %w", err)
 	}
 	return nil
 }
@@ -56,8 +54,8 @@ func (r *PostgreSQLRepository) IncrementWordToReview(ctx context.Context, chatID
 func (r *PostgreSQLRepository) GetDailyStats(ctx context.Context, chatID int64, date time.Time) (*DailyWordStats, error) {
 	row := r.client.QueryRow(ctx, `
 		SELECT 
-			chat_id, date, words_guessed, words_missed, words_to_review, 
-			total_words_guessed, avg_guesses_to_success, longest_streak, created_at
+			chat_id, date, words_guessed, words_missed, 
+			total_words_learned, created_at
 		FROM daily_word_statistics
 		WHERE chat_id = $1 AND date = $2
 	`, chatID, date)
@@ -68,10 +66,7 @@ func (r *PostgreSQLRepository) GetDailyStats(ctx context.Context, chatID int64, 
 		&stats.Date,
 		&stats.WordsGuessed,
 		&stats.WordsMissed,
-		&stats.WordsToReview,
-		&stats.TotalWordsGuessed,
-		&stats.AvgGuessesToSuccess,
-		&stats.LongestStreak,
+		&stats.TotalWordsLearned,
 		&stats.CreatedAt,
 	)
 	if err != nil {
@@ -86,8 +81,8 @@ func (r *PostgreSQLRepository) GetDailyStats(ctx context.Context, chatID int64, 
 func (r *PostgreSQLRepository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]DailyWordStats, error) {
 	rows, err := r.client.Query(ctx, `
 		SELECT 
-			chat_id, date, words_guessed, words_missed, words_to_review, 
-			total_words_guessed, avg_guesses_to_success, longest_streak, created_at
+			chat_id, date, words_guessed, words_missed, 
+			total_words_learned, created_at
 		FROM daily_word_statistics
 		WHERE chat_id = $1 AND date BETWEEN $2 AND $3
 		ORDER BY date
@@ -105,10 +100,7 @@ func (r *PostgreSQLRepository) GetStatsRange(ctx context.Context, chatID int64, 
 			&stat.Date,
 			&stat.WordsGuessed,
 			&stat.WordsMissed,
-			&stat.WordsToReview,
-			&stat.TotalWordsGuessed,
-			&stat.AvgGuessesToSuccess,
-			&stat.LongestStreak,
+			&stat.TotalWordsLearned,
 			&stat.CreatedAt,
 		)
 		if err != nil {
