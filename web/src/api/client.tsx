@@ -8,9 +8,24 @@ export interface Status {
     authenticated: boolean;
 }
 
-export interface Stats {
+export interface TotalStats {
     total: number;
     learned: number;
+}
+
+export interface Stats {
+    words_guessed: number;
+    words_missed: number;
+    total_words_learned: number;
+}
+
+export interface StatsRange {
+    items: {
+        date: string;
+        words_guessed: number;
+        words_missed: number;
+        total_words_learned: number;
+    }[];
 }
 
 export interface WordsQueryParams {
@@ -128,8 +143,20 @@ class ApiClient {
         });
     }
 
+    async getTotalStats(): Promise<Response> {
+        return this.request('/stats/total');
+    }
+
     async getStats(): Promise<Response> {
-        return this.request('/words/stats');
+        return this.request('/stats');
+    }
+
+    async getStatsRange(from: Date, to: Date): Promise<Response> {
+        const params = new URLSearchParams({
+            from: from.toISOString(),
+            to: to.toISOString(),
+        });
+        return this.request(`/stats/range?${params}`);
     }
 
     private async request(

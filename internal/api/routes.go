@@ -60,12 +60,16 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 	securedGroup.GET("/auth/info", auth.Info)
 
 	words := NewWordsHandler(deps.Repo, deps.Logger)
-	securedGroup.GET("/words/stats", words.Stats)
 	securedGroup.GET("/words", words.FindWords)
 	securedGroup.POST("/words", words.CreateWord)
 	securedGroup.PUT("/words", words.UpdateWord)
 	securedGroup.PUT("/words/review", words.MarkToReview)
 	securedGroup.DELETE("/words", words.DeleteWord)
+
+	stats := NewStatsHandler(deps.Repo, deps.Logger)
+	securedGroup.GET("/stats/total", stats.TotalStats)
+	securedGroup.GET("/stats", stats.GetStats)
+	securedGroup.GET("/stats/range", stats.GetStatsRange)
 
 	return e
 }

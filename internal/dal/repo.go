@@ -10,6 +10,6 @@ type (
 		WordTranslationsRepository
 		CallbacksRepository
 		AuthConfirmationRepository
-		DailyStatsRepository
+		StatsRepository
 	}
 )

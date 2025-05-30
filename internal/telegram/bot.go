@@ -97,24 +97,24 @@ func (b *Bot) HandleStats(m tb.Context) error {
 	ctx, cancel := processCtx()
 	defer cancel()
 
-	stats, err := b.repo.GetStats(ctx, m.Chat().ID)
+	totalStats, err := b.repo.GetTotalStats(ctx, m.Chat().ID)
 	if err != nil {
 		b.log.ErrorContext(ctx, "failed to get stats", "error", err)
 		return m.Reply("failed to get stats")
 	}
 
-	dailyStats, err := b.repo.GetDailyStats(ctx, m.Chat().ID, time.Now())
+	stats, err := b.repo.GetStats(ctx, m.Chat().ID, time.Now())
 	if err != nil && !errors.Is(err, dal.ErrNotFound) {
-		b.log.ErrorContext(ctx, "failed to get daily stats", "error", err)
+		b.log.ErrorContext(ctx, "failed to get stats", "error", err)
 		return m.Reply("failed to get stats")
 	}
 
 	msg := fmt.Sprintf("Overall Progress:\n15+: %d\n10-14: %d\n1-9: %d\nTotal: %d",
-		stats.GreaterThanOrEqual15, stats.Between10And14, stats.Between1And9, stats.Total)
+		totalStats.GreaterThanOrEqual15, totalStats.Between10And14, totalStats.Between1And9, totalStats.Total)
 
-	if dailyStats != nil {
+	if stats != nil {
 		msg += fmt.Sprintf("\n\nToday's Progress:\nGuessed: %d\nMissed: %d",
-			dailyStats.WordsGuessed, dailyStats.WordsMissed)
+			stats.WordsGuessed, stats.WordsMissed)
 	}
 
 	return m.Reply(msg)

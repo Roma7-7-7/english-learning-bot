@@ -49,21 +49,6 @@ func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *Wor
 	}
 }
 
-func (h *WordsHandler) Stats(c echo.Context) error {
-	chatID := context.MustChatIDFromContext(c.Request().Context())
-
-	stats, err := h.repo.GetStats(c.Request().Context(), chatID)
-	if err != nil {
-		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
-		return c.JSON(http.StatusInternalServerError, InternalServerError)
-	}
-
-	return c.JSON(http.StatusOK, echo.Map{
-		"learned": stats.GreaterThanOrEqual15,
-		"total":   stats.Total,
-	})
-}
-
 func (h *WordsHandler) FindWords(c echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 

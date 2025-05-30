@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, useContext, useCallback, useEffect } from 'react';
-import client, { type Stats } from "./api/client.tsx";
+import client, { type TotalStats } from "./api/client.tsx";
 
 interface User {
     chatID: bigint
@@ -7,7 +7,7 @@ interface User {
 
 interface AppState {
     user: User | null;
-    stats: Stats | null;
+    stats: TotalStats | null;
 }
 
 const initialState: AppState = {
@@ -24,7 +24,7 @@ const AppStateContext = createContext<{
 type Action =
     | { type: 'LOGIN_SUCCESS'; payload: User }
     | { type: 'LOGOUT' }
-    | { type: 'SET_STATS'; payload: Stats }
+    | { type: 'SET_STATS'; payload: TotalStats }
 
 function appReducer(state: AppState, action: Action): AppState {
     switch (action.type) {
@@ -63,7 +63,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-            const response = await client.getStats();
+            const response = await client.getTotalStats();
 
             if (response.status >= 300) {
                 throw new Error("Unexpected status code: " + response.status);
