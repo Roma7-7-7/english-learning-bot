@@ -68,3 +68,17 @@ CREATE TABLE auth_confirmations
 
     PRIMARY KEY (chat_id, token)
 );
+
+CREATE TABLE daily_word_statistics (
+    chat_id INT NOT NULL,
+    date DATE NOT NULL,
+    words_guessed INT NOT NULL DEFAULT 0,
+    words_missed INT NOT NULL DEFAULT 0,
+    total_words_learned INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (chat_id, date)
+);
+
+CREATE INDEX idx_daily_word_statistics_chat_id_date 
+    ON daily_word_statistics (chat_id, date);
