@@ -67,6 +67,10 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 	securedGroup.PUT("/words/review", words.MarkToReview)
 	securedGroup.DELETE("/words", words.DeleteWord)
 
+	dailyStats := NewDailyStatsHandler(deps.Repo, deps.Logger)
+	securedGroup.GET("/daily-stats", dailyStats.GetDailyStats)
+	securedGroup.GET("/daily-stats/range", dailyStats.GetStatsRange)
+
 	return e
 }
 

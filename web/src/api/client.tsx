@@ -13,6 +13,21 @@ export interface Stats {
     learned: number;
 }
 
+export interface DailyStats {
+    words_guessed: number;
+    words_missed: number;
+    total_words_learned: number;
+}
+
+export interface DailyStatsRange {
+    items: {
+        date: string;
+        words_guessed: number;
+        words_missed: number;
+        total_words_learned: number;
+    }[];
+}
+
 export interface WordsQueryParams {
     search: string;
     guessed: 'all' | 'learned' | 'batched' | 'to_learn';
@@ -130,6 +145,18 @@ class ApiClient {
 
     async getStats(): Promise<Response> {
         return this.request('/words/stats');
+    }
+
+    async getDailyStats(): Promise<Response> {
+        return this.request('/daily-stats');
+    }
+
+    async getDailyStatsRange(from: Date, to: Date): Promise<Response> {
+        const params = new URLSearchParams({
+            from: from.toISOString(),
+            to: to.toISOString(),
+        });
+        return this.request(`/daily-stats/range?${params}`);
     }
 
     private async request(

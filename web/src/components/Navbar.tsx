@@ -30,7 +30,9 @@ export function Navbar() {
                 <Link to="/" className="navbar-brand">Home</Link>
                 <BSNavbar.Toggle aria-controls="navbarScroll" />
                 <BSNavbar.Collapse id="navbarScroll">
-                    <Nav className="me-auto my-2 my-lg-0" />
+                    <Nav className="me-auto my-2 my-lg-0">
+                        {state.user && <Link to="/stats" className="nav-link">Stats</Link>}
+                    </Nav>
                     <span style={{margin: '0 15px'}}>
                         <span style={{color: 'forestgreen'}}>{state.stats?.learned}</span>
                         <span style={{color: 'whitesmoke'}}> / </span>
