@@ -39,12 +39,16 @@ func (p *CookiesProcessor) NewAuthTokenCookie(token string) *http.Cookie {
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int(p.authExpiresIn.Seconds()),
 	}
 }
 
 func (p *CookiesProcessor) GetAuthToken(c echo.Context) (string, bool) {
 	cookie, err := c.Cookie(authCookieName)
 	if err != nil {
+		return "", false
+	}
+	if time.Now().After(cookie.Expires) {
 		return "", false
 	}
 	return cookie.Value, true
@@ -60,6 +64,7 @@ func (p *CookiesProcessor) NewAccessTokenCookie(token string) *http.Cookie {
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int(p.accessExpiresIn.Seconds()),
 	}
 }
 
@@ -68,23 +73,36 @@ func (p *CookiesProcessor) GetAccessToken(c echo.Context) (string, bool) {
 	if err != nil {
 		return "", false
 	}
+	if time.Now().After(cookie.Expires) {
+		return "", false
+	}
 	return cookie.Value, true
 }
 
 func (p *CookiesProcessor) ExpireAuthTokenCookie() *http.Cookie {
 	return &http.Cookie{
-		Name:    authCookieName,
-		Path:    p.path,
-		Domain:  p.domain,
-		Expires: time.Now(),
+		Name:     authCookieName,
+		Path:     p.path,
+		Domain:   p.domain,
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 
 func (p *CookiesProcessor) ExpireAccessTokenCookie() *http.Cookie {
 	return &http.Cookie{
-		Name:    accessCookieName,
-		Path:    p.path,
-		Domain:  p.domain,
-		Expires: time.Now(),
+		Name:     accessCookieName,
+		Path:     p.path,
+		Domain:   p.domain,
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 }

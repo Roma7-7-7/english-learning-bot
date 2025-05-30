@@ -55,14 +55,17 @@ export interface MarkToReview {
     to_review: boolean;
 }
 
+export interface APIError {
+    message: string;
+    code?: string;
+}
+
 class ApiClient {
     private readonly baseUrl: string;
+    private readonly defaultTimeout: number = 10000; // 10 seconds
 
-    constructor(apiBaseUrl: string) {
-        // Ensure the base URL doesn't end with a slash
-        this.baseUrl = apiBaseUrl.endsWith('/')
-            ? apiBaseUrl.slice(0, -1)
-            : apiBaseUrl;
+    constructor() {
+        this.baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
     }
 
     async findWords(qp: WordsQueryParams): Promise<Response> {
@@ -127,13 +130,13 @@ class ApiClient {
     }
 
     async getStatus(): Promise<Response> {
-        return this.request('/auth/status', {});
+        return this.request('/auth/status');
     }
 
     async login(chatID: string): Promise<Response> {
         return this.request('/auth/login', {
             method: 'POST',
-            body: JSON.stringify({chat_id: parseInt(chatID)}),
+            body: JSON.stringify({ chat_id: chatID }),
         });
     }
 
@@ -163,28 +166,59 @@ class ApiClient {
         endpoint: string,
         options: RequestInit = {},
     ): Promise<Response> {
-        if (!endpoint.startsWith('http')) {
-            // If the endpoint doesn't start with http, prepend the base URL
-            endpoint = `${this.baseUrl}${endpoint}`;
-        } else {
-            // If the endpoint starts with http, ensure it doesn't have a trailing slash
-            endpoint = endpoint.endsWith('/')
-                ? endpoint.slice(0, -1)
-                : endpoint;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.defaultTimeout);
+
+        try {
+            const url = this.buildUrl(endpoint);
+            const requestOptions = this.buildRequestOptions(options, controller);
+
+            const response = await fetch(url, requestOptions);
+
+            // Handle CSRF token refresh if needed
+            if (response.status === 403 && response.headers.get('X-CSRF-Token')) {
+                const newToken = response.headers.get('X-CSRF-Token');
+                if (newToken) {
+                    // Retry the request with the new token
+                    requestOptions.headers = {
+                        ...requestOptions.headers as Record<string, string>,
+                        'X-CSRF-Token': newToken,
+                    };
+                    return fetch(url, requestOptions);
+                }
+            }
+
+            return response;
+        } finally {
+            clearTimeout(timeoutId);
         }
+    }
 
-        options['credentials'] = 'include';
+    private buildUrl(endpoint: string): string {
+        if (endpoint.startsWith('http')) {
+            return endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+        }
+        const base = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
+        const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        return `${base}${path}`;
+    }
 
+    private buildRequestOptions(options: RequestInit, controller: AbortController): RequestInit {
         const headers = {
             'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest', // Help prevent CSRF
             ...options.headers,
         };
 
-        return await fetch(endpoint, {
+        return {
             ...options,
+            credentials: 'include', // Always send cookies
             headers,
-        });
+            signal: controller.signal,
+        };
     }
 }
 
-export default new ApiClient(import.meta.env.VITE_API_BASE_URL);
+// Singleton instance
+const client = new ApiClient();
+export default client;
