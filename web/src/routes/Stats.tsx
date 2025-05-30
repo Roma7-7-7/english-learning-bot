@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Container, Card, Row, Col, Form } from 'react-bootstrap';
 import {
     Chart as ChartJS,
@@ -14,7 +14,7 @@ import {
 import { Line, Bar } from 'react-chartjs-2';
 import { format, subDays } from 'date-fns';
 import client from '../api/client.tsx';
-import type { DailyStats, DailyStatsRange } from '../api/client.tsx';
+import type { Stats, StatsRange } from '../api/client.tsx';
 
 ChartJS.register(
     CategoryScale,
@@ -28,21 +28,21 @@ ChartJS.register(
 );
 
 export function Stats() {
-    const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
-    const [rangeStats, setRangeStats] = useState<DailyStatsRange | null>(null);
+    const [stats, setStats] = useState<Stats | null>(null);
+    const [rangeStats, setRangeStats] = useState<StatsRange | null>(null);
     const [dateRange, setDateRange] = useState(7); // days
 
     useEffect(() => {
         // Fetch today's stats
-        client.getDailyStats()
+        client.getStats()
             .then(r => r.json())
-            .then(setDailyStats)
+            .then(setStats)
             .catch(console.error);
 
         // Fetch range stats
         const to = new Date();
         const from = subDays(to, dateRange);
-        client.getDailyStatsRange(from, to)
+        client.getStatsRange(from, to)
             .then(r => r.json())
             .then(setRangeStats)
             .catch(console.error);
@@ -90,10 +90,20 @@ export function Stats() {
         },
     };
 
+    const lineChartOptions = {
+        ...chartOptions,
+        scales: {
+            ...chartOptions.scales,
+            y: {
+                min: Math.max(0, Math.min(...(rangeStats?.items.map(item => item.total_words_learned) || [0])) - 1),
+            },
+        },
+    };
+
     return (
         <Container>
             <h1 className="mb-4">Statistics</h1>
-            
+
             <Row className="mb-4">
                 <Col md={4}>
                     <Card>
@@ -101,11 +111,11 @@ export function Stats() {
                             <Card.Title>Today's Progress</Card.Title>
                             <div className="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div className="text-success">Guessed: {dailyStats?.words_guessed || 0}</div>
-                                    <div className="text-danger">Missed: {dailyStats?.words_missed || 0}</div>
+                                    <div className="text-success">Guessed: {stats?.words_guessed || 0}</div>
+                                    <div className="text-danger">Missed: {stats?.words_missed || 0}</div>
                                 </div>
                                 <div className="text-primary">
-                                    Total Learned: {dailyStats?.total_words_learned || 0}
+                                    Total Learned: {stats?.total_words_learned || 0}
                                 </div>
                             </div>
                         </Card.Body>
@@ -127,18 +137,15 @@ export function Stats() {
             </Row>
 
             <Row className="mb-4">
-                <Col>
+                <Col md={6}>
                     <Card>
                         <Card.Body>
                             <Card.Title>Total Words Learned Over Time</Card.Title>
-                            <Line data={lineChartData} options={chartOptions} />
+                            <Line data={lineChartData} options={lineChartOptions} />
                         </Card.Body>
                     </Card>
                 </Col>
-            </Row>
-
-            <Row>
-                <Col>
+                <Col md={6}>
                     <Card>
                         <Card.Body>
                             <Card.Title>Daily Words Progress</Card.Title>

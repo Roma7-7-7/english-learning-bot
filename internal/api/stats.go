@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -11,34 +12,49 @@ import (
 )
 
 type (
-	DailyStatsHandler struct {
-		repo dal.DailyStatsRepository
+	StatsHandler struct {
+		repo dal.StatsRepository
 		log  *slog.Logger
 	}
 
-	DailyStatsQueryParams struct {
+	StatsQueryParams struct {
 		From time.Time `query:"from" validate:"required"`
 		To   time.Time `query:"to" validate:"required"`
 	}
 )
 
-func NewDailyStatsHandler(repo dal.DailyStatsRepository, log *slog.Logger) *DailyStatsHandler {
-	return &DailyStatsHandler{
+func NewStatsHandler(repo dal.StatsRepository, log *slog.Logger) *StatsHandler {
+	return &StatsHandler{
 		repo: repo,
 		log:  log,
 	}
 }
 
-func (h *DailyStatsHandler) GetDailyStats(c echo.Context) error {
+func (h *StatsHandler) TotalStats(c echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
-	stats, err := h.repo.GetDailyStats(c.Request().Context(), chatID, time.Now())
-	if err != nil && err != dal.ErrNotFound {
-		h.log.ErrorContext(c.Request().Context(), "failed to get daily stats", "error", err)
+	stats, err := h.repo.GetTotalStats(c.Request().Context(), chatID)
+	if err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	if err == dal.ErrNotFound {
+	return c.JSON(http.StatusOK, echo.Map{
+		"learned": stats.GreaterThanOrEqual15,
+		"total":   stats.Total,
+	})
+}
+
+func (h *StatsHandler) GetStats(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	stats, err := h.repo.GetStats(c.Request().Context(), chatID, time.Now())
+	if err != nil && !errors.Is(err, dal.ErrNotFound) {
+		h.log.ErrorContext(c.Request().Context(), "failed to get stats", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	if errors.Is(err, dal.ErrNotFound) {
 		return c.JSON(http.StatusOK, echo.Map{
 			"words_guessed":       0,
 			"words_missed":        0,
@@ -53,10 +69,10 @@ func (h *DailyStatsHandler) GetDailyStats(c echo.Context) error {
 	})
 }
 
-func (h *DailyStatsHandler) GetStatsRange(c echo.Context) error {
+func (h *StatsHandler) GetStatsRange(c echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
-	var qp DailyStatsQueryParams
+	var qp StatsQueryParams
 	if err := c.Bind(&qp); err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
 		return c.JSON(http.StatusBadRequest, BadRequestError)
