@@ -48,9 +48,6 @@ func (p *CookiesProcessor) GetAuthToken(c echo.Context) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	if time.Now().After(cookie.Expires) {
-		return "", false
-	}
 	return cookie.Value, true
 }
 
@@ -71,9 +68,6 @@ func (p *CookiesProcessor) NewAccessTokenCookie(token string) *http.Cookie {
 func (p *CookiesProcessor) GetAccessToken(c echo.Context) (string, bool) {
 	cookie, err := c.Cookie(accessCookieName)
 	if err != nil {
-		return "", false
-	}
-	if time.Now().After(cookie.Expires) {
 		return "", false
 	}
 	return cookie.Value, true

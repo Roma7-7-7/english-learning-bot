@@ -65,7 +65,7 @@ class ApiClient {
     private readonly defaultTimeout: number = 10000; // 10 seconds
 
     constructor() {
-        this.baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
+        this.baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
     }
 
     async findWords(qp: WordsQueryParams): Promise<Response> {
@@ -133,7 +133,7 @@ class ApiClient {
         return this.request('/auth/status');
     }
 
-    async login(chatID: string): Promise<Response> {
+    async login(chatID: number): Promise<Response> {
         return this.request('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ chat_id: chatID }),
@@ -219,6 +219,5 @@ class ApiClient {
     }
 }
 
-// Singleton instance
 const client = new ApiClient();
 export default client;

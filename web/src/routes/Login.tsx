@@ -20,7 +20,7 @@ export function Login() {
             chatID: HTMLInputElement;
         };
 
-        client.login(formElements.chatID.value).then((r) => {
+        client.login(parseInt(formElements.chatID.value)).then((r) => {
             if (!r.ok) {
                 if (r.status == 403) {
                     setErrorMessage("Invalid chat ID");

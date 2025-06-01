@@ -29,18 +29,16 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 	e.Use(loggingMiddleware(ctx, deps.Logger))
 	e.Use(middleware.Recover())
 
-	// Enhanced rate limiting per IP
 	e.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
 			middleware.RateLimiterMemoryStoreConfig{
 				Rate:      rate.Limit(conf.HTTP.RateLimit),
-				Burst:     int(conf.HTTP.RateLimit * 2), // Allow some bursting
+				Burst:     int(conf.HTTP.RateLimit * 2),
 				ExpiresIn: time.Minute,
 			},
 		),
 		IdentifierExtractor: func(ctx echo.Context) (string, error) {
-			id := ctx.RealIP()
-			return id, nil
+			return ctx.RealIP(), nil
 		},
 		ErrorHandler: func(context echo.Context, err error) error {
 			return context.JSON(http.StatusTooManyRequests, ErrorResponse{
@@ -54,21 +52,18 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 		},
 	}))
 
-	// Enhanced CORS configuration
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     conf.HTTP.CORS.AllowOrigins,
-		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+		AllowMethods:     []string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderXRequestedWith},
 		AllowCredentials: true,
 		MaxAge:           3600,
 	}))
 
-	// Request timeout
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 		Timeout: conf.HTTP.ProcessTimeout,
 	}))
 
-	// Enhanced security headers
 	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
 		XSSProtection:         "1; mode=block",
 		ContentTypeNosniff:    "nosniff",
@@ -80,7 +75,6 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 		ReferrerPolicy:        "strict-origin-when-cross-origin",
 	}))
 
-	// Body size limits
 	e.Use(middleware.BodyLimit("1M"))
 
 	e.HTTPErrorHandler = HTTPErrorHandler(deps.Logger)
