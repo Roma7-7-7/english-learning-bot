@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
@@ -27,15 +28,54 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 	e.Use(middleware.RequestID())
 	e.Use(loggingMiddleware(ctx, deps.Logger))
 	e.Use(middleware.Recover())
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(conf.HTTP.RateLimit))))
+
+	e.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
+			middleware.RateLimiterMemoryStoreConfig{
+				Rate:      rate.Limit(conf.HTTP.RateLimit),
+				Burst:     int(conf.HTTP.RateLimit * 2), //nolint:mnd // burst is twice the rate limit
+				ExpiresIn: time.Minute,
+			},
+		),
+		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+			return ctx.RealIP(), nil
+		},
+		ErrorHandler: func(context echo.Context, _ error) error {
+			return context.JSON(http.StatusTooManyRequests, ErrorResponse{
+				Message: "Too many requests",
+			})
+		},
+		DenyHandler: func(context echo.Context, _ string, _ error) error {
+			return context.JSON(http.StatusTooManyRequests, ErrorResponse{
+				Message: "Too many requests",
+			})
+		},
+	}))
+
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     conf.HTTP.CORS.AllowOrigins,
+		AllowMethods:     []string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderXRequestedWith},
 		AllowCredentials: true,
+		MaxAge:           3600, //nolint:mnd // 1 hour
 	}))
+
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 		Timeout: conf.HTTP.ProcessTimeout,
 	}))
-	e.Use(middleware.Secure())
+
+	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
+		XSSProtection:         "1; mode=block",
+		ContentTypeNosniff:    "nosniff",
+		XFrameOptions:         "DENY",
+		HSTSMaxAge:            31536000, //nolint:mnd // 1 year
+		HSTSExcludeSubdomains: false,
+		HSTSPreloadEnabled:    true,
+		ContentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'",
+		ReferrerPolicy:        "strict-origin-when-cross-origin",
+	}))
+
+	e.Use(middleware.BodyLimit("1M"))
 
 	e.HTTPErrorHandler = HTTPErrorHandler(deps.Logger)
 
@@ -79,7 +119,7 @@ func loggingMiddleware(ctx context.Context, log *slog.Logger) echo.MiddlewareFun
 		LogStatus:   true,
 		LogURI:      true,
 		LogError:    true,
-		HandleError: true, // forwards error to the global error handler, so it can decide appropriate status code
+		HandleError: true,
 		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
 			if v.Error == nil {
 				log.LogAttrs(ctx, slog.LevelInfo, "REQUEST",

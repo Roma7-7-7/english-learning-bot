@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -64,12 +65,30 @@ func (p *JWTProcessor) ToAuthToken(chatID int64, key string) (string, error) {
 
 func (p *JWTProcessor) ParseAuthToken(token string) (int64, string, error) {
 	var parsed *jwt.Token
-	parsed, err := jwt.Parse(token, func(_ *jwt.Token) (interface{}, error) {
+	parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		// Validate signing algorithm
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return p.secret, nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}))
 	if err != nil {
 		return 0, "", fmt.Errorf("parse token: %w", err)
 	}
+
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	if !ok || !parsed.Valid {
+		return 0, "", errors.New("invalid token claims")
+	}
+
+	// Validate issuer and audience
+	if iss, _ := claims.GetIssuer(); iss != p.issuer {
+		return 0, "", errors.New("invalid issuer")
+	}
+	if aud, _ := claims.GetAudience(); !containsAll(aud, p.audience) {
+		return 0, "", errors.New("invalid audience")
+	}
+
 	subject, err := parsed.Claims.GetSubject()
 	if err != nil {
 		return 0, "", fmt.Errorf("get subject: %w", err)
@@ -109,12 +128,30 @@ func (p *JWTProcessor) ToAccessToken(chatID int64) (string, error) {
 
 func (p *JWTProcessor) ParseAccessToken(token string) (int64, error) {
 	var parsed *jwt.Token
-	parsed, err := jwt.Parse(token, func(_ *jwt.Token) (interface{}, error) {
+	parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		// Validate signing algorithm
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return p.secret, nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}))
 	if err != nil {
 		return 0, fmt.Errorf("parse token: %w", err)
 	}
+
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	if !ok || !parsed.Valid {
+		return 0, errors.New("invalid token claims")
+	}
+
+	// Validate issuer and audience
+	if iss, _ := claims.GetIssuer(); iss != p.issuer {
+		return 0, errors.New("invalid issuer")
+	}
+	if aud, _ := claims.GetAudience(); !containsAll(aud, p.audience) {
+		return 0, errors.New("invalid audience")
+	}
+
 	subject, err := parsed.Claims.GetSubject()
 	if err != nil {
 		return 0, fmt.Errorf("get subject: %w", err)
@@ -125,4 +162,26 @@ func (p *JWTProcessor) ParseAccessToken(token string) (int64, error) {
 		return 0, fmt.Errorf("parse subject: %w", err)
 	}
 	return chatID, nil
+}
+
+func containsAll(actual, required []string) bool {
+	if len(required) == 0 {
+		return true
+	}
+	if len(actual) < len(required) {
+		return false
+	}
+	for _, r := range required {
+		found := false
+		for _, a := range actual {
+			if a == r {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
