@@ -1,4 +1,4 @@
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, useEffect, useState, useRef } from "react";
 import client, { type Words, type WordsQueryParams } from "../api/client.tsx";
 import { useAppState } from "../context.tsx";
 import { Container, Row, Col, Form, Button, Table, Pagination, Alert, Spinner, Badge } from 'react-bootstrap';
@@ -34,6 +34,8 @@ export function Home() {
         description: undefined,
     });
 
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
     function fetchWords() {
         if (error !== "") {
             setError("");
@@ -68,6 +70,36 @@ export function Home() {
     useEffect(() => {
         fetchWords()
     }, [qp])
+
+    useEffect(() => {
+        function handleKeyPress(event: KeyboardEvent) {
+            // Only handle shortcuts if modal is not open
+            if (!modalState.show) {
+                if (event.key === 'q' && document.activeElement !== searchInputRef.current) {
+                    event.preventDefault(); // Prevent the 'q' from being typed
+                    event.stopPropagation(); // Stop event from bubbling up
+                    setModalState({
+                        show: true,
+                        action: 'add',
+                        word: '',
+                        translation: '',
+                        description: undefined,
+                    });
+                } else if (event.key === '/') {
+                    event.preventDefault();
+                    if (searchInputRef.current) {
+                        searchInputRef.current.focus();
+                        searchInputRef.current.select();
+                    }
+                }
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyPress);
+        return () => {
+            document.removeEventListener('keydown', handleKeyPress);
+        };
+    }, [modalState.show]);
 
     function handleDeleteWord(word: string) {
         if (confirm(`Are you sure you want to delete the word "${word}"?`)) {
@@ -145,6 +177,7 @@ export function Home() {
                         <Col xs={12} md={3}>
                             <Form.Group>
                                 <Form.Control
+                                    ref={searchInputRef}
                                     type="text"
                                     placeholder="Search"
                                     value={qp.search}
