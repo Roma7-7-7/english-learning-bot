@@ -33,19 +33,19 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
 			middleware.RateLimiterMemoryStoreConfig{
 				Rate:      rate.Limit(conf.HTTP.RateLimit),
-				Burst:     int(conf.HTTP.RateLimit * 2),
+				Burst:     int(conf.HTTP.RateLimit * 2), //nolint:mnd // burst is twice the rate limit
 				ExpiresIn: time.Minute,
 			},
 		),
 		IdentifierExtractor: func(ctx echo.Context) (string, error) {
 			return ctx.RealIP(), nil
 		},
-		ErrorHandler: func(context echo.Context, err error) error {
+		ErrorHandler: func(context echo.Context, _ error) error {
 			return context.JSON(http.StatusTooManyRequests, ErrorResponse{
 				Message: "Too many requests",
 			})
 		},
-		DenyHandler: func(context echo.Context, identifier string, err error) error {
+		DenyHandler: func(context echo.Context, _ string, _ error) error {
 			return context.JSON(http.StatusTooManyRequests, ErrorResponse{
 				Message: "Too many requests",
 			})
@@ -57,7 +57,7 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 		AllowMethods:     []string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderXRequestedWith},
 		AllowCredentials: true,
-		MaxAge:           3600,
+		MaxAge:           3600, //nolint:mnd // 1 hour
 	}))
 
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
@@ -68,7 +68,7 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 		XSSProtection:         "1; mode=block",
 		ContentTypeNosniff:    "nosniff",
 		XFrameOptions:         "DENY",
-		HSTSMaxAge:            31536000,
+		HSTSMaxAge:            31536000, //nolint:mnd // 1 year
 		HSTSExcludeSubdomains: false,
 		HSTSPreloadEnabled:    true,
 		ContentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'",

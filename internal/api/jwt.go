@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -77,15 +78,15 @@ func (p *JWTProcessor) ParseAuthToken(token string) (int64, string, error) {
 
 	claims, ok := parsed.Claims.(jwt.MapClaims)
 	if !ok || !parsed.Valid {
-		return 0, "", fmt.Errorf("invalid token claims")
+		return 0, "", errors.New("invalid token claims")
 	}
 
 	// Validate issuer and audience
 	if iss, _ := claims.GetIssuer(); iss != p.issuer {
-		return 0, "", fmt.Errorf("invalid issuer")
+		return 0, "", errors.New("invalid issuer")
 	}
 	if aud, _ := claims.GetAudience(); !containsAll(aud, p.audience) {
-		return 0, "", fmt.Errorf("invalid audience")
+		return 0, "", errors.New("invalid audience")
 	}
 
 	subject, err := parsed.Claims.GetSubject()
@@ -140,15 +141,15 @@ func (p *JWTProcessor) ParseAccessToken(token string) (int64, error) {
 
 	claims, ok := parsed.Claims.(jwt.MapClaims)
 	if !ok || !parsed.Valid {
-		return 0, fmt.Errorf("invalid token claims")
+		return 0, errors.New("invalid token claims")
 	}
 
 	// Validate issuer and audience
 	if iss, _ := claims.GetIssuer(); iss != p.issuer {
-		return 0, fmt.Errorf("invalid issuer")
+		return 0, errors.New("invalid issuer")
 	}
 	if aud, _ := claims.GetAudience(); !containsAll(aud, p.audience) {
-		return 0, fmt.Errorf("invalid audience")
+		return 0, errors.New("invalid audience")
 	}
 
 	subject, err := parsed.Claims.GetSubject()
@@ -163,7 +164,6 @@ func (p *JWTProcessor) ParseAccessToken(token string) (int64, error) {
 	return chatID, nil
 }
 
-// containsAll returns true if all elements in required are present in actual
 func containsAll(actual, required []string) bool {
 	if len(required) == 0 {
 		return true

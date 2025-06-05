@@ -20,7 +20,7 @@ export function AuthenticationGuard({children}: AuthenticationGuardProps) {
     useEffect(() => {
         let authCheckInterval: number;
 
-        const isPublicRoute = PUBLIC_ROUTES.includes(location.pathname as any);
+        const isPublicRoute = PUBLIC_ROUTES.includes(location.pathname as typeof PUBLIC_ROUTES[number]);
         if (isPublicRoute) {
             setIsLoading(false);
             return;
