@@ -91,6 +91,10 @@ export function Home() {
                         searchInputRef.current.focus();
                         searchInputRef.current.select();
                     }
+                } else if (event.key === 'Escape') {
+                    if (document.activeElement && document.activeElement !== document.body) {
+                        (document.activeElement as HTMLElement).blur();
+                    }
                 }
             }
         }
