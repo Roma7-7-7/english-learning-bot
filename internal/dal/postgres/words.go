@@ -12,7 +12,7 @@ import (
 )
 
 func (r *Repository) AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
-	query := dal.AddWordTranslationQuery(chatID, word, translation, description)
+	query := r.queries.AddWordTranslationQuery(chatID, word, translation, description)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -27,7 +27,7 @@ func (r *Repository) AddWordTranslation(ctx context.Context, chatID int64, word,
 }
 
 func (r *Repository) FindWordTranslations(ctx context.Context, chatID int64, filter dal.WordTranslationsFilter) ([]dal.WordTranslation, int, error) {
-	selectQuery, countQuery := dal.FindWordTranslationsQuery(chatID, filter)
+	selectQuery, countQuery := r.queries.FindWordTranslationsQuery(chatID, filter)
 
 	eg, ctx := errgroup.WithContext(ctx)
 	res := make([]dal.WordTranslation, 0, filter.Limit)
@@ -81,7 +81,7 @@ func (r *Repository) FindWordTranslations(ctx context.Context, chatID int64, fil
 }
 
 func (r *Repository) DeleteWordTranslation(ctx context.Context, chatID int64, word string) error {
-	query := dal.DeleteWordTranslationQuery(chatID, word)
+	query := r.queries.DeleteWordTranslationQuery(chatID, word)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -96,7 +96,7 @@ func (r *Repository) DeleteWordTranslation(ctx context.Context, chatID int64, wo
 }
 
 func (r *Repository) AddToLearningBatch(ctx context.Context, chatID int64, word string) error {
-	query := dal.AddToLearningBatchQuery(chatID, word)
+	query := r.queries.AddToLearningBatchQuery(chatID, word)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -111,7 +111,7 @@ func (r *Repository) AddToLearningBatch(ctx context.Context, chatID int64, word 
 }
 
 func (r *Repository) IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error {
-	query := dal.IncreaseGuessedStreakQuery(chatID, word)
+	query := r.queries.IncreaseGuessedStreakQuery(chatID, word)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -126,7 +126,7 @@ func (r *Repository) IncreaseGuessedStreak(ctx context.Context, chatID int64, wo
 }
 
 func (r *Repository) ResetGuessedStreak(ctx context.Context, chatID int64, word string) error {
-	query := dal.ResetGuessedStreakQuery(chatID, word)
+	query := r.queries.ResetGuessedStreakQuery(chatID, word)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -141,7 +141,7 @@ func (r *Repository) ResetGuessedStreak(ctx context.Context, chatID int64, word 
 }
 
 func (r *Repository) MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error {
-	query := dal.MarkToReviewQuery(chatID, word, toReview)
+	query := r.queries.MarkToReviewQuery(chatID, word, toReview)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -156,7 +156,7 @@ func (r *Repository) MarkToReview(ctx context.Context, chatID int64, word string
 }
 
 func (r *Repository) UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, updatedTranslation, description string) error {
-	query := dal.UpdateWordTranslationQuery(chatID, word, updatedWord, updatedTranslation, description)
+	query := r.queries.UpdateWordTranslationQuery(chatID, word, updatedWord, updatedTranslation, description)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -171,7 +171,7 @@ func (r *Repository) UpdateWordTranslation(ctx context.Context, chatID int64, wo
 }
 
 func (r *Repository) ResetToReview(ctx context.Context, chatID int64) error {
-	query := dal.ResetToReviewQuery(chatID)
+	query := r.queries.ResetToReviewQuery(chatID)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -186,7 +186,7 @@ func (r *Repository) ResetToReview(ctx context.Context, chatID int64) error {
 }
 
 func (r *Repository) GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error) {
-	query := dal.GetBatchedWordTranslationsCountQuery(chatID)
+	query := r.queries.GetBatchedWordTranslationsCountQuery(chatID)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -202,7 +202,7 @@ func (r *Repository) GetBatchedWordTranslationsCount(ctx context.Context, chatID
 }
 
 func (r *Repository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*dal.WordTranslation, error) {
-	query := dal.FindWordTranslationQuery(chatID, word)
+	query := r.queries.FindWordTranslationQuery(chatID, word)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -221,7 +221,7 @@ func (r *Repository) FindWordTranslation(ctx context.Context, chatID int64, word
 }
 
 func (r *Repository) FindRandomWordTranslation(ctx context.Context, chatID int64, filter dal.FindRandomWordFilter) (*dal.WordTranslation, error) {
-	query := dal.FindRandomWordTranslationQuery(chatID, filter)
+	query := r.queries.FindRandomWordTranslationQuery(chatID, filter)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -240,7 +240,7 @@ func (r *Repository) FindRandomWordTranslation(ctx context.Context, chatID int64
 }
 
 func (r *Repository) DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error) {
-	query := dal.DeleteFromLearningBatchGtGuessedStreakQuery(chatID, guessedStreakLimit)
+	query := r.queries.DeleteFromLearningBatchGtGuessedStreakQuery(chatID, guessedStreakLimit)
 
 	sql, args, err := query.ToSql()
 	if err != nil {

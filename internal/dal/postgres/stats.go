@@ -12,7 +12,7 @@ import (
 )
 
 func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.TotalStats, error) {
-	query := dal.GetTotalStatsQuery(chatID)
+	query := r.queries.GetTotalStatsQuery(chatID)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -41,7 +41,7 @@ func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.Tota
 }
 
 func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time) (*dal.Stats, error) {
-	query := dal.GetStatsQuery(chatID, date)
+	query := r.queries.GetStatsQuery(chatID, date)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -69,7 +69,7 @@ func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time)
 }
 
 func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]dal.Stats, error) {
-	query := dal.GetStatsRangeQuery(chatID, from, to)
+	query := r.queries.GetStatsRangeQuery(chatID, from, to)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -107,7 +107,7 @@ func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to t
 }
 
 func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
-	query := dal.IncrementWordGuessedQuery(chatID)
+	query := r.queries.IncrementWordGuessedQuery(chatID)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -122,7 +122,7 @@ func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) err
 }
 
 func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) error {
-	query := dal.IncrementWordMissedQuery(chatID)
+	query := r.queries.IncrementWordMissedQuery(chatID)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -137,7 +137,7 @@ func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) erro
 }
 
 func (r *Repository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
-	query := dal.UpdateTotalWordsLearnedQuery(chatID)
+	query := r.queries.UpdateTotalWordsLearnedQuery(chatID)
 
 	sql, args, err := query.ToSql()
 	if err != nil {

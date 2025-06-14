@@ -19,7 +19,7 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 		return "", errors.New("expires at is required")
 	}
 
-	query := dal.InsertCallbackQuery(data.ChatID, data, data.ExpiresAt)
+	query := r.queries.InsertCallbackQuery(data.ChatID, data, data.ExpiresAt)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -36,7 +36,7 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 }
 
 func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
-	query := dal.FindCallbackQuery(chatID, uuid)
+	query := r.queries.FindCallbackQuery(chatID, uuid)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -71,7 +71,7 @@ func (r *Repository) cleanupCallbacksJob(ctx context.Context) {
 		case <-time.After(time.Hour):
 			r.log.InfoContext(ctx, "running cleanup job")
 
-			query := dal.CleanupCallbacksQuery()
+			query := r.queries.CleanupCallbacksQuery()
 
 			sql, args, err := query.ToSql()
 			if err != nil {

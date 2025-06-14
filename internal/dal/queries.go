@@ -8,8 +8,51 @@ import (
 	"github.com/Masterminds/squirrel"
 )
 
+type DBType string
+
+const (
+	PostgreSQL DBType = "postgres"
+	SQLite     DBType = "sqlite"
+)
+
+// Queries handles database-specific query building
+type Queries struct {
+	dbType DBType
+}
+
+// NewQueries creates a new Queries instance
+func NewQueries(dbType DBType) *Queries {
+	return &Queries{
+		dbType: dbType,
+	}
+}
+
+// getUUIDFunction returns the appropriate UUID generation function for the current database
+func (q *Queries) getUUIDFunction() string {
+	switch q.dbType {
+	case PostgreSQL:
+		return "gen_random_uuid()"
+	case SQLite:
+		return "hex(randomblob(4))"
+	default:
+		return "gen_random_uuid()"
+	}
+}
+
+// getCurrentTimestampFunction returns the appropriate current timestamp function for the current database
+func (q *Queries) getCurrentTimestampFunction() string {
+	switch q.dbType {
+	case PostgreSQL:
+		return "NOW()"
+	case SQLite:
+		return "datetime('now')"
+	default:
+		return "NOW()"
+	}
+}
+
 // AddWordTranslationQuery builds a query to add or update a word translation
-func AddWordTranslationQuery(chatID int64, word, translation, description string) squirrel.Sqlizer {
+func (q *Queries) AddWordTranslationQuery(chatID int64, word, translation, description string) squirrel.Sqlizer {
 	return squirrel.Insert("word_translations").
 		Columns("chat_id", "word", "translation", "description").
 		Values(chatID, word, translation, description).
@@ -18,14 +61,15 @@ func AddWordTranslationQuery(chatID int64, word, translation, description string
 }
 
 // FindWordTranslationsQuery builds a query to find word translations with filters
-func FindWordTranslationsQuery(chatID int64, filter WordTranslationsFilter) (selectQuery, countQuery squirrel.Sqlizer) {
+func (q *Queries) FindWordTranslationsQuery(chatID int64, filter WordTranslationsFilter) (selectQuery, countQuery squirrel.Sqlizer) {
 	baseQuery := squirrel.Select().
 		From("word_translations").
 		Where(squirrel.Eq{"chat_id": chatID}).
 		PlaceholderFormat(squirrel.Dollar)
 
 	if filter.Word != "" {
-		baseQuery = baseQuery.Where("LOWER(word) SIMILAR TO ?", fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word)))
+		// Use LIKE instead of SIMILAR TO for SQLite compatibility
+		baseQuery = baseQuery.Where("LOWER(word) LIKE ?", fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word)))
 	}
 
 	if filter.ToReview {
@@ -54,14 +98,14 @@ func FindWordTranslationsQuery(chatID int64, filter WordTranslationsFilter) (sel
 }
 
 // DeleteWordTranslationQuery builds a query to delete a word translation
-func DeleteWordTranslationQuery(chatID int64, word string) squirrel.Sqlizer {
+func (q *Queries) DeleteWordTranslationQuery(chatID int64, word string) squirrel.Sqlizer {
 	return squirrel.Delete("word_translations").
 		Where(squirrel.Eq{"chat_id": chatID, "word": word}).
 		PlaceholderFormat(squirrel.Dollar)
 }
 
 // AddToLearningBatchQuery builds a query to add a word to learning batch
-func AddToLearningBatchQuery(chatID int64, word string) squirrel.Sqlizer {
+func (q *Queries) AddToLearningBatchQuery(chatID int64, word string) squirrel.Sqlizer {
 	return squirrel.Insert("learning_batches").
 		Columns("chat_id", "word").
 		Values(chatID, word).
@@ -70,7 +114,7 @@ func AddToLearningBatchQuery(chatID int64, word string) squirrel.Sqlizer {
 }
 
 // IncreaseGuessedStreakQuery builds a query to increase guessed streak
-func IncreaseGuessedStreakQuery(chatID int64, word string) squirrel.Sqlizer {
+func (q *Queries) IncreaseGuessedStreakQuery(chatID int64, word string) squirrel.Sqlizer {
 	return squirrel.Update("word_translations").
 		Set("guessed_streak", squirrel.Expr("guessed_streak + 1")).
 		Where(squirrel.Eq{"chat_id": chatID, "word": word}).
@@ -78,7 +122,7 @@ func IncreaseGuessedStreakQuery(chatID int64, word string) squirrel.Sqlizer {
 }
 
 // ResetGuessedStreakQuery builds a query to reset guessed streak
-func ResetGuessedStreakQuery(chatID int64, word string) squirrel.Sqlizer {
+func (q *Queries) ResetGuessedStreakQuery(chatID int64, word string) squirrel.Sqlizer {
 	return squirrel.Update("word_translations").
 		Set("guessed_streak", 0).
 		Where(squirrel.Eq{"chat_id": chatID, "word": word}).
@@ -86,7 +130,7 @@ func ResetGuessedStreakQuery(chatID int64, word string) squirrel.Sqlizer {
 }
 
 // MarkToReviewQuery builds a query to mark a word for review
-func MarkToReviewQuery(chatID int64, word string, toReview bool) squirrel.Sqlizer {
+func (q *Queries) MarkToReviewQuery(chatID int64, word string, toReview bool) squirrel.Sqlizer {
 	return squirrel.Update("word_translations").
 		Set("to_review", toReview).
 		Where(squirrel.Eq{"chat_id": chatID, "word": word}).
@@ -94,7 +138,7 @@ func MarkToReviewQuery(chatID int64, word string, toReview bool) squirrel.Sqlize
 }
 
 // UpdateWordTranslationQuery builds a query to update a word translation
-func UpdateWordTranslationQuery(chatID int64, word, updatedWord, updatedTranslation, description string) squirrel.Sqlizer {
+func (q *Queries) UpdateWordTranslationQuery(chatID int64, word, updatedWord, updatedTranslation, description string) squirrel.Sqlizer {
 	return squirrel.Update("word_translations").
 		Set("word", updatedWord).
 		Set("translation", updatedTranslation).
@@ -104,7 +148,7 @@ func UpdateWordTranslationQuery(chatID int64, word, updatedWord, updatedTranslat
 }
 
 // ResetToReviewQuery builds a query to reset all words to not review
-func ResetToReviewQuery(chatID int64) squirrel.Sqlizer {
+func (q *Queries) ResetToReviewQuery(chatID int64) squirrel.Sqlizer {
 	return squirrel.Update("word_translations").
 		Set("to_review", false).
 		Where(squirrel.Eq{"chat_id": chatID}).
@@ -112,7 +156,7 @@ func ResetToReviewQuery(chatID int64) squirrel.Sqlizer {
 }
 
 // GetBatchedWordTranslationsCountQuery builds a query to get count of batched words
-func GetBatchedWordTranslationsCountQuery(chatID int64) squirrel.Sqlizer {
+func (q *Queries) GetBatchedWordTranslationsCountQuery(chatID int64) squirrel.Sqlizer {
 	return squirrel.Select("COUNT(*)").
 		From("word_translations wt").
 		Join("learning_batches lb ON wt.chat_id = lb.chat_id AND wt.word = lb.word").
@@ -121,7 +165,7 @@ func GetBatchedWordTranslationsCountQuery(chatID int64) squirrel.Sqlizer {
 }
 
 // FindWordTranslationQuery builds a query to find a specific word translation
-func FindWordTranslationQuery(chatID int64, word string) squirrel.Sqlizer {
+func (q *Queries) FindWordTranslationQuery(chatID int64, word string) squirrel.Sqlizer {
 	return squirrel.Select(
 		"wt.chat_id", "wt.word", "wt.translation",
 		"COALESCE(wt.description, '')", "wt.guessed_streak",
@@ -133,7 +177,7 @@ func FindWordTranslationQuery(chatID int64, word string) squirrel.Sqlizer {
 }
 
 // FindRandomWordTranslationQuery builds a query to find a random word translation
-func FindRandomWordTranslationQuery(chatID int64, filter FindRandomWordFilter) squirrel.Sqlizer {
+func (q *Queries) FindRandomWordTranslationQuery(chatID int64, filter FindRandomWordFilter) squirrel.Sqlizer {
 	var query squirrel.SelectBuilder
 
 	if filter.Batched {
@@ -165,7 +209,7 @@ func FindRandomWordTranslationQuery(chatID int64, filter FindRandomWordFilter) s
 }
 
 // DeleteFromLearningBatchGtGuessedStreakQuery builds a query to delete words from learning batch
-func DeleteFromLearningBatchGtGuessedStreakQuery(chatID int64, guessedStreakLimit int) squirrel.Sqlizer {
+func (q *Queries) DeleteFromLearningBatchGtGuessedStreakQuery(chatID int64, guessedStreakLimit int) squirrel.Sqlizer {
 	return squirrel.Delete("learning_batches lb").
 		Where("lb.chat_id = ? AND lb.word IN (SELECT word FROM word_translations WHERE chat_id = ? AND guessed_streak >= ?)",
 			chatID, chatID, guessedStreakLimit).
@@ -173,7 +217,7 @@ func DeleteFromLearningBatchGtGuessedStreakQuery(chatID int64, guessedStreakLimi
 }
 
 // GetTotalStatsQuery builds a query to get total statistics
-func GetTotalStatsQuery(chatID int64) squirrel.Sqlizer {
+func (q *Queries) GetTotalStatsQuery(chatID int64) squirrel.Sqlizer {
 	return squirrel.Select(
 		"chat_id",
 		"SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus",
@@ -188,7 +232,7 @@ func GetTotalStatsQuery(chatID int64) squirrel.Sqlizer {
 }
 
 // GetStatsQuery builds a query to get statistics for a specific date
-func GetStatsQuery(chatID int64, date time.Time) squirrel.Sqlizer {
+func (q *Queries) GetStatsQuery(chatID int64, date time.Time) squirrel.Sqlizer {
 	return squirrel.Select(
 		"chat_id", "date", "words_guessed", "words_missed",
 		"total_words_learned", "created_at",
@@ -202,7 +246,7 @@ func GetStatsQuery(chatID int64, date time.Time) squirrel.Sqlizer {
 }
 
 // GetStatsRangeQuery builds a query to get statistics for a date range
-func GetStatsRangeQuery(chatID int64, from, to time.Time) squirrel.Sqlizer {
+func (q *Queries) GetStatsRangeQuery(chatID int64, from, to time.Time) squirrel.Sqlizer {
 	return squirrel.Select(
 		"chat_id", "date", "words_guessed", "words_missed",
 		"total_words_learned", "created_at",
@@ -215,7 +259,7 @@ func GetStatsRangeQuery(chatID int64, from, to time.Time) squirrel.Sqlizer {
 }
 
 // IncrementWordGuessedQuery builds a query to increment words guessed count
-func IncrementWordGuessedQuery(chatID int64) squirrel.Sqlizer {
+func (q *Queries) IncrementWordGuessedQuery(chatID int64) squirrel.Sqlizer {
 	return squirrel.Insert("statistics").
 		Columns("chat_id", "date", "words_guessed").
 		Values(chatID, squirrel.Expr("CURRENT_DATE"), 1).
@@ -224,7 +268,7 @@ func IncrementWordGuessedQuery(chatID int64) squirrel.Sqlizer {
 }
 
 // IncrementWordMissedQuery builds a query to increment words missed count
-func IncrementWordMissedQuery(chatID int64) squirrel.Sqlizer {
+func (q *Queries) IncrementWordMissedQuery(chatID int64) squirrel.Sqlizer {
 	return squirrel.Insert("statistics").
 		Columns("chat_id", "date", "words_missed").
 		Values(chatID, squirrel.Expr("CURRENT_DATE"), 1).
@@ -233,7 +277,7 @@ func IncrementWordMissedQuery(chatID int64) squirrel.Sqlizer {
 }
 
 // UpdateTotalWordsLearnedQuery builds a query to update total words learned count
-func UpdateTotalWordsLearnedQuery(chatID int64) squirrel.Sqlizer {
+func (q *Queries) UpdateTotalWordsLearnedQuery(chatID int64) squirrel.Sqlizer {
 	return squirrel.Update("statistics").
 		Set("total_words_learned", squirrel.Select("COUNT(*)").
 			From("word_translations").
@@ -247,27 +291,37 @@ func UpdateTotalWordsLearnedQuery(chatID int64) squirrel.Sqlizer {
 }
 
 // InsertAuthConfirmationQuery builds a query to insert a new auth confirmation
-func InsertAuthConfirmationQuery(chatID int64, token string, expiresAt time.Time) squirrel.Sqlizer {
+func (q *Queries) InsertAuthConfirmationQuery(chatID int64, token string, expiresAt time.Time) squirrel.Sqlizer {
 	return squirrel.Insert("auth_confirmations").
 		Columns("chat_id", "token", "expires_at").
 		Values(chatID, token, expiresAt).
 		PlaceholderFormat(squirrel.Dollar)
 }
 
+// InsertCallbackQuery builds a query to insert a new callback data
+func (q *Queries) InsertCallbackQuery(chatID int64, data CallbackData, expiresAt time.Time) squirrel.Sqlizer {
+	return squirrel.Insert("callback_data").
+		Columns("uuid", "chat_id", "data", "expires_at").
+		Values(squirrel.Expr(q.getUUIDFunction()), chatID, data, expiresAt).
+		Suffix("ON CONFLICT (uuid, chat_id) DO UPDATE SET data = EXCLUDED.data").
+		Suffix("RETURNING uuid").
+		PlaceholderFormat(squirrel.Dollar)
+}
+
 // IsConfirmedQuery builds a query to check if auth confirmation is confirmed
-func IsConfirmedQuery(chatID int64, token string) squirrel.Sqlizer {
+func (q *Queries) IsConfirmedQuery(chatID int64, token string) squirrel.Sqlizer {
 	return squirrel.Select("confirmed").
 		From("auth_confirmations").
 		Where(squirrel.Eq{
 			"chat_id": chatID,
 			"token":   token,
 		}).
-		Where("expires_at > NOW()").
+		Where(squirrel.Expr("expires_at > " + q.getCurrentTimestampFunction())).
 		PlaceholderFormat(squirrel.Dollar)
 }
 
 // ConfirmAuthConfirmationQuery builds a query to confirm auth confirmation
-func ConfirmAuthConfirmationQuery(chatID int64, token string) squirrel.Sqlizer {
+func (q *Queries) ConfirmAuthConfirmationQuery(chatID int64, token string) squirrel.Sqlizer {
 	return squirrel.Update("auth_confirmations").
 		Set("confirmed", true).
 		Where(squirrel.Eq{
@@ -279,7 +333,7 @@ func ConfirmAuthConfirmationQuery(chatID int64, token string) squirrel.Sqlizer {
 }
 
 // DeleteAuthConfirmationQuery builds a query to delete auth confirmation
-func DeleteAuthConfirmationQuery(chatID int64, token string) squirrel.Sqlizer {
+func (q *Queries) DeleteAuthConfirmationQuery(chatID int64, token string) squirrel.Sqlizer {
 	return squirrel.Delete("auth_confirmations").
 		Where(squirrel.Eq{
 			"chat_id": chatID,
@@ -289,24 +343,14 @@ func DeleteAuthConfirmationQuery(chatID int64, token string) squirrel.Sqlizer {
 }
 
 // CleanupAuthConfirmationsQuery builds a query to cleanup expired auth confirmations
-func CleanupAuthConfirmationsQuery() squirrel.Sqlizer {
+func (q *Queries) CleanupAuthConfirmationsQuery() squirrel.Sqlizer {
 	return squirrel.Delete("auth_confirmations").
-		Where("expires_at < NOW()").
-		PlaceholderFormat(squirrel.Dollar)
-}
-
-// InsertCallbackQuery builds a query to insert a new callback data
-func InsertCallbackQuery(chatID int64, data CallbackData, expiresAt time.Time) squirrel.Sqlizer {
-	return squirrel.Insert("callback_data").
-		Columns("uuid", "chat_id", "data", "expires_at").
-		Values(squirrel.Expr("gen_random_uuid()"), chatID, data, expiresAt).
-		Suffix("ON CONFLICT (uuid, chat_id) DO UPDATE SET data = EXCLUDED.data").
-		Suffix("RETURNING uuid").
+		Where(squirrel.Expr("expires_at < " + q.getCurrentTimestampFunction())).
 		PlaceholderFormat(squirrel.Dollar)
 }
 
 // FindCallbackQuery builds a query to find callback data
-func FindCallbackQuery(chatID int64, uuid string) squirrel.Sqlizer {
+func (q *Queries) FindCallbackQuery(chatID int64, uuid string) squirrel.Sqlizer {
 	return squirrel.Select("data", "expires_at").
 		From("callback_data").
 		Where(squirrel.Eq{
@@ -317,8 +361,8 @@ func FindCallbackQuery(chatID int64, uuid string) squirrel.Sqlizer {
 }
 
 // CleanupCallbacksQuery builds a query to cleanup expired callbacks
-func CleanupCallbacksQuery() squirrel.Sqlizer {
+func (q *Queries) CleanupCallbacksQuery() squirrel.Sqlizer {
 	return squirrel.Delete("callback_data").
-		Where("expires_at < NOW()").
+		Where(squirrel.Expr("expires_at < " + q.getCurrentTimestampFunction())).
 		PlaceholderFormat(squirrel.Dollar)
 }

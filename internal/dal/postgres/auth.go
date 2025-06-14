@@ -19,7 +19,7 @@ func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, t
 		return errors.New("expires in is required")
 	}
 
-	query := dal.InsertAuthConfirmationQuery(chatID, token, time.Now().Add(expiresIn))
+	query := r.queries.InsertAuthConfirmationQuery(chatID, token, time.Now().Add(expiresIn))
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -35,7 +35,7 @@ func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, t
 }
 
 func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
-	query := dal.IsConfirmedQuery(chatID, token)
+	query := r.queries.IsConfirmedQuery(chatID, token)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -55,7 +55,7 @@ func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string
 }
 
 func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
-	query := dal.ConfirmAuthConfirmationQuery(chatID, token)
+	query := r.queries.ConfirmAuthConfirmationQuery(chatID, token)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -71,7 +71,7 @@ func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, 
 }
 
 func (r *Repository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
-	query := dal.DeleteAuthConfirmationQuery(chatID, token)
+	query := r.queries.DeleteAuthConfirmationQuery(chatID, token)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -92,7 +92,7 @@ func (r *Repository) cleanupAuthConfirmations(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Hour):
-			query := dal.CleanupAuthConfirmationsQuery()
+			query := r.queries.CleanupAuthConfirmationsQuery()
 
 			sql, args, err := query.ToSql()
 			if err != nil {
