@@ -11,8 +11,6 @@ import (
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-type ()
-
 func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
 	if chatID == 0 {
 		return errors.New("chat id is required")
