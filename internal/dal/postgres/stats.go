@@ -12,23 +12,17 @@ import (
 )
 
 func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.TotalStats, error) {
-	row := r.client.QueryRow(ctx, `
-SELECT 
-    chat_id,
-    SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus,
-    SUM(CASE WHEN guessed_streak BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS streak_10_to_14,
-    SUM(CASE WHEN guessed_streak BETWEEN 1 AND 9 THEN 1 ELSE 0 END) AS streak_1_to_9,
-    COUNT(*) AS total_words
-FROM 
-    word_translations
-WHERE
-	chat_id = $1
-GROUP BY
-	chat_id
-`, chatID)
+	query := r.queries.GetTotalStatsQuery(chatID)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+
+	row := r.client.QueryRow(ctx, sql, args...)
 
 	var stats dal.TotalStats
-	err := row.Scan(
+	err = row.Scan(
 		&stats.ChatID,
 		&stats.GreaterThanOrEqual15,
 		&stats.Between10And14,
@@ -47,16 +41,17 @@ GROUP BY
 }
 
 func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time) (*dal.Stats, error) {
-	row := r.client.QueryRow(ctx, `
-		SELECT 
-			chat_id, date, words_guessed, words_missed, 
-			total_words_learned, created_at
-		FROM statistics
-		WHERE chat_id = $1 AND date = $2
-	`, chatID, date)
+	query := r.queries.GetStatsQuery(chatID, date)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+
+	row := r.client.QueryRow(ctx, sql, args...)
 
 	var stats dal.Stats
-	err := row.Scan(
+	err = row.Scan(
 		&stats.ChatID,
 		&stats.Date,
 		&stats.WordsGuessed,
@@ -74,14 +69,14 @@ func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time)
 }
 
 func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]dal.Stats, error) {
-	rows, err := r.client.Query(ctx, `
-		SELECT 
-			chat_id, date, words_guessed, words_missed, 
-			total_words_learned, created_at
-		FROM statistics
-		WHERE chat_id = $1 AND date BETWEEN $2 AND $3
-		ORDER BY date
-	`, chatID, from, to)
+	query := r.queries.GetStatsRangeQuery(chatID, from, to)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+
+	rows, err := r.client.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, fmt.Errorf("get stats range: %w", err)
 	}
@@ -112,12 +107,14 @@ func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to t
 }
 
 func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
-	_, err := r.client.Exec(ctx, `
-		INSERT INTO statistics (chat_id, date, words_guessed)
-		VALUES ($1, CURRENT_DATE, 1)
-		ON CONFLICT (chat_id, date) DO UPDATE 
-		SET words_guessed = statistics.words_guessed + 1
-	`, chatID)
+	query := r.queries.IncrementWordGuessedQuery(chatID)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increment word guessed: %w", err)
 	}
@@ -125,12 +122,14 @@ func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) err
 }
 
 func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) error {
-	_, err := r.client.Exec(ctx, `
-		INSERT INTO statistics (chat_id, date, words_missed)
-		VALUES ($1, CURRENT_DATE, 1)
-		ON CONFLICT (chat_id, date) DO UPDATE 
-		SET words_missed = statistics.words_missed + 1
-	`, chatID)
+	query := r.queries.IncrementWordMissedQuery(chatID)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increment word missed: %w", err)
 	}
@@ -138,15 +137,14 @@ func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) erro
 }
 
 func (r *Repository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
-	_, err := r.client.Exec(ctx, `
-		UPDATE statistics
-		SET total_words_learned = (
-			SELECT COUNT(*)
-			FROM word_translations
-			WHERE chat_id = $1 AND guessed_streak >= 15
-		)
-		WHERE chat_id = $1 AND date = CURRENT_DATE
-	`, chatID)
+	query := r.queries.UpdateTotalWordsLearnedQuery(chatID)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("update total words learned: %w", err)
 	}

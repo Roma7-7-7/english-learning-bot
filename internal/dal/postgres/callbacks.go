@@ -19,13 +19,15 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 		return "", errors.New("expires at is required")
 	}
 
-	row := r.client.QueryRow(ctx, `
-		INSERT INTO callback_data(uuid, chat_id, data, expires_at)
-		VALUES (gen_random_uuid(), $1, $2, $3)
-		ON CONFLICT (uuid, chat_id) DO UPDATE SET data = $2
-		RETURNING uuid
-	`, data.ChatID, data, data.ExpiresAt)
-	err := row.Scan(&data.ID)
+	query := r.queries.InsertCallbackQuery(data.ChatID, data, data.ExpiresAt)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return "", fmt.Errorf("build query: %w", err)
+	}
+
+	row := r.client.QueryRow(ctx, sql, args...)
+	err = row.Scan(&data.ID)
 	if err != nil {
 		return "", fmt.Errorf("insert callback: %w", err)
 	}
@@ -34,24 +36,26 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 }
 
 func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
+	query := r.queries.FindCallbackQuery(chatID, uuid)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+
 	var (
 		data      dal.CallbackData
 		expiresAt time.Time
 	)
 
-	err := r.client.QueryRow(ctx, `
-		SELECT data, expires_at
-		FROM callback_data	
-		WHERE chat_id = $1 AND uuid = $2 
-	`, chatID, uuid).Scan(&data, &expiresAt)
-
+	err = r.client.QueryRow(ctx, sql, args...).Scan(&data, &expiresAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, dal.ErrNotFound
 		}
-
 		return nil, fmt.Errorf("find callback: %w", err)
 	}
+
 	data.ChatID = chatID
 	data.ID = uuid
 	data.ExpiresAt = expiresAt
@@ -66,7 +70,16 @@ func (r *Repository) cleanupCallbacksJob(ctx context.Context) {
 			return
 		case <-time.After(time.Hour):
 			r.log.InfoContext(ctx, "running cleanup job")
-			_, err := r.client.Exec(ctx, `DELETE FROM callback_data WHERE expires_at < now()`)
+
+			query := r.queries.CleanupCallbacksQuery()
+
+			sql, args, err := query.ToSql()
+			if err != nil {
+				r.log.ErrorContext(ctx, "failed to build cleanup query", "error", err)
+				continue
+			}
+
+			_, err = r.client.Exec(ctx, sql, args...)
 			if err != nil {
 				r.log.ErrorContext(ctx, "failed to run cleanup job", "error", err)
 			}
