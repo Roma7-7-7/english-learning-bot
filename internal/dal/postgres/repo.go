@@ -1,10 +1,11 @@
-package dal
+package postgres
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -17,20 +18,20 @@ type (
 		Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
 	}
 
-	PostgreSQLRepository struct {
+	Repository struct {
 		client Client
 		log    *slog.Logger
 	}
 )
 
-func NewPostgreSQLRepository(ctx context.Context, client Client, log *slog.Logger) *PostgreSQLRepository {
+func NewRepository(ctx context.Context, client Client, log *slog.Logger) *Repository {
 	res := newPostgreSQLRepository(client, log)
 	go res.cleanupCallbacksJob(ctx)
 	go res.cleanupAuthConfirmations(ctx)
 	return res
 }
 
-func (r *PostgreSQLRepository) Transact(ctx context.Context, txFunc func(r Repository) error) error {
+func (r *Repository) Transact(ctx context.Context, txFunc func(r dal.Repository) error) error {
 	tx, err := r.client.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -48,6 +49,6 @@ func (r *PostgreSQLRepository) Transact(ctx context.Context, txFunc func(r Repos
 	return nil
 }
 
-func newPostgreSQLRepository(client Client, log *slog.Logger) *PostgreSQLRepository {
-	return &PostgreSQLRepository{client: client, log: log}
+func newPostgreSQLRepository(client Client, log *slog.Logger) *Repository {
+	return &Repository{client: client, log: log}
 }

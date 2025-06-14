@@ -1,4 +1,4 @@
-package dal
+package postgres
 
 import (
 	"context"
@@ -9,63 +9,11 @@ import (
 	"github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-const (
-	LimitDirectionLessThan StreakLimitDirection = iota
-	LimitDirectionGreaterThanOrEqual
-
-	GuessedAll     Guessed = "all"
-	GuessedLearned Guessed = "learned"
-	GuessedBatched Guessed = "batched"
-	GuessedToLearn Guessed = "to_learn"
-)
-
-var (
-	ErrNotFound = errors.New("not found")
-)
-
-type (
-	Guessed string
-
-	WordTranslationsFilter struct {
-		Word     string
-		Guessed  Guessed
-		ToReview bool
-		Offset   uint64
-		Limit    uint64
-	}
-
-	WordTranslationsRepository interface {
-		WordTransactionsOperationsRepository
-		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
-		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error)
-		FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error)
-		AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
-		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
-		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
-	}
-
-	WordTransactionsOperationsRepository interface {
-		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
-		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
-		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
-		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
-		ResetToReview(ctx context.Context, chatID int64) error
-		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
-		DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error)
-	}
-
-	StreakLimitDirection int
-
-	FindRandomWordFilter struct {
-		Batched              bool
-		StreakLimitDirection StreakLimitDirection // ignored if Batched = true
-		StreakLimit          int                  // ignored if Batched = true
-	}
-)
-
-func (r *PostgreSQLRepository) AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
+func (r *Repository) AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
 	_, err := r.client.Exec(ctx, `
 		INSERT INTO word_translations (chat_id, word, translation, description)
 		VALUES ($1, $2, $3, $4)
@@ -77,7 +25,7 @@ func (r *PostgreSQLRepository) AddWordTranslation(ctx context.Context, chatID in
 	return nil
 }
 
-func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error) {
+func (r *Repository) FindWordTranslations(ctx context.Context, chatID int64, filter dal.WordTranslationsFilter) ([]dal.WordTranslation, int, error) {
 	// Base query builder
 	baseQuery := squirrel.Select().
 		From("word_translations").
@@ -94,19 +42,19 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 	}
 
 	switch filter.Guessed {
-	case "", GuessedAll:
-	case GuessedLearned:
+	case "", dal.GuessedAll:
+	case dal.GuessedLearned:
 		baseQuery = baseQuery.Where("guessed_streak >= 15")
-	case GuessedBatched:
+	case dal.GuessedBatched:
 		baseQuery = baseQuery.Where("guessed_streak < 15")
-	case GuessedToLearn:
+	case dal.GuessedToLearn:
 		baseQuery = baseQuery.Where("guessed_streak = 0")
 	default:
 		return nil, 0, fmt.Errorf("invalid guessed filter: %s", filter.Guessed)
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
-	res := make([]WordTranslation, 0, filter.Limit)
+	res := make([]dal.WordTranslation, 0, filter.Limit)
 	total := 0
 
 	eg.Go(func() error {
@@ -166,7 +114,7 @@ func (r *PostgreSQLRepository) FindWordTranslations(ctx context.Context, chatID 
 
 	return res, total, nil
 }
-func (r *PostgreSQLRepository) DeleteWordTranslation(ctx context.Context, chatID int64, word string) error {
+func (r *Repository) DeleteWordTranslation(ctx context.Context, chatID int64, word string) error {
 	_, err := r.client.Exec(ctx, `
 		DELETE FROM word_translations
 		WHERE chat_id = $1 AND word = $2
@@ -177,7 +125,7 @@ func (r *PostgreSQLRepository) DeleteWordTranslation(ctx context.Context, chatID
 	return nil
 }
 
-func (r *PostgreSQLRepository) AddToLearningBatch(ctx context.Context, chatID int64, word string) error {
+func (r *Repository) AddToLearningBatch(ctx context.Context, chatID int64, word string) error {
 	_, err := r.client.Exec(ctx, `
 		INSERT INTO learning_batches (chat_id, word)
 		VALUES ($1, $2)
@@ -189,7 +137,7 @@ func (r *PostgreSQLRepository) AddToLearningBatch(ctx context.Context, chatID in
 	return nil
 }
 
-func (r *PostgreSQLRepository) IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error {
+func (r *Repository) IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE word_translations
 		SET guessed_streak = guessed_streak + 1
@@ -202,7 +150,7 @@ func (r *PostgreSQLRepository) IncreaseGuessedStreak(ctx context.Context, chatID
 	return nil
 }
 
-func (r *PostgreSQLRepository) ResetGuessedStreak(ctx context.Context, chatID int64, word string) error {
+func (r *Repository) ResetGuessedStreak(ctx context.Context, chatID int64, word string) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE word_translations
 		SET guessed_streak = 0
@@ -215,7 +163,7 @@ func (r *PostgreSQLRepository) ResetGuessedStreak(ctx context.Context, chatID in
 	return nil
 }
 
-func (r *PostgreSQLRepository) MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error {
+func (r *Repository) MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE word_translations
 		SET to_review = $1
@@ -228,7 +176,7 @@ func (r *PostgreSQLRepository) MarkToReview(ctx context.Context, chatID int64, w
 	return nil
 }
 
-func (r *PostgreSQLRepository) UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, updatedTranslation, description string) error {
+func (r *Repository) UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, updatedTranslation, description string) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE word_translations
 		SET word = $3, translation = $4, description = $5
@@ -240,7 +188,7 @@ func (r *PostgreSQLRepository) UpdateWordTranslation(ctx context.Context, chatID
 	return nil
 }
 
-func (r *PostgreSQLRepository) ResetToReview(ctx context.Context, chatID int64) error {
+func (r *Repository) ResetToReview(ctx context.Context, chatID int64) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE word_translations
 		SET to_review = false
@@ -253,7 +201,7 @@ func (r *PostgreSQLRepository) ResetToReview(ctx context.Context, chatID int64) 
 	return nil
 }
 
-func (r *PostgreSQLRepository) GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error) {
+func (r *Repository) GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error) {
 	row := r.client.QueryRow(ctx, `
 		SELECT COUNT(*)
 		FROM word_translations wt
@@ -269,7 +217,7 @@ func (r *PostgreSQLRepository) GetBatchedWordTranslationsCount(ctx context.Conte
 	return count, nil
 }
 
-func (r *PostgreSQLRepository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error) {
+func (r *Repository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*dal.WordTranslation, error) {
 	row := r.client.QueryRow(ctx, `
 		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
 		FROM word_translations wt
@@ -279,7 +227,7 @@ func (r *PostgreSQLRepository) FindWordTranslation(ctx context.Context, chatID i
 	wt, err := hydrateWordTranslation(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, dal.ErrNotFound
 		}
 
 		return nil, fmt.Errorf("find word translation: %w", err)
@@ -287,7 +235,7 @@ func (r *PostgreSQLRepository) FindWordTranslation(ctx context.Context, chatID i
 	return wt, nil
 }
 
-func (r *PostgreSQLRepository) FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error) {
+func (r *Repository) FindRandomWordTranslation(ctx context.Context, chatID int64, filter dal.FindRandomWordFilter) (*dal.WordTranslation, error) {
 	var (
 		query string
 		args  []any
@@ -322,7 +270,7 @@ func (r *PostgreSQLRepository) FindRandomWordTranslation(ctx context.Context, ch
 	wt, err := hydrateWordTranslation(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, dal.ErrNotFound
 		}
 		return nil, fmt.Errorf("get random word translation: %w", err)
 	}
@@ -330,7 +278,7 @@ func (r *PostgreSQLRepository) FindRandomWordTranslation(ctx context.Context, ch
 	return wt, nil
 }
 
-func (r *PostgreSQLRepository) DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error) {
+func (r *Repository) DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error) {
 	res, err := r.client.Exec(ctx, `
 		WITH known_words AS (
 			SELECT wt.word
@@ -348,12 +296,8 @@ func (r *PostgreSQLRepository) DeleteFromLearningBatchGtGuessedStreak(ctx contex
 	return int(res.RowsAffected()), nil
 }
 
-func (d StreakLimitDirection) String() string {
-	return [...]string{"<", ">="}[d]
-}
-
-func hydrateWordTranslation(row pgx.Row) (*WordTranslation, error) {
-	var wt WordTranslation
+func hydrateWordTranslation(row pgx.Row) (*dal.WordTranslation, error) {
+	var wt dal.WordTranslation
 	err := row.Scan(
 		&wt.ChatID,
 		&wt.Word,

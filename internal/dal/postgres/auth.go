@@ -1,4 +1,4 @@
-package dal
+package postgres
 
 import (
 	"context"
@@ -7,25 +7,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-type (
-	AuthConfirmation struct {
-		ChatID    int
-		Token     string
-		ExpiresAt time.Time
-		Confirmed bool
-	}
-
-	AuthConfirmationRepository interface {
-		InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error
-		IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error)
-		ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error
-		DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error
-	}
-)
-
-func (r *PostgreSQLRepository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
+func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
 	if chatID == 0 {
 		return errors.New("chat id is required")
 	}
@@ -44,7 +30,7 @@ func (r *PostgreSQLRepository) InsertAuthConfirmation(ctx context.Context, chatI
 	return nil
 }
 
-func (r *PostgreSQLRepository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
+func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
 	var confirmed bool
 	err := r.client.QueryRow(ctx, `
 			SELECT confirmed
@@ -53,7 +39,7 @@ func (r *PostgreSQLRepository) IsConfirmed(ctx context.Context, chatID int64, to
 	`, chatID, token).Scan(&confirmed)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return false, ErrNotFound
+			return false, dal.ErrNotFound
 		}
 		return false, fmt.Errorf("is confirmed: %w", err)
 	}
@@ -61,7 +47,7 @@ func (r *PostgreSQLRepository) IsConfirmed(ctx context.Context, chatID int64, to
 	return confirmed, nil
 }
 
-func (r *PostgreSQLRepository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
+func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE auth_confirmations
 		SET confirmed = true
@@ -74,7 +60,7 @@ func (r *PostgreSQLRepository) ConfirmAuthConfirmation(ctx context.Context, chat
 	return nil
 }
 
-func (r *PostgreSQLRepository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
+func (r *Repository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
 	_, err := r.client.Exec(ctx, `
 		DELETE FROM auth_confirmations
 		WHERE chat_id = $1 AND token = $2
@@ -86,7 +72,7 @@ func (r *PostgreSQLRepository) DeleteAuthConfirmation(ctx context.Context, chatI
 	return nil
 }
 
-func (r *PostgreSQLRepository) cleanupAuthConfirmations(ctx context.Context) {
+func (r *Repository) cleanupAuthConfirmations(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():

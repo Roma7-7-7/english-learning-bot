@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Roma7-7-7/english-learning-bot/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
+	"github.com/Roma7-7-7/english-learning-bot/internal/config"
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal/postgres"
 	"github.com/Roma7-7-7/english-learning-bot/internal/schedule"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
@@ -60,7 +60,7 @@ func run(ctx context.Context) int {
 		return exitCodeDBConnect
 	}
 	defer db.Close()
-	repo := dal.NewPostgreSQLRepository(ctx, db, log)
+	repo := postgres.NewRepository(ctx, db, log)
 
 	bot, err := telegram.NewBot(conf.TelegramToken, repo, log, telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(conf.AllowedChatIDs))
 	if err != nil {
