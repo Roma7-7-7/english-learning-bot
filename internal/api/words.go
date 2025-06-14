@@ -137,21 +137,25 @@ func (h *WordsHandler) UpdateWord(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word updated"})
 }
 
+type DeleteWordRequest struct {
+	Word string `json:"word" validate:"required,min=1"`
+}
+
 func (h *WordsHandler) DeleteWord(c echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
-	var wt WordTranslation
-	if err := c.Bind(&wt); err != nil {
+	var req DeleteWordRequest
+	if err := c.Bind(&req); err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
 		return c.JSON(http.StatusBadRequest, BadRequestError)
 	}
 
-	if err := c.Validate(&wt); err != nil {
+	if err := c.Validate(&req); err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to validate request", "error", err)
 		return err
 	}
 
-	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, wt.Word); err != nil {
+	if err := h.repo.DeleteWordTranslation(c.Request().Context(), chatID, req.Word); err != nil {
 		h.log.ErrorContext(c.Request().Context(), "failed to delete word translation", "error", err)
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}

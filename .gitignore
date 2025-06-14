@@ -28,6 +28,9 @@ go.work.sum
 # Goland
 .idea/
 
+# VSCode/Cursor
+.vscode/
+
 # Other
 ./data/
 bin/
