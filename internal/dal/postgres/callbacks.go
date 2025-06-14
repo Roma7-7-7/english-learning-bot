@@ -1,4 +1,4 @@
-package dal
+package postgres
 
 import (
 	"context"
@@ -7,14 +7,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-type CallbacksRepository interface {
-	InsertCallback(ctx context.Context, data CallbackData) (string, error)
-	FindCallback(ctx context.Context, chatID int64, uuid string) (*CallbackData, error)
-}
-
-func (r *PostgreSQLRepository) InsertCallback(ctx context.Context, data CallbackData) (string, error) {
+func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) (string, error) {
 	if data.ChatID == 0 {
 		return "", errors.New("chat id is required")
 	}
@@ -36,9 +33,9 @@ func (r *PostgreSQLRepository) InsertCallback(ctx context.Context, data Callback
 	return data.ID, nil
 }
 
-func (r *PostgreSQLRepository) FindCallback(ctx context.Context, chatID int64, uuid string) (*CallbackData, error) {
+func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
 	var (
-		data      CallbackData
+		data      dal.CallbackData
 		expiresAt time.Time
 	)
 
@@ -50,7 +47,7 @@ func (r *PostgreSQLRepository) FindCallback(ctx context.Context, chatID int64, u
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, dal.ErrNotFound
 		}
 
 		return nil, fmt.Errorf("find callback: %w", err)
@@ -62,7 +59,7 @@ func (r *PostgreSQLRepository) FindCallback(ctx context.Context, chatID int64, u
 	return &data, nil
 }
 
-func (r *PostgreSQLRepository) cleanupCallbacksJob(ctx context.Context) {
+func (r *Repository) cleanupCallbacksJob(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():

@@ -14,7 +14,7 @@ import (
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal/postgres"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
 
@@ -86,7 +86,7 @@ func run(ctx context.Context) int {
 
 func dependencies(ctx context.Context, conf *config.API, db *pgxpool.Pool, log *slog.Logger) api.Dependencies {
 	return api.Dependencies{
-		Repo:           dal.NewPostgreSQLRepository(ctx, db, log),
+		Repo:           postgres.NewRepository(ctx, db, log),
 		TelegramClient: telegram.NewClient(conf.Telegram.Token, log),
 		Logger:         log,
 	}

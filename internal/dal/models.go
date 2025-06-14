@@ -1,7 +1,12 @@
 package dal
 
 import (
+	"errors"
 	"time"
+)
+
+var (
+	ErrNotFound = errors.New("not found")
 )
 
 type (
@@ -16,10 +21,20 @@ type (
 		UpdatedAt     time.Time
 	}
 
-	Cache struct {
-		Key       string
-		Value     string
+	Stats struct {
+		ChatID            int64
+		Date              time.Time
+		WordsGuessed      int
+		WordsMissed       int
+		TotalWordsLearned int
+		CreatedAt         time.Time
+	}
+
+	AuthConfirmation struct {
+		ChatID    int
+		Token     string
 		ExpiresAt time.Time
+		Confirmed bool
 	}
 
 	CallbackData struct {

@@ -1,4 +1,4 @@
-package dal
+package postgres
 
 import (
 	"context"
@@ -7,37 +7,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-type (
-	TotalStats struct {
-		ChatID               int64
-		GreaterThanOrEqual15 int
-		Between10And14       int
-		Between1And9         int
-		Total                int
-	}
-
-	Stats struct {
-		ChatID            int64
-		Date              time.Time
-		WordsGuessed      int
-		WordsMissed       int
-		TotalWordsLearned int
-		CreatedAt         time.Time
-	}
-
-	StatsRepository interface {
-		GetTotalStats(ctx context.Context, chatID int64) (*TotalStats, error)
-		GetStats(ctx context.Context, chatID int64, date time.Time) (*Stats, error)
-		GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]Stats, error)
-		IncrementWordGuessed(ctx context.Context, chatID int64) error
-		IncrementWordMissed(ctx context.Context, chatID int64) error
-		UpdateTotalWordsLearned(ctx context.Context, chatID int64) error
-	}
-)
-
-func (r *PostgreSQLRepository) GetTotalStats(ctx context.Context, chatID int64) (*TotalStats, error) {
+func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.TotalStats, error) {
 	row := r.client.QueryRow(ctx, `
 SELECT 
     chat_id,
@@ -53,7 +27,7 @@ GROUP BY
 	chat_id
 `, chatID)
 
-	var stats TotalStats
+	var stats dal.TotalStats
 	err := row.Scan(
 		&stats.ChatID,
 		&stats.GreaterThanOrEqual15,
@@ -63,7 +37,7 @@ GROUP BY
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return &TotalStats{
+			return &dal.TotalStats{
 				ChatID: chatID,
 			}, nil
 		}
@@ -72,7 +46,7 @@ GROUP BY
 	return &stats, nil
 }
 
-func (r *PostgreSQLRepository) GetStats(ctx context.Context, chatID int64, date time.Time) (*Stats, error) {
+func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time) (*dal.Stats, error) {
 	row := r.client.QueryRow(ctx, `
 		SELECT 
 			chat_id, date, words_guessed, words_missed, 
@@ -81,7 +55,7 @@ func (r *PostgreSQLRepository) GetStats(ctx context.Context, chatID int64, date 
 		WHERE chat_id = $1 AND date = $2
 	`, chatID, date)
 
-	var stats Stats
+	var stats dal.Stats
 	err := row.Scan(
 		&stats.ChatID,
 		&stats.Date,
@@ -92,14 +66,14 @@ func (r *PostgreSQLRepository) GetStats(ctx context.Context, chatID int64, date 
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, dal.ErrNotFound
 		}
 		return nil, fmt.Errorf("get stats: %w", err)
 	}
 	return &stats, nil
 }
 
-func (r *PostgreSQLRepository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]Stats, error) {
+func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]dal.Stats, error) {
 	rows, err := r.client.Query(ctx, `
 		SELECT 
 			chat_id, date, words_guessed, words_missed, 
@@ -113,9 +87,9 @@ func (r *PostgreSQLRepository) GetStatsRange(ctx context.Context, chatID int64, 
 	}
 	defer rows.Close()
 
-	var stats []Stats
+	var stats []dal.Stats
 	for rows.Next() {
-		var stat Stats
+		var stat dal.Stats
 		err := rows.Scan(
 			&stat.ChatID,
 			&stat.Date,
@@ -137,7 +111,7 @@ func (r *PostgreSQLRepository) GetStatsRange(ctx context.Context, chatID int64, 
 	return stats, nil
 }
 
-func (r *PostgreSQLRepository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
+func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
 	_, err := r.client.Exec(ctx, `
 		INSERT INTO statistics (chat_id, date, words_guessed)
 		VALUES ($1, CURRENT_DATE, 1)
@@ -150,7 +124,7 @@ func (r *PostgreSQLRepository) IncrementWordGuessed(ctx context.Context, chatID 
 	return nil
 }
 
-func (r *PostgreSQLRepository) IncrementWordMissed(ctx context.Context, chatID int64) error {
+func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) error {
 	_, err := r.client.Exec(ctx, `
 		INSERT INTO statistics (chat_id, date, words_missed)
 		VALUES ($1, CURRENT_DATE, 1)
@@ -163,7 +137,7 @@ func (r *PostgreSQLRepository) IncrementWordMissed(ctx context.Context, chatID i
 	return nil
 }
 
-func (r *PostgreSQLRepository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
+func (r *Repository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
 	_, err := r.client.Exec(ctx, `
 		UPDATE statistics
 		SET total_words_learned = (
