@@ -55,7 +55,7 @@ func (q *Queries) AddWordTranslationQuery(chatID int64, word, translation, descr
 		PlaceholderFormat(squirrel.Dollar)
 }
 
-func (q *Queries) FindWordTranslationsQuery(chatID int64, filter WordTranslationsFilter) (selectQuery, countQuery squirrel.Sqlizer) {
+func (q *Queries) FindWordTranslationsQuery(chatID int64, filter WordTranslationsFilter) (squirrel.Sqlizer, squirrel.Sqlizer) {
 	baseQuery := squirrel.Select().
 		From("word_translations").
 		Where(squirrel.Eq{"chat_id": chatID}).
@@ -80,13 +80,13 @@ func (q *Queries) FindWordTranslationsQuery(chatID int64, filter WordTranslation
 		baseQuery = baseQuery.Where("guessed_streak = 0")
 	}
 
-	selectQuery = baseQuery.
+	selectQuery := baseQuery.
 		Columns("chat_id", "word", "translation", "COALESCE(description, '')", "guessed_streak", "to_review", "created_at", "updated_at").
 		OrderBy("word").
 		Offset(filter.Offset).
 		Limit(filter.Limit)
 
-	countQuery = baseQuery.Columns("COUNT(*)")
+	countQuery := baseQuery.Columns("COUNT(*)")
 
 	return selectQuery, countQuery
 }
