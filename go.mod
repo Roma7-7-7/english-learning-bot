@@ -13,8 +13,8 @@ require (
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/labstack/echo/v4 v4.13.4
-	golang.org/x/sync v0.14.0
-	golang.org/x/time v0.11.0
+	golang.org/x/sync v0.15.0
+	golang.org/x/time v0.12.0
 	gopkg.in/telebot.v3 v3.3.8
 )
 
