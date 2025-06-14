@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/errgroup"
 
@@ -14,11 +12,14 @@ import (
 )
 
 func (r *Repository) AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
-	_, err := r.client.Exec(ctx, `
-		INSERT INTO word_translations (chat_id, word, translation, description)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (chat_id, word) DO UPDATE SET translation = $3, description = $4
-	`, chatID, word, translation, description)
+	query := dal.AddWordTranslationQuery(chatID, word, translation, description)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build insert query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("add translation: %w", err)
 	}
@@ -26,58 +27,26 @@ func (r *Repository) AddWordTranslation(ctx context.Context, chatID int64, word,
 }
 
 func (r *Repository) FindWordTranslations(ctx context.Context, chatID int64, filter dal.WordTranslationsFilter) ([]dal.WordTranslation, int, error) {
-	// Base query builder
-	baseQuery := squirrel.Select().
-		From("word_translations").
-		Where(squirrel.Eq{"chat_id": chatID}).
-		PlaceholderFormat(squirrel.Dollar)
-
-	// Apply filters
-	if filter.Word != "" {
-		baseQuery = baseQuery.Where("LOWER(word) SIMILAR TO ?", fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word)))
-	}
-
-	if filter.ToReview {
-		baseQuery = baseQuery.Where(squirrel.Eq{"to_review": filter.ToReview})
-	}
-
-	switch filter.Guessed {
-	case "", dal.GuessedAll:
-	case dal.GuessedLearned:
-		baseQuery = baseQuery.Where("guessed_streak >= 15")
-	case dal.GuessedBatched:
-		baseQuery = baseQuery.Where("guessed_streak < 15")
-	case dal.GuessedToLearn:
-		baseQuery = baseQuery.Where("guessed_streak = 0")
-	default:
-		return nil, 0, fmt.Errorf("invalid guessed filter: %s", filter.Guessed)
-	}
+	selectQuery, countQuery := dal.FindWordTranslationsQuery(chatID, filter)
 
 	eg, ctx := errgroup.WithContext(ctx)
 	res := make([]dal.WordTranslation, 0, filter.Limit)
 	total := 0
 
 	eg.Go(func() error {
-		// Build select query
-		selectQuery := baseQuery.
-			Columns("chat_id", "word", "translation", "COALESCE(description, '')", "guessed_streak", "to_review", "created_at", "updated_at").
-			OrderBy("word").
-			Offset(filter.Offset).
-			Limit(filter.Limit)
-
-		query, args, err := selectQuery.ToSql()
+		sql, args, err := selectQuery.ToSql()
 		if err != nil {
 			return fmt.Errorf("build select query: %w", err)
 		}
 
-		rows, err := r.client.Query(ctx, query, args...)
+		rows, err := r.client.Query(ctx, sql, args...)
 		if err != nil {
 			return fmt.Errorf("find translations: %w", err)
 		}
 		defer rows.Close()
 
 		for rows.Next() {
-			wt, err := hydrateWordTranslation(rows) //nolint:govet // ignore shadow declaration
+			wt, err := hydrateWordTranslation(rows)
 			if err != nil {
 				return fmt.Errorf("scan word translation: %w", err)
 			}
@@ -92,16 +61,12 @@ func (r *Repository) FindWordTranslations(ctx context.Context, chatID int64, fil
 	})
 
 	eg.Go(func() error {
-		// Build count query
-		countQuery := baseQuery.
-			Columns("COUNT(*)")
-
-		query, args, err := countQuery.ToSql()
+		sql, args, err := countQuery.ToSql()
 		if err != nil {
 			return fmt.Errorf("build count query: %w", err)
 		}
 
-		if err := r.client.QueryRow(ctx, query, args...).Scan(&total); err != nil { //nolint:govet // ignore shadow declaration
+		if err := r.client.QueryRow(ctx, sql, args...).Scan(&total); err != nil {
 			return fmt.Errorf("get total: %w", err)
 		}
 
@@ -114,11 +79,16 @@ func (r *Repository) FindWordTranslations(ctx context.Context, chatID int64, fil
 
 	return res, total, nil
 }
+
 func (r *Repository) DeleteWordTranslation(ctx context.Context, chatID int64, word string) error {
-	_, err := r.client.Exec(ctx, `
-		DELETE FROM word_translations
-		WHERE chat_id = $1 AND word = $2
-	`, chatID, word)
+	query := dal.DeleteWordTranslationQuery(chatID, word)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build delete query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("delete translation: %w", err)
 	}
@@ -126,11 +96,14 @@ func (r *Repository) DeleteWordTranslation(ctx context.Context, chatID int64, wo
 }
 
 func (r *Repository) AddToLearningBatch(ctx context.Context, chatID int64, word string) error {
-	_, err := r.client.Exec(ctx, `
-		INSERT INTO learning_batches (chat_id, word)
-		VALUES ($1, $2)
-		ON CONFLICT DO NOTHING
-	`, chatID, word)
+	query := dal.AddToLearningBatchQuery(chatID, word)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build insert query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("add to learning batch: %w", err)
 	}
@@ -138,50 +111,59 @@ func (r *Repository) AddToLearningBatch(ctx context.Context, chatID int64, word 
 }
 
 func (r *Repository) IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error {
-	_, err := r.client.Exec(ctx, `
-		UPDATE word_translations
-		SET guessed_streak = guessed_streak + 1
-		WHERE chat_id = $1 AND word = $2
-	`, chatID, word)
+	query := dal.IncreaseGuessedStreakQuery(chatID, word)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build update query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increase guessed streak: %w", err)
 	}
-
 	return nil
 }
 
 func (r *Repository) ResetGuessedStreak(ctx context.Context, chatID int64, word string) error {
-	_, err := r.client.Exec(ctx, `
-		UPDATE word_translations
-		SET guessed_streak = 0
-		WHERE chat_id = $1 AND word = $2
-	`, chatID, word)
+	query := dal.ResetGuessedStreakQuery(chatID, word)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build update query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("reset guessed streak: %w", err)
 	}
-
 	return nil
 }
 
 func (r *Repository) MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error {
-	_, err := r.client.Exec(ctx, `
-		UPDATE word_translations
-		SET to_review = $1
-		WHERE chat_id = $2 AND word = $3
-	`, toReview, chatID, word)
+	query := dal.MarkToReviewQuery(chatID, word, toReview)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build update query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("mark review and reset streak: %w", err)
 	}
-
 	return nil
 }
 
 func (r *Repository) UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, updatedTranslation, description string) error {
-	_, err := r.client.Exec(ctx, `
-		UPDATE word_translations
-		SET word = $3, translation = $4, description = $5
-		WHERE chat_id = $1 AND word = $2
-	`, chatID, word, updatedWord, updatedTranslation, description)
+	query := dal.UpdateWordTranslationQuery(chatID, word, updatedWord, updatedTranslation, description)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build update query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("update translation: %w", err)
 	}
@@ -189,28 +171,30 @@ func (r *Repository) UpdateWordTranslation(ctx context.Context, chatID int64, wo
 }
 
 func (r *Repository) ResetToReview(ctx context.Context, chatID int64) error {
-	_, err := r.client.Exec(ctx, `
-		UPDATE word_translations
-		SET to_review = false
-		WHERE chat_id = $1
-	`, chatID)
+	query := dal.ResetToReviewQuery(chatID)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build update query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("reset to review: %w", err)
 	}
-
 	return nil
 }
 
 func (r *Repository) GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error) {
-	row := r.client.QueryRow(ctx, `
-		SELECT COUNT(*)
-		FROM word_translations wt
-		INNER JOIN learning_batches lb ON wt.chat_id = lb.chat_id AND wt.word = lb.word
-		WHERE wt.chat_id = $1
-	`, chatID)
+	query := dal.GetBatchedWordTranslationsCountQuery(chatID)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build count query: %w", err)
+	}
 
 	var count int
-	err := row.Scan(&count)
+	err = r.client.QueryRow(ctx, sql, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("get batched word translations count: %w", err)
 	}
@@ -218,55 +202,33 @@ func (r *Repository) GetBatchedWordTranslationsCount(ctx context.Context, chatID
 }
 
 func (r *Repository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*dal.WordTranslation, error) {
-	row := r.client.QueryRow(ctx, `
-		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
-		FROM word_translations wt
-		WHERE wt.chat_id = $1 AND wt.word = $2
-	`, chatID, word)
+	query := dal.FindWordTranslationQuery(chatID, word)
 
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build select query: %w", err)
+	}
+
+	row := r.client.QueryRow(ctx, sql, args...)
 	wt, err := hydrateWordTranslation(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, dal.ErrNotFound
 		}
-
 		return nil, fmt.Errorf("find word translation: %w", err)
 	}
 	return wt, nil
 }
 
 func (r *Repository) FindRandomWordTranslation(ctx context.Context, chatID int64, filter dal.FindRandomWordFilter) (*dal.WordTranslation, error) {
-	var (
-		query string
-		args  []any
-	)
-	if filter.Batched {
-		query = `
-		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
-		FROM word_translations wt
-		INNER JOIN learning_batches lb ON wt.chat_id = lb.chat_id AND wt.word = lb.word
-		WHERE wt.chat_id = $1
-		ORDER BY random()
-		LIMIT 1
-	`
-		args = []any{chatID}
-	} else {
-		query = fmt.Sprintf(`
-		WITH batched_words AS (
-			SELECT lb.word
-			FROM learning_batches lb
-			WHERE lb.chat_id = $1
-		)
-		SELECT wt.chat_id, wt.word, wt.translation, COALESCE(wt.description, ''), wt.guessed_streak, wt.to_review, wt.created_at, wt.updated_at
-		FROM word_translations wt
-		WHERE wt.chat_id = $1 AND wt.guessed_streak %s $2 AND wt.word NOT IN (SELECT word FROM batched_words)
-		ORDER BY random()
-		LIMIT 1
-	`, filter.StreakLimitDirection.String())
-		args = []any{chatID, filter.StreakLimit}
+	query := dal.FindRandomWordTranslationQuery(chatID, filter)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build select query: %w", err)
 	}
 
-	row := r.client.QueryRow(ctx, query, args...)
+	row := r.client.QueryRow(ctx, sql, args...)
 	wt, err := hydrateWordTranslation(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -274,21 +236,18 @@ func (r *Repository) FindRandomWordTranslation(ctx context.Context, chatID int64
 		}
 		return nil, fmt.Errorf("get random word translation: %w", err)
 	}
-
 	return wt, nil
 }
 
 func (r *Repository) DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error) {
-	res, err := r.client.Exec(ctx, `
-		WITH known_words AS (
-			SELECT wt.word
-			FROM word_translations wt
-			WHERE wt.chat_id = $1 AND wt.guessed_streak >= $2
-		)
-		DELETE FROM learning_batches lb
-		WHERE lb.chat_id = $1 AND lb.word IN (SELECT word FROM known_words)
-	`, chatID, guessedStreakLimit)
+	query := dal.DeleteFromLearningBatchGtGuessedStreakQuery(chatID, guessedStreakLimit)
 
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build delete query: %w", err)
+	}
+
+	res, err := r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return 0, fmt.Errorf("delete from learning batch: %w", err)
 	}

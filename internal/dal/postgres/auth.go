@@ -19,10 +19,14 @@ func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, t
 		return errors.New("expires in is required")
 	}
 
-	_, err := r.client.Exec(ctx, `
-		INSERT INTO auth_confirmations(chat_id, token, expires_at)
-		VALUES ($1, $2, $3)
-	`, chatID, token, time.Now().Add(expiresIn))
+	query := dal.InsertAuthConfirmationQuery(chatID, token, time.Now().Add(expiresIn))
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("insert auth confirmation: %w", err)
 	}
@@ -31,12 +35,15 @@ func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, t
 }
 
 func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
+	query := dal.IsConfirmedQuery(chatID, token)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return false, fmt.Errorf("build query: %w", err)
+	}
+
 	var confirmed bool
-	err := r.client.QueryRow(ctx, `
-			SELECT confirmed
-			FROM auth_confirmations
-			WHERE chat_id = $1 AND token = $2 AND expires_at > NOW()
-	`, chatID, token).Scan(&confirmed)
+	err = r.client.QueryRow(ctx, sql, args...).Scan(&confirmed)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, dal.ErrNotFound
@@ -48,11 +55,14 @@ func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string
 }
 
 func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
-	_, err := r.client.Exec(ctx, `
-		UPDATE auth_confirmations
-		SET confirmed = true
-		WHERE chat_id = $1 AND token = $2 AND expires_at > NOW()
-	`, chatID, token)
+	query := dal.ConfirmAuthConfirmationQuery(chatID, token)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("confirm auth confirmation: %w", err)
 	}
@@ -61,10 +71,14 @@ func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, 
 }
 
 func (r *Repository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
-	_, err := r.client.Exec(ctx, `
-		DELETE FROM auth_confirmations
-		WHERE chat_id = $1 AND token = $2
-	`, chatID, token)
+	query := dal.DeleteAuthConfirmationQuery(chatID, token)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("delete auth confirmation: %w", err)
 	}
@@ -78,10 +92,15 @@ func (r *Repository) cleanupAuthConfirmations(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Hour):
-			_, err := r.client.Exec(ctx, `
-				DELETE FROM auth_confirmations
-				WHERE expires_at < NOW()
-			`)
+			query := dal.CleanupAuthConfirmationsQuery()
+
+			sql, args, err := query.ToSql()
+			if err != nil {
+				r.log.ErrorContext(ctx, "failed to build cleanup query", "error", err)
+				continue
+			}
+
+			_, err = r.client.Exec(ctx, sql, args...)
 			if err != nil {
 				r.log.ErrorContext(ctx, "failed to cleanup auth confirmations", "error", err)
 			}
