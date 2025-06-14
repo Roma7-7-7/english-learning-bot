@@ -47,6 +47,17 @@ func (q *Queries) getCurrentTimestampFunction() string {
 	}
 }
 
+func (q *Queries) getCurrentDateFunction() string {
+	switch q.dbType {
+	case PostgreSQL:
+		return "CURRENT_DATE"
+	case SQLite:
+		return "date('now')"
+	default:
+		return "CURRENT_DATE"
+	}
+}
+
 func (q *Queries) AddWordTranslationQuery(chatID int64, word, translation, description string) squirrel.Sqlizer {
 	return squirrel.Insert("word_translations").
 		Columns("chat_id", "word", "translation", "description").
@@ -241,7 +252,7 @@ func (q *Queries) GetStatsRangeQuery(chatID int64, from, to time.Time) squirrel.
 func (q *Queries) IncrementWordGuessedQuery(chatID int64) squirrel.Sqlizer {
 	return squirrel.Insert("statistics").
 		Columns("chat_id", "date", "words_guessed").
-		Values(chatID, squirrel.Expr("CURRENT_DATE"), 1).
+		Values(chatID, squirrel.Expr(q.getCurrentDateFunction()), 1).
 		Suffix("ON CONFLICT (chat_id, date) DO UPDATE SET words_guessed = statistics.words_guessed + 1").
 		PlaceholderFormat(squirrel.Dollar)
 }
@@ -249,7 +260,7 @@ func (q *Queries) IncrementWordGuessedQuery(chatID int64) squirrel.Sqlizer {
 func (q *Queries) IncrementWordMissedQuery(chatID int64) squirrel.Sqlizer {
 	return squirrel.Insert("statistics").
 		Columns("chat_id", "date", "words_missed").
-		Values(chatID, squirrel.Expr("CURRENT_DATE"), 1).
+		Values(chatID, squirrel.Expr(q.getCurrentDateFunction()), 1).
 		Suffix("ON CONFLICT (chat_id, date) DO UPDATE SET words_missed = statistics.words_missed + 1").
 		PlaceholderFormat(squirrel.Dollar)
 }
@@ -260,9 +271,11 @@ func (q *Queries) UpdateTotalWordsLearnedQuery(chatID int64) squirrel.Sqlizer {
 			From("word_translations").
 			Where(squirrel.Eq{"chat_id": chatID}).
 			Where("guessed_streak >= 15")).
-		Where(squirrel.Eq{
-			"chat_id": chatID,
-			"date":    squirrel.Expr("CURRENT_DATE"),
+		Where(squirrel.And{
+			squirrel.Eq{
+				"chat_id": chatID,
+			},
+			squirrel.Expr(fmt.Sprintf("date = %s", q.getCurrentDateFunction())),
 		}).
 		PlaceholderFormat(squirrel.Dollar)
 }
