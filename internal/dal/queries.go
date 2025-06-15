@@ -210,8 +210,8 @@ func (q *Queries) FindRandomWordTranslationQuery(chatID int64, filter FindRandom
 }
 
 func (q *Queries) DeleteFromLearningBatchGtGuessedStreakQuery(chatID int64, guessedStreakLimit int) squirrel.Sqlizer {
-	return squirrel.Delete("learning_batches lb").
-		Where("lb.chat_id = ? AND lb.word IN (SELECT word FROM word_translations WHERE chat_id = ? AND guessed_streak >= ?)",
+	return squirrel.Delete("learning_batches").
+		Where("chat_id = ? AND word IN (SELECT word FROM word_translations WHERE chat_id = ? AND guessed_streak >= ?)",
 			chatID, chatID, guessedStreakLimit).
 		PlaceholderFormat(squirrel.Dollar)
 }
