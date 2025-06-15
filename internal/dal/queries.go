@@ -1,6 +1,7 @@
 package dal
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -293,13 +294,18 @@ func (q *Queries) InsertAuthConfirmationQuery(chatID int64, token string, expire
 		PlaceholderFormat(squirrel.Dollar)
 }
 
-func (q *Queries) InsertCallbackQuery(chatID int64, data CallbackData, expiresAt time.Time) squirrel.Sqlizer {
+func (q *Queries) InsertCallbackQuery(chatID int64, data CallbackData, expiresAt time.Time) (squirrel.Sqlizer, error) {
+	serializedData, err := q.serializeCallbackData(data)
+	if err != nil {
+		return nil, fmt.Errorf("serialize callback data: %w", err)
+	}
+
 	return squirrel.Insert("callback_data").
 		Columns("uuid", "chat_id", "data", "expires_at").
-		Values(squirrel.Expr(q.getUUIDFunction()), chatID, data, expiresAt).
+		Values(squirrel.Expr(q.getUUIDFunction()), chatID, serializedData, expiresAt).
 		Suffix("ON CONFLICT (uuid, chat_id) DO UPDATE SET data = EXCLUDED.data").
 		Suffix("RETURNING uuid").
-		PlaceholderFormat(squirrel.Dollar)
+		PlaceholderFormat(squirrel.Dollar), nil
 }
 
 func (q *Queries) IsConfirmedQuery(chatID int64, token string) squirrel.Sqlizer {
@@ -353,4 +359,30 @@ func (q *Queries) CleanupCallbacksQuery() squirrel.Sqlizer {
 	return squirrel.Delete("callback_data").
 		Where(squirrel.Expr("expires_at < " + q.getCurrentTimestampFunction())).
 		PlaceholderFormat(squirrel.Dollar)
+}
+
+func (q *Queries) serializeCallbackData(data CallbackData) (interface{}, error) {
+	if q.dbType == PostgreSQL {
+		return data, nil
+	}
+
+	// For SQLite, we need to serialize to JSON string
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("marshal callback data: %w", err)
+	}
+	return string(jsonData), nil
+}
+
+func (q *Queries) DeserializeCallbackData(data interface{}) (CallbackData, error) {
+	if q.dbType == PostgreSQL {
+		return data.(CallbackData), nil
+	}
+
+	// For SQLite, we need to deserialize from JSON string
+	var callbackData CallbackData
+	if err := json.Unmarshal([]byte(data.(string)), &callbackData); err != nil {
+		return CallbackData{}, fmt.Errorf("unmarshal callback data: %w", err)
+	}
+	return callbackData, nil
 }

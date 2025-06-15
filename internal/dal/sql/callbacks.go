@@ -18,7 +18,10 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 		return "", errors.New("expires at is required")
 	}
 
-	query := r.queries.InsertCallbackQuery(data.ChatID, data, data.ExpiresAt)
+	query, err := r.queries.InsertCallbackQuery(data.ChatID, data, data.ExpiresAt)
+	if err != nil {
+		return "", fmt.Errorf("build query: %w", err)
+	}
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -43,16 +46,21 @@ func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string
 	}
 
 	var (
-		data      dal.CallbackData
+		rawData   any
 		expiresAt time.Time
 	)
 
-	err = r.client.QueryRowContext(ctx, sqlQuery, args...).Scan(&data, &expiresAt)
+	err = r.client.QueryRowContext(ctx, sqlQuery, args...).Scan(&rawData, &expiresAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, dal.ErrNotFound
 		}
 		return nil, fmt.Errorf("find callback: %w", err)
+	}
+
+	data, err := r.queries.DeserializeCallbackData(rawData)
+	if err != nil {
+		return nil, fmt.Errorf("deserialize callback data: %w", err)
 	}
 
 	data.ChatID = chatID
