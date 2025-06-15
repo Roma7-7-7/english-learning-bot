@@ -320,7 +320,7 @@ func (q *Queries) ConfirmAuthConfirmationQuery(chatID int64, token string) squir
 			"chat_id": chatID,
 			"token":   token,
 		}).
-		Where("expires_at > NOW()").
+		Where(squirrel.Expr("expires_at > " + q.getCurrentTimestampFunction())).
 		PlaceholderFormat(squirrel.Dollar)
 }
 
