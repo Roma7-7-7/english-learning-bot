@@ -19,8 +19,9 @@ type (
 	}
 
 	Repository struct {
-		client Client
-		log    *slog.Logger
+		client  Client
+		queries *dal.Queries
+		log     *slog.Logger
 	}
 )
 
@@ -50,5 +51,5 @@ func (r *Repository) Transact(ctx context.Context, txFunc func(r dal.Repository)
 }
 
 func newPostgreSQLRepository(client Client, log *slog.Logger) *Repository {
-	return &Repository{client: client, log: log}
+	return &Repository{client: client, queries: dal.NewQueries(dal.PostgreSQL), log: log}
 }
