@@ -25,6 +25,12 @@ func NewQueries(dbType DBType) *Queries {
 	}
 }
 
+func (q *Queries) Clone() *Queries {
+	return &Queries{
+		dbType: q.dbType,
+	}
+}
+
 func (q *Queries) getUUIDFunction() string {
 	switch q.dbType {
 	case PostgreSQL:
