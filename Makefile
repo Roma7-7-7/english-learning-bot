@@ -3,10 +3,6 @@
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
-# AWS EC2
-AWS_GOOS = linux
-AWS_GOARCH = amd64
-
 lint:
 	golangci-lint run ./...
 
@@ -19,24 +15,17 @@ deps:
 
 # Local builds (uses your current OS/arch)
 build-bot: deps
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o ./bin/english-learning-bot ./cmd/bot/main.go
+	CGO_ENABLED=1 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o ./bin/english-learning-bot ./cmd/bot/main.go
 
 build-api: deps
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o ./bin/english-learning-api ./cmd/api/main.go
+	CGO_ENABLED=1 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o ./bin/english-learning-api ./cmd/api/main.go
 
 build-web:
 	cd web && npm install && npm run build
 
-build: build-bot build-api build-web
+build-backend: build-bot build-api
 
-# Linux x86_64 builds
-build-bot-linux: deps
-	CGO_ENABLED=0 GOOS=$(AWS_GOOS) GOARCH=$(AWS_GOARCH) go build -o ./bin/english-learning-bot ./cmd/bot/main.go
-
-build-api-linux: deps
-	CGO_ENABLED=0 GOOS=$(AWS_GOOS) GOARCH=$(AWS_GOARCH) go build -o ./bin/english-learning-api ./cmd/api/main.go
-
-build-linux: build-web build-bot-linux build-api-linux
+build: build-backend build-web
 
 # Clean build artifacts
 clean:

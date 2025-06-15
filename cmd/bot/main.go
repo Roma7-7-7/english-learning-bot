@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal/postgres"
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
+	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal/sql"
 	"github.com/Roma7-7-7/english-learning-bot/internal/schedule"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
@@ -54,13 +56,13 @@ func run(ctx context.Context) int {
 	log.InfoContext(ctx, "starting bot", "config", loggableConfig(conf), "current_time_in_location", time.Now().In(loc))
 	defer log.InfoContext(ctx, "bot is stopped")
 
-	db, err := pgxpool.New(ctx, conf.DBURL)
+	db, err := sql.Open("sqlite3", conf.DBURL)
 	if err != nil {
-		log.ErrorContext(ctx, "failed to create database connection pool", "error", err)
+		log.ErrorContext(ctx, "create database connection", "error", err)
 		return exitCodeDBConnect
 	}
 	defer db.Close()
-	repo := postgres.NewRepository(ctx, db, log)
+	repo := sqlrepo.NewRepository(ctx, db, dal.SQLite, log)
 
 	bot, err := telegram.NewBot(conf.TelegramToken, repo, log, telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(conf.AllowedChatIDs))
 	if err != nil {

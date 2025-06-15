@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -10,11 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal/postgres"
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
+	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal/sql"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
 
@@ -47,7 +49,7 @@ func run(ctx context.Context) int {
 	}
 	log := mustLogger(conf.Dev)
 
-	db, err := pgxpool.New(ctx, conf.DB.URL)
+	db, err := sql.Open("sqlite3", conf.DB.URL)
 	if err != nil {
 		log.ErrorContext(ctx, "failed to create database connection pool", "error", err)
 		return exitCodeDBConnect
@@ -84,9 +86,9 @@ func run(ctx context.Context) int {
 	return exitCodeOK
 }
 
-func dependencies(ctx context.Context, conf *config.API, db *pgxpool.Pool, log *slog.Logger) api.Dependencies {
+func dependencies(ctx context.Context, conf *config.API, db *sql.DB, log *slog.Logger) api.Dependencies {
 	return api.Dependencies{
-		Repo:           postgres.NewRepository(ctx, db, log),
+		Repo:           sqlrepo.NewRepository(ctx, db, dal.SQLite, log),
 		TelegramClient: telegram.NewClient(conf.Telegram.Token, log),
 		Logger:         log,
 	}
