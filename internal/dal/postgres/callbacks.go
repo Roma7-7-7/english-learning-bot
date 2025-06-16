@@ -68,7 +68,7 @@ func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string
 	data.ID = uuid
 	data.ExpiresAt = expiresAt
 
-	return &data, nil
+	return data, nil
 }
 
 func (r *Repository) cleanupCallbacksJob(ctx context.Context) {

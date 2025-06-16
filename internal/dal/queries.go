@@ -374,15 +374,23 @@ func (q *Queries) serializeCallbackData(data CallbackData) (interface{}, error) 
 	return string(jsonData), nil
 }
 
-func (q *Queries) DeserializeCallbackData(data interface{}) (CallbackData, error) {
+func (q *Queries) DeserializeCallbackData(data interface{}) (*CallbackData, error) {
 	if q.dbType == PostgreSQL {
-		return data.(CallbackData), nil
+		cast, ok := data.(CallbackData)
+		if !ok {
+			return nil, fmt.Errorf("expected CallbackData type, got %T", data)
+		}
+		return &cast, nil
 	}
 
 	// For SQLite, we need to deserialize from JSON string
-	var callbackData CallbackData
-	if err := json.Unmarshal([]byte(data.(string)), &callbackData); err != nil {
-		return CallbackData{}, fmt.Errorf("unmarshal callback data: %w", err)
+	strData, ok := data.(string)
+	if !ok {
+		return nil, fmt.Errorf("expected string data for SQLite, got %T", data)
 	}
-	return callbackData, nil
+	var res CallbackData
+	if err := json.Unmarshal([]byte(strData), &res); err != nil {
+		return nil, fmt.Errorf("unmarshal callback data: %w", err)
+	}
+	return &res, nil
 }
