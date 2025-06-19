@@ -1,6 +1,7 @@
 package dal
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -22,6 +23,12 @@ type Queries struct {
 func NewQueries(dbType DBType) *Queries {
 	return &Queries{
 		dbType: dbType,
+	}
+}
+
+func (q *Queries) Clone() *Queries {
+	return &Queries{
+		dbType: q.dbType,
 	}
 }
 
@@ -204,8 +211,8 @@ func (q *Queries) FindRandomWordTranslationQuery(chatID int64, filter FindRandom
 }
 
 func (q *Queries) DeleteFromLearningBatchGtGuessedStreakQuery(chatID int64, guessedStreakLimit int) squirrel.Sqlizer {
-	return squirrel.Delete("learning_batches lb").
-		Where("lb.chat_id = ? AND lb.word IN (SELECT word FROM word_translations WHERE chat_id = ? AND guessed_streak >= ?)",
+	return squirrel.Delete("learning_batches").
+		Where("chat_id = ? AND word IN (SELECT word FROM word_translations WHERE chat_id = ? AND guessed_streak >= ?)",
 			chatID, chatID, guessedStreakLimit).
 		PlaceholderFormat(squirrel.Dollar)
 }
@@ -287,13 +294,18 @@ func (q *Queries) InsertAuthConfirmationQuery(chatID int64, token string, expire
 		PlaceholderFormat(squirrel.Dollar)
 }
 
-func (q *Queries) InsertCallbackQuery(chatID int64, data CallbackData, expiresAt time.Time) squirrel.Sqlizer {
+func (q *Queries) InsertCallbackQuery(chatID int64, data CallbackData, expiresAt time.Time) (squirrel.Sqlizer, error) {
+	serializedData, err := q.serializeCallbackData(data)
+	if err != nil {
+		return nil, fmt.Errorf("serialize callback data: %w", err)
+	}
+
 	return squirrel.Insert("callback_data").
 		Columns("uuid", "chat_id", "data", "expires_at").
-		Values(squirrel.Expr(q.getUUIDFunction()), chatID, data, expiresAt).
+		Values(squirrel.Expr(q.getUUIDFunction()), chatID, serializedData, expiresAt).
 		Suffix("ON CONFLICT (uuid, chat_id) DO UPDATE SET data = EXCLUDED.data").
 		Suffix("RETURNING uuid").
-		PlaceholderFormat(squirrel.Dollar)
+		PlaceholderFormat(squirrel.Dollar), nil
 }
 
 func (q *Queries) IsConfirmedQuery(chatID int64, token string) squirrel.Sqlizer {
@@ -314,7 +326,7 @@ func (q *Queries) ConfirmAuthConfirmationQuery(chatID int64, token string) squir
 			"chat_id": chatID,
 			"token":   token,
 		}).
-		Where("expires_at > NOW()").
+		Where(squirrel.Expr("expires_at > " + q.getCurrentTimestampFunction())).
 		PlaceholderFormat(squirrel.Dollar)
 }
 
@@ -347,4 +359,38 @@ func (q *Queries) CleanupCallbacksQuery() squirrel.Sqlizer {
 	return squirrel.Delete("callback_data").
 		Where(squirrel.Expr("expires_at < " + q.getCurrentTimestampFunction())).
 		PlaceholderFormat(squirrel.Dollar)
+}
+
+func (q *Queries) serializeCallbackData(data CallbackData) (interface{}, error) {
+	if q.dbType == PostgreSQL {
+		return data, nil
+	}
+
+	// For SQLite, we need to serialize to JSON string
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("marshal callback data: %w", err)
+	}
+	return string(jsonData), nil
+}
+
+func (q *Queries) DeserializeCallbackData(data interface{}) (*CallbackData, error) {
+	if q.dbType == PostgreSQL {
+		cast, ok := data.(CallbackData)
+		if !ok {
+			return nil, fmt.Errorf("expected CallbackData type, got %T", data)
+		}
+		return &cast, nil
+	}
+
+	// For SQLite, we need to deserialize from JSON string
+	strData, ok := data.(string)
+	if !ok {
+		return nil, fmt.Errorf("expected string data for SQLite, got %T", data)
+	}
+	var res CallbackData
+	if err := json.Unmarshal([]byte(strData), &res); err != nil {
+		return nil, fmt.Errorf("unmarshal callback data: %w", err)
+	}
+	return &res, nil
 }

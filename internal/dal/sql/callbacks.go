@@ -1,12 +1,11 @@
-package postgres
+package sql
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
@@ -29,7 +28,7 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 		return "", fmt.Errorf("build query: %w", err)
 	}
 
-	row := r.client.QueryRow(ctx, sql, args...)
+	row := r.client.QueryRowContext(ctx, sql, args...)
 	err = row.Scan(&data.ID)
 	if err != nil {
 		return "", fmt.Errorf("insert callback: %w", err)
@@ -41,7 +40,7 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
 	query := r.queries.FindCallbackQuery(chatID, uuid)
 
-	sql, args, err := query.ToSql()
+	sqlQuery, args, err := query.ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
@@ -51,9 +50,9 @@ func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string
 		expiresAt time.Time
 	)
 
-	err = r.client.QueryRow(ctx, sql, args...).Scan(&rawData, &expiresAt)
+	err = r.client.QueryRowContext(ctx, sqlQuery, args...).Scan(&rawData, &expiresAt)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, dal.ErrNotFound
 		}
 		return nil, fmt.Errorf("find callback: %w", err)
@@ -87,7 +86,7 @@ func (r *Repository) cleanupCallbacksJob(ctx context.Context) {
 				continue
 			}
 
-			_, err = r.client.Exec(ctx, sql, args...)
+			_, err = r.client.ExecContext(ctx, sql, args...)
 			if err != nil {
 				r.log.ErrorContext(ctx, "failed to run cleanup job", "error", err)
 			}

@@ -32,8 +32,9 @@ go.work.sum
 .vscode/
 
 # Other
-./data/
+data/
 bin/
+tmp/
 **/.DS_Store
 package
 english-learning-release.zip
