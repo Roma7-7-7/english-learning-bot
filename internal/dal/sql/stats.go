@@ -50,9 +50,10 @@ func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time)
 	row := r.client.QueryRowContext(ctx, sqlQuery, args...)
 
 	var stats dal.Stats
+	var strDate string
 	err = row.Scan(
 		&stats.ChatID,
-		&stats.Date,
+		&strDate,
 		&stats.WordsGuessed,
 		&stats.WordsMissed,
 		&stats.TotalWordsLearned,
@@ -63,6 +64,10 @@ func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time)
 			return nil, dal.ErrNotFound
 		}
 		return nil, fmt.Errorf("get stats: %w", err)
+	}
+	stats.Date, err = time.Parse("2006-01-02", strDate)
+	if err != nil {
+		return nil, fmt.Errorf("parse date: %w", err)
 	}
 	return &stats, nil
 }
