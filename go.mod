@@ -2,8 +2,6 @@ module github.com/Roma7-7-7/english-learning-bot
 
 go 1.24.1
 
-tool github.com/a-h/templ/cmd/templ
-
 require (
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/aws/aws-sdk-go v1.55.7
@@ -20,13 +18,6 @@ require (
 )
 
 require (
-	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
-	github.com/a-h/templ v0.3.865 // indirect
-	github.com/andybalholm/brotli v1.1.1 // indirect
-	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/cli/browser v1.3.0 // indirect
-	github.com/fatih/color v1.18.0 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
@@ -39,13 +30,10 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/natefinch/atomic v1.0.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
-	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/tools v0.33.0 // indirect
 )
