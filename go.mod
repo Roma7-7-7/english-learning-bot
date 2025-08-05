@@ -4,15 +4,15 @@ go 1.24.1
 
 require (
 	github.com/Masterminds/squirrel v1.5.4
-	github.com/aws/aws-sdk-go v1.55.7
-	github.com/go-playground/validator/v10 v10.26.0
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/aws/aws-sdk-go v1.55.8
+	github.com/go-playground/validator/v10 v10.27.0
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/labstack/echo/v4 v4.13.4
-	github.com/mattn/go-sqlite3 v1.14.28
-	golang.org/x/sync v0.15.0
+	github.com/mattn/go-sqlite3 v1.14.30
+	golang.org/x/sync v0.16.0
 	golang.org/x/time v0.12.0
 	gopkg.in/telebot.v3 v3.3.8
 )
