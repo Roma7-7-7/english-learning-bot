@@ -92,8 +92,14 @@ func (q *Queries) FindWordTranslationsQuery(chatID int64, filter WordTranslation
 		Where(squirrel.Eq{"chat_id": chatID})
 
 	if filter.Word != "" {
-		// Use LIKE instead of SIMILAR TO for SQLite compatibility
-		baseQuery = baseQuery.Where("LOWER(word) LIKE ?", fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word)))
+		// Search in both word and translation fields for SQLite compatibility
+		searchTerm := fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word))
+		baseQuery = baseQuery.Where(
+			squirrel.Or{
+				squirrel.Expr("LOWER(word) LIKE ?", searchTerm),
+				squirrel.Expr("LOWER(translation) LIKE ?", searchTerm),
+			},
+		)
 	}
 
 	if filter.ToReview {
