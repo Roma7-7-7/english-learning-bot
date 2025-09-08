@@ -8,12 +8,12 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.7.6
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/labstack/echo/v4 v4.13.4
-	github.com/mattn/go-sqlite3 v1.14.30
-	golang.org/x/sync v0.16.0
-	golang.org/x/time v0.12.0
+	github.com/mattn/go-sqlite3 v1.14.32
+	golang.org/x/sync v0.17.0
+	golang.org/x/time v0.13.0
 	gopkg.in/telebot.v3 v3.3.8
 )
 
