@@ -279,7 +279,10 @@ export function Home() {
                                     <Table hover>
                                         <thead>
                                         <tr>
-                                            <th>Word</th>
+                                            <th>
+                                                <span className="d-none d-sm-inline">Word</span>
+                                                <span className="d-sm-none">Word (tap to edit)</span>
+                                            </th>
                                             <th className="d-none d-md-table-cell">Translation</th>
                                             <th className="text-center">
                                                 <span className="d-none d-sm-inline">Learned</span>
@@ -289,10 +292,7 @@ export function Home() {
                                                 <span className="d-none d-sm-inline">To Review</span>
                                                 <span className="d-sm-none">R</span>
                                             </th>
-                                            <th className="text-center">
-                                                <span className="d-none d-sm-inline">Edit</span>
-                                                <span className="d-sm-none">E</span>
-                                            </th>
+                                            <th className="text-center d-none d-sm-table-cell">Edit</th>
                                             <th className="text-center">
                                                 <span className="d-none d-sm-inline">Delete</span>
                                                 <span className="d-sm-none">D</span>
@@ -302,7 +302,28 @@ export function Home() {
                                         <tbody>
                                         {words.items.map((item) => (
                                             <tr key={item.word}>
-                                                <td className="text-break">{item.word}</td>
+                                                <td 
+                                                    className="text-break d-none d-sm-table-cell"
+                                                >
+                                                    {item.word}
+                                                </td>
+                                                <td 
+                                                    className="text-break d-sm-none"
+                                                    role="button"
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => {
+                                                        setModalState({
+                                                            show: true,
+                                                            action: 'edit',
+                                                            word: item.word,
+                                                            translation: item.translation,
+                                                            description: item.description,
+                                                        });
+                                                    }}
+                                                    title="Tap to edit"
+                                                >
+                                                    {item.word}
+                                                </td>
                                                 <td className="d-none d-md-table-cell text-break">{item.translation}</td>
                                                 <td className="text-center">
                                                     {isWordLearned(item.guessed_streak || 0) ? (
@@ -327,7 +348,7 @@ export function Home() {
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="text-center">
+                                                <td className="text-center d-none d-sm-table-cell">
                                                     <Button
                                                         variant="link"
                                                         size="sm"
