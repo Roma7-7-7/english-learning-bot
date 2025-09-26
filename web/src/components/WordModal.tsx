@@ -29,6 +29,17 @@ export function WordModal({
     const [descriptionInput, setDescriptionInput] = useState(description);
     const [error, setError] = useState<string>("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 576);
+
+    // Handle window resize for responsive design
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 576);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Reset form when modal opens with new props
     useEffect(() => {
@@ -97,27 +108,34 @@ export function WordModal({
     const submitButtonText = action === 'add' ? 'Add Word' : 'Save Changes';
 
     return (
-        <Modal show={show} onHide={onHide} centered backdrop="static">
+        <Modal 
+            show={show} 
+            onHide={onHide} 
+            centered 
+            backdrop="static"
+            fullscreen="sm-down"
+        >
             <Modal.Header closeButton>
                 <Modal.Title>{title}</Modal.Title>
             </Modal.Header>
             <Form onSubmit={handleSubmit}>
-                <Modal.Body>
+                <Modal.Body className="px-3 px-sm-4">
                     {action === 'edit' && (
                         <Form.Group className="mb-3">
-                            <Form.Label>Original Word</Form.Label>
+                            <Form.Label className="fw-semibold">Original Word</Form.Label>
                             <Form.Control
                                 type="text"
                                 value={wordInput}
                                 readOnly
                                 disabled
+                                className="bg-light"
                             />
                         </Form.Group>
                     )}
 
                     {action === 'edit' ? (
                         <Form.Group className="mb-3">
-                            <Form.Label>New Word</Form.Label>
+                            <Form.Label className="fw-semibold">New Word</Form.Label>
                             <Form.Control
                                 id="new-word-input"
                                 type="text"
@@ -125,11 +143,12 @@ export function WordModal({
                                 onChange={(e) => setNewWordInput(e.target.value)}
                                 placeholder="Enter new word"
                                 required
+                                size={isMobile ? "lg" : undefined}
                             />
                         </Form.Group>
                     ) : (
                         <Form.Group className="mb-3">
-                            <Form.Label>Word</Form.Label>
+                            <Form.Label className="fw-semibold">Word</Form.Label>
                             <Form.Control
                                 id="word-input"
                                 type="text"
@@ -137,29 +156,33 @@ export function WordModal({
                                 onChange={(e) => setWordInput(e.target.value)}
                                 placeholder="Enter word"
                                 required
+                                size={isMobile ? "lg" : undefined}
                             />
                         </Form.Group>
                     )}
 
                     <Form.Group className="mb-3">
-                        <Form.Label>Translation</Form.Label>
+                        <Form.Label className="fw-semibold">Translation</Form.Label>
                         <Form.Control
                             type="text"
                             value={translationInput}
                             onChange={(e) => setTranslationInput(e.target.value)}
                             placeholder="Enter translation"
                             required
+                            size={isMobile ? "lg" : undefined}
                         />
                     </Form.Group>
 
                     <Form.Group className="mb-3">
-                        <Form.Label>Description</Form.Label>
+                        <Form.Label className="fw-semibold">Description</Form.Label>
                         <Form.Control
                             as="textarea"
-                            rows={3}
+                            rows={isMobile ? 2 : 3}
                             value={descriptionInput}
                             onChange={(e) => setDescriptionInput(e.target.value)}
                             placeholder="Enter description"
+                            style={{ minHeight: '60px' }}
+                            size={isMobile ? "lg" : undefined}
                         />
                     </Form.Group>
 
@@ -167,14 +190,20 @@ export function WordModal({
                         <Alert variant="danger">{error}</Alert>
                     )}
                 </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={onHide} disabled={isSubmitting}>
+                <Modal.Footer className="d-flex flex-column flex-sm-row gap-2 gap-sm-0">
+                    <Button 
+                        variant="secondary" 
+                        onClick={onHide} 
+                        disabled={isSubmitting}
+                        className="w-100 w-sm-auto order-2 order-sm-1"
+                    >
                         Cancel
                     </Button>
                     <Button
                         variant="primary"
                         type="submit"
                         disabled={isSubmitting}
+                        className="w-100 w-sm-auto order-1 order-sm-2"
                     >
                         {isSubmitting ? 'Saving...' : submitButtonText}
                     </Button>

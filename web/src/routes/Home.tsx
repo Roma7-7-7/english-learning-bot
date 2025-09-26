@@ -177,13 +177,13 @@ export function Home() {
                 </Container>
             ) : (
                 <Container id="content" className="p-3">
-                    <Row className="mb-3 align-items-center">
-                        <Col xs={12} md={3}>
+                    <Row className="mb-3 g-2">
+                        <Col xs={12} sm={6} lg={3}>
                             <Form.Group>
                                 <Form.Control
                                     ref={searchInputRef}
                                     type="text"
-                                    placeholder="Search"
+                                    placeholder="Search words..."
                                     value={qp.search}
                                     onChange={present => {
                                         setQP((existing: WordsQueryParams) => {
@@ -196,7 +196,7 @@ export function Home() {
                                 />
                             </Form.Group>
                         </Col>
-                        <Col xs={12} md={2}>
+                        <Col xs={6} sm={3} lg={2}>
                             <Form.Group>
                                 <Form.Select
                                     value={qp.guessed}
@@ -216,7 +216,7 @@ export function Home() {
                                 </Form.Select>
                             </Form.Group>
                         </Col>
-                        <Col xs={12} md={2}>
+                        <Col xs={6} sm={3} lg={2} className="d-flex align-items-center">
                             <Form.Check
                                 type="checkbox"
                                 id="to-review-checkbox"
@@ -232,11 +232,12 @@ export function Home() {
                                 }}
                             />
                         </Col>
-                        <Col xs={12} md={3}></Col>
-                        <Col xs={12} md={1}>
+                        <Col xs={12} sm={12} lg={3}></Col>
+                        <Col xs={6} sm={3} lg={1}>
                             <Button
-                                variant="secondary"
+                                variant="outline-secondary"
                                 className="w-100"
+                                title="Clear filters"
                                 onClick={() => {
                                     setQP({
                                         search: "",
@@ -247,10 +248,11 @@ export function Home() {
                                     });
                                 }}
                             >
-                                <span aria-hidden="true">&times;</span>
+                                <span className="d-none d-sm-inline">Clear</span>
+                                <span className="d-sm-none" aria-hidden="true">&times;</span>
                             </Button>
                         </Col>
-                        <Col xs={12} md={1}>
+                        <Col xs={6} sm={3} lg={1}>
                             <Button
                                 variant="primary"
                                 className="w-100"
@@ -264,7 +266,8 @@ export function Home() {
                                     });
                                 }}
                             >
-                                Add
+                                <span className="d-none d-sm-inline">Add</span>
+                                <span className="d-sm-none">+</span>
                             </Button>
                         </Col>
                     </Row>
@@ -272,70 +275,89 @@ export function Home() {
                     <div id="words">
                         <Row>
                             <Col xs={12}>
-                                <Table hover>
-                                    <thead>
-                                    <tr>
-                                        <th>Word</th>
-                                        <th>Translation</th>
-                                        <th className="text-center">Learned</th>
-                                        <th className="text-center">To Review</th>
-                                        <th className="text-center">Edit</th>
-                                        <th className="text-center">Delete</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    {words.items.map((item) => (
-                                        <tr key={item.word}>
-                                            <td>{item.word}</td>
-                                            <td>{item.translation}</td>
-                                            <td className="text-center">
-                                                {isWordLearned(item.guessed_streak || 0) ? (
-                                                    <Badge bg="success" title={`Streak: ${item.guessed_streak}`}>
-                                                        ✓ Learned
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge bg="secondary" title={`Streak: ${item.guessed_streak || 0}/15`}>
-                                                        {item.guessed_streak || 0}/15
-                                                    </Badge>
-                                                )}
-                                            </td>
-                                            <td className="text-center">
-                                                <Form.Check
-                                                    type="checkbox"
-                                                    id={`to-review-${item.word}`}
-                                                    checked={item.to_review}
-                                                    onChange={present => {
-                                                        handleMarkToReview(item.word, present.target.checked);
-                                                    }}
-                                                />
-                                            </td>
-                                            <td className="text-center">
-                                                <Button
-                                                    variant="link"
-                                                    className="bi bi-pencil-square"
-                                                    onClick={() => {
-                                                        setModalState({
-                                                            show: true,
-                                                            action: 'edit',
-                                                            word: item.word,
-                                                            translation: item.translation,
-                                                            description: item.description,
-                                                        });
-                                                    }}>
-                                                    <PencilSquare />
-                                                </Button>
-                                            </td>
-                                            <td className="text-center">
-                                                <Button
-                                                    variant="link"
-                                                    onClick={() => handleDeleteWord(item.word)}>
-                                                    <Trash />
-                                                </Button>
-                                            </td>
+                                <div className="table-responsive">
+                                    <Table hover>
+                                        <thead>
+                                        <tr>
+                                            <th>Word</th>
+                                            <th className="d-none d-md-table-cell">Translation</th>
+                                            <th className="text-center">
+                                                <span className="d-none d-sm-inline">Learned</span>
+                                                <span className="d-sm-none">✓</span>
+                                            </th>
+                                            <th className="text-center">
+                                                <span className="d-none d-sm-inline">To Review</span>
+                                                <span className="d-sm-none">R</span>
+                                            </th>
+                                            <th className="text-center">
+                                                <span className="d-none d-sm-inline">Edit</span>
+                                                <span className="d-sm-none">E</span>
+                                            </th>
+                                            <th className="text-center">
+                                                <span className="d-none d-sm-inline">Delete</span>
+                                                <span className="d-sm-none">D</span>
+                                            </th>
                                         </tr>
-                                    ))}
-                                    </tbody>
-                                </Table>
+                                        </thead>
+                                        <tbody>
+                                        {words.items.map((item) => (
+                                            <tr key={item.word}>
+                                                <td className="text-break">{item.word}</td>
+                                                <td className="d-none d-md-table-cell text-break">{item.translation}</td>
+                                                <td className="text-center">
+                                                    {isWordLearned(item.guessed_streak || 0) ? (
+                                                        <Badge bg="success" title={`Streak: ${item.guessed_streak}`}>
+                                                            <span className="d-none d-sm-inline">✓ Learned</span>
+                                                            <span className="d-sm-none">✓</span>
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge bg="secondary" title={`Streak: ${item.guessed_streak || 0}/15`}>
+                                                            <span className="d-none d-sm-inline">{item.guessed_streak || 0}/15</span>
+                                                            <span className="d-sm-none">{item.guessed_streak || 0}</span>
+                                                        </Badge>
+                                                    )}
+                                                </td>
+                                                <td className="text-center">
+                                                    <Form.Check
+                                                        type="checkbox"
+                                                        id={`to-review-${item.word}`}
+                                                        checked={item.to_review}
+                                                        onChange={present => {
+                                                            handleMarkToReview(item.word, present.target.checked);
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="text-center">
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="p-1"
+                                                        onClick={() => {
+                                                            setModalState({
+                                                                show: true,
+                                                                action: 'edit',
+                                                                word: item.word,
+                                                                translation: item.translation,
+                                                                description: item.description,
+                                                            });
+                                                        }}>
+                                                        <PencilSquare />
+                                                    </Button>
+                                                </td>
+                                                <td className="text-center">
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="p-1"
+                                                        onClick={() => handleDeleteWord(item.word)}>
+                                                        <Trash />
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        </tbody>
+                                    </Table>
+                                </div>
                             </Col>
                         </Row>
                         <Row>

@@ -31,14 +31,20 @@ export function Navbar() {
                 <BSNavbar.Toggle aria-controls="navbarScroll" />
                 <BSNavbar.Collapse id="navbarScroll">
                     <Nav className="me-auto my-2 my-lg-0">
-                        {state.user && <Link to="/stats" className="nav-link">Stats</Link>}
+                        {/* Left side navigation items can go here if needed */}
                     </Nav>
-                    <span style={{margin: '0 15px'}}>
-                        <span style={{color: 'forestgreen'}}>{state.stats?.learned}</span>
-                        <span style={{color: 'whitesmoke'}}> / </span>
-                        <span style={{color: 'indianred'}}>{state.stats?.total}</span>
-                    </span>
-                    {state.user && <Button variant="outline-danger" onClick={handleLogout}>Log out</Button>}
+                    <Nav className="d-flex align-items-center">
+                        {state.user && (
+                            <Link to="/stats" className="nav-link me-lg-3">
+                                <span className="d-flex align-items-center" style={{color: 'white'}}>
+                                    <span style={{color: 'forestgreen'}}>{state.stats?.learned}</span>
+                                    <span style={{color: 'whitesmoke', margin: '0 4px'}}> / </span>
+                                    <span style={{color: 'indianred'}}>{state.stats?.total}</span>
+                                </span>
+                            </Link>
+                        )}
+                        {state.user && <Button variant="outline-danger" onClick={handleLogout}>Log out</Button>}
+                    </Nav>
                 </BSNavbar.Collapse>
             </Container>
         </BSNavbar>
