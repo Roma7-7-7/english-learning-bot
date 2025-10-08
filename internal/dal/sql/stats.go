@@ -12,7 +12,7 @@ import (
 )
 
 func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*dal.TotalStats, error) {
-	query := r.qb.Select(
+	query := qb.Select(
 		"chat_id",
 		"SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus",
 		"SUM(CASE WHEN guessed_streak BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS streak_10_to_14",
@@ -51,7 +51,7 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*da
 
 func (r *SQLiteRepository) GetStats(ctx context.Context, chatID int64, date time.Time) (*dal.Stats, error) {
 	var r2 any = date.Format("2006-01-02")
-	query := r.qb.Select(
+	query := qb.Select(
 		"chat_id", "date", "words_guessed", "words_missed",
 		"total_words_learned", "created_at",
 	).
@@ -92,7 +92,7 @@ func (r *SQLiteRepository) GetStats(ctx context.Context, chatID int64, date time
 }
 
 func (r *SQLiteRepository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]dal.Stats, error) {
-	query := r.qb.Select(
+	query := qb.Select(
 		"chat_id", "date", "words_guessed", "words_missed",
 		"total_words_learned", "created_at",
 	).
@@ -142,7 +142,7 @@ func (r *SQLiteRepository) GetStatsRange(ctx context.Context, chatID int64, from
 }
 
 func (r *SQLiteRepository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
-	query := r.qb.Insert("statistics").
+	query := qb.Insert("statistics").
 		Columns("chat_id", "date", "words_guessed").
 		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
 		Suffix("ON CONFLICT (chat_id, date) DO UPDATE SET words_guessed = statistics.words_guessed + 1")
@@ -160,7 +160,7 @@ func (r *SQLiteRepository) IncrementWordGuessed(ctx context.Context, chatID int6
 }
 
 func (r *SQLiteRepository) IncrementWordMissed(ctx context.Context, chatID int64) error {
-	query := r.qb.Insert("statistics").
+	query := qb.Insert("statistics").
 		Columns("chat_id", "date", "words_missed").
 		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
 		Suffix("ON CONFLICT (chat_id, date) DO UPDATE SET words_missed = statistics.words_missed + 1")
@@ -178,7 +178,7 @@ func (r *SQLiteRepository) IncrementWordMissed(ctx context.Context, chatID int64
 }
 
 func (r *SQLiteRepository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
-	query := r.qb.Update("statistics").
+	query := qb.Update("statistics").
 		Set("total_words_learned", squirrel.Select("COUNT(*)").
 			From("word_translations").
 			Where(squirrel.Eq{"chat_id": chatID}).

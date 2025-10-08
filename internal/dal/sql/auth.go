@@ -19,7 +19,7 @@ func (r *SQLiteRepository) InsertAuthConfirmation(ctx context.Context, chatID in
 		return errors.New("expires in is required")
 	}
 
-	query := r.qb.Insert("auth_confirmations").
+	query := qb.Insert("auth_confirmations").
 		Columns("chat_id", "token", "expires_at").
 		Values(chatID, token, time.Now().Add(expiresIn))
 
@@ -37,7 +37,7 @@ func (r *SQLiteRepository) InsertAuthConfirmation(ctx context.Context, chatID in
 }
 
 func (r *SQLiteRepository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
-	query := r.qb.Select("confirmed").
+	query := qb.Select("confirmed").
 		From("auth_confirmations").
 		Where(squirrel.Eq{
 			"chat_id": chatID,
@@ -63,7 +63,7 @@ func (r *SQLiteRepository) IsConfirmed(ctx context.Context, chatID int64, token 
 }
 
 func (r *SQLiteRepository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
-	query := r.qb.Update("auth_confirmations").
+	query := qb.Update("auth_confirmations").
 		Set("confirmed", true).
 		Where(squirrel.Eq{
 			"chat_id": chatID,
@@ -85,7 +85,7 @@ func (r *SQLiteRepository) ConfirmAuthConfirmation(ctx context.Context, chatID i
 }
 
 func (r *SQLiteRepository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
-	query := r.qb.Delete("auth_confirmations").
+	query := qb.Delete("auth_confirmations").
 		Where(squirrel.Eq{
 			"chat_id": chatID,
 			"token":   token,
@@ -110,7 +110,7 @@ func (r *SQLiteRepository) cleanupAuthConfirmations(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Hour):
-			query := r.qb.Delete("auth_confirmations").
+			query := qb.Delete("auth_confirmations").
 				Where(squirrel.Expr("expires_at < " + ("datetime('now', 'localtime')")))
 
 			sql, args, err := query.ToSql()

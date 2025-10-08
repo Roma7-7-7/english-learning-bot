@@ -10,6 +10,8 @@ import (
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
+var qb = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
 type (
 	Client interface {
 		BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
@@ -20,7 +22,6 @@ type (
 
 	SQLiteRepository struct {
 		db  *sql.DB
-		qb  squirrel.StatementBuilderType
 		log *slog.Logger
 	}
 )
@@ -51,5 +52,5 @@ func (r *SQLiteRepository) Transact(ctx context.Context, txFunc func(r dal.Repos
 }
 
 func newSQLRepository(db *sql.DB, log *slog.Logger) *SQLiteRepository {
-	return &SQLiteRepository{db: db, qb: squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar), log: log}
+	return &SQLiteRepository{db: db, log: log}
 }

@@ -26,7 +26,7 @@ func (r *SQLiteRepository) InsertCallback(ctx context.Context, data dal.Callback
 	}
 	serializedData := string(jsonData)
 
-	query := r.qb.Insert("callback_data").
+	query := qb.Insert("callback_data").
 		Columns("uuid", "chat_id", "data", "expires_at").
 		Values(squirrel.Expr("hex(randomblob(4))"), data.ChatID, serializedData, data.ExpiresAt).
 		Suffix("ON CONFLICT (uuid, chat_id) DO UPDATE SET data = EXCLUDED.data").
@@ -47,7 +47,7 @@ func (r *SQLiteRepository) InsertCallback(ctx context.Context, data dal.Callback
 }
 
 func (r *SQLiteRepository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
-	query := r.qb.Select("data", "expires_at").
+	query := qb.Select("data", "expires_at").
 		From("callback_data").
 		Where(squirrel.Eq{
 			"chat_id": chatID,
@@ -97,7 +97,7 @@ func (r *SQLiteRepository) cleanupCallbacksJob(ctx context.Context) {
 		case <-time.After(time.Hour):
 			r.log.InfoContext(ctx, "running cleanup job")
 
-			query := r.qb.Delete("callback_data").
+			query := qb.Delete("callback_data").
 				Where(squirrel.Expr("expires_at < " + ("datetime('now', 'localtime')")))
 
 			sql, args, err := query.ToSql()
