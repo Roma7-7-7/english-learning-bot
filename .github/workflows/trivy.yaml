@@ -38,7 +38,7 @@ jobs:
         run: docker build -t english-learning-bot:${{ github.sha }} .
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: 'english-learning-bot:${{ github.sha }}'
           format: 'sarif'
@@ -52,7 +52,7 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
       - name: Run Trivy vulnerability scanner (table format)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.33.1
         if: always()
         with:
           image-ref: 'english-learning-bot:${{ github.sha }}'
@@ -69,7 +69,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Trivy filesystem scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -84,7 +84,7 @@ jobs:
           sarif_file: 'trivy-fs-results.sarif'
 
       - name: Run Trivy filesystem scanner (table format)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.33.1
         if: always()
         with:
           scan-type: 'fs'
