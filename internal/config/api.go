@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -57,14 +58,14 @@ type (
 	}
 )
 
-func NewAPI() (*API, error) {
+func NewAPI(ctx context.Context) (*API, error) {
 	res := &API{}
 	if err := envconfig.Process("API", res); err != nil {
 		return nil, fmt.Errorf("parse api environment: %w", err)
 	}
 
 	if !res.Dev {
-		if err := setAPIProdConfig(res); err != nil {
+		if err := setAPIProdConfig(ctx, res); err != nil {
 			return nil, fmt.Errorf("set api prod config: %w", err)
 		}
 	}
@@ -76,8 +77,8 @@ func NewAPI() (*API, error) {
 	return res, nil
 }
 
-func setAPIProdConfig(target *API) error {
-	parameters, err := FetchAWSParams(
+func setAPIProdConfig(ctx context.Context, target *API) error {
+	parameters, err := FetchAWSParams(ctx,
 		"/english-learning-api/prod/db_url",
 		"/english-learning-api/prod/secret",
 		"/english-learning-api/prod/telegram_token",

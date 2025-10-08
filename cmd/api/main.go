@@ -41,7 +41,7 @@ func run(ctx context.Context) int {
 	}()
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	conf, err := config.NewAPI()
+	conf, err := config.NewAPI(ctx)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get config", "error", err) //nolint:sloglint // ignore
 		return exitCodeConfigParse

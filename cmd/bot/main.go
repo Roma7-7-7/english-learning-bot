@@ -43,7 +43,7 @@ func run(ctx context.Context) int {
 	}()
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	conf, err := config.GetBot()
+	conf, err := config.GetBot(ctx)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get config", "error", err) //nolint:sloglint // app logger is not configured yet
 		return exitCodeConfigParse
