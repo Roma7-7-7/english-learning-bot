@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -42,14 +43,14 @@ func (s WordCheckSchedule) MustTimeLocation() *time.Location {
 	return loc
 }
 
-func GetBot() (*Bot, error) {
+func GetBot(ctx context.Context) (*Bot, error) {
 	res := &Bot{}
 	if err := envconfig.Process("BOT", res); err != nil {
 		return nil, fmt.Errorf("parse bot environment: %w", err)
 	}
 
 	if !res.Dev {
-		if err := setBotProdConfig(res); err != nil {
+		if err := setBotProdConfig(ctx, res); err != nil {
 			return nil, fmt.Errorf("set bot prod config: %w", err)
 		}
 	}
@@ -89,8 +90,8 @@ func validateBot(conf *Bot) (*Bot, error) {
 	return conf, nil
 }
 
-func setBotProdConfig(target *Bot) error {
-	parameters, err := FetchAWSParams(
+func setBotProdConfig(ctx context.Context, target *Bot) error {
+	parameters, err := FetchAWSParams(ctx,
 		"/english-learning-bot/prod/telegram-token",
 		"/english-learning-bot/prod/allowed-chat-ids",
 		"/english-learning-bot/prod/db-url",

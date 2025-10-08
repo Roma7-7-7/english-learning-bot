@@ -1,23 +1,24 @@
 package config
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"         //nolint:staticcheck // to be fixed by https://github.com/Roma7-7-7/english-learning-bot/issues/74
-	"github.com/aws/aws-sdk-go/aws/session" //nolint:staticcheck // to be fixed by https://github.com/Roma7-7-7/english-learning-bot/issues/74
-	"github.com/aws/aws-sdk-go/service/ssm" //nolint:staticcheck // to be fixed by https://github.com/Roma7-7-7/english-learning-bot/issues/74
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
-func FetchAWSParams(keys ...string) (map[string]string, error) {
-	sess, err := session.NewSession()
+func FetchAWSParams(ctx context.Context, keys ...string) (map[string]string, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("create aws session: %w", err)
+		return nil, fmt.Errorf("load aws config: %w", err)
 	}
 
-	ssmClient := ssm.New(sess, aws.NewConfig())
-	parameters, err := ssmClient.GetParameters(&ssm.GetParametersInput{
-		Names:          aws.StringSlice(keys),
-		WithDecryption: aws.Bool(true),
+	ssmClient := ssm.NewFromConfig(cfg)
+	withDecryption := true
+	parameters, err := ssmClient.GetParameters(ctx, &ssm.GetParametersInput{
+		Names:          keys,
+		WithDecryption: &withDecryption,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get parameters: %w", err)
