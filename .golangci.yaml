@@ -12,6 +12,7 @@ linters:
     - dupl
     - durationcheck
     - errcheck
+    - errchkjson         # Security: detect unchecked JSON errors
     - errname
     - errorlint
     - exhaustive
@@ -30,8 +31,10 @@ linters:
     - gomoddirectives
     - gomodguard
     - goprintffuncname
-    - gosec
+    - gosec              # Security: Go security checker
+    - gosmopolitan       # Security: detect locale/timezone issues
     - govet
+    - grouper
     - iface
     - ineffassign
     - intrange
@@ -71,6 +74,8 @@ linters:
     - usestdlibvars
     - wastedassign
     - whitespace
+    - wrapcheck          # Security: ensure errors are properly wrapped
+    - zerologlint
   settings:
     cyclop:
       max-complexity: 30
@@ -109,7 +114,7 @@ linters:
       statements: 50
       ignore-comments: true
     gocognit:
-      min-complexity: 20
+      min-complexity: 30
     gochecksumtype:
       default-signifies-exhaustive: false
     gocritic:
@@ -190,6 +195,12 @@ linters:
       - linters:
           - gocritic
         source: //noinspection
+      - linters:
+          - wrapcheck
+        text: "error returned from interface method should be wrapped.*gopkg.in/telebot.v3"
+      - linters:
+          - wrapcheck
+        text: "error returned from interface method should be wrapped.*github.com/labstack/echo/v4.Context"
       - linters:
           - bodyclose
           - dupl

@@ -89,7 +89,7 @@ func (c *Client) AskAuthConfirmation(ctx context.Context, chatID int64, token st
 	if resp.StatusCode >= 300 { //nolint:mnd // ignore mnd
 		tags := make([]any, 0, 4) //nolint:mnd // ignore mnd
 		tags = append(tags, "status", strconv.Itoa(resp.StatusCode))
-		if response, err := httputil.DumpResponse(resp, true); err != nil { //nolint:govet // ignore shadow declaration
+		if response, err := httputil.DumpResponse(resp, true); err != nil {
 			c.log.DebugContext(ctx, "failed to dump response", "error", err)
 		} else {
 			tags = append(tags, "response", string(response))

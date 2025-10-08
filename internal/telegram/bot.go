@@ -146,11 +146,11 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
 			b.log.DebugContext(ctx, "no words to check", "chatID", chatID)
-			return replier.Reply("no words to check")
+			return replier.Reply("no words to check") //nolint:wrapcheck // lets ignore it here
 		}
 
 		b.log.ErrorContext(ctx, "failed to get random translation", "error", err)
-		return replier.Reply(somethingWentWrongMsg)
+		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
 	}
 
 	data := dal.CallbackData{
@@ -161,15 +161,16 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 	callbackID, err := b.repo.InsertCallback(ctx, data)
 	if err != nil {
 		b.log.ErrorContext(ctx, "failed to insert callback data", "error", err)
-		return replier.Reply(somethingWentWrongMsg)
+		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
 	}
 
 	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)),
 		tb.ModeMarkdownV2, tb.Silent, seeTranslationMarkup(callbackID),
 	)
-	return err
+	return err //nolint:wrapcheck // lets ignore it here
 }
 
+//nolint:gocognit,funlen // to be fixed as part of https://github.com/Roma7-7-7/english-learning-bot/issues/73
 func (b *Bot) HandleCallback(c tb.Context) error {
 	ctx, cancel := processCtx()
 	defer cancel()
@@ -182,27 +183,24 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 		return c.RespondText(somethingWentWrongMsg)
 	}
 
-	if parts[0] == callbackAuthConfirm {
+	switch parts[0] {
+	case callbackAuthConfirm:
 		if err := b.repo.ConfirmAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
 			b.log.ErrorContext(ctx, "failed to confirm callback data", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
-
 		return c.Delete()
-	} else if parts[0] == callbackAuthDecline {
+	case callbackAuthDecline:
 		if err := b.repo.DeleteAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
 			b.log.ErrorContext(ctx, "failed to decline callback data", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
 		return c.Delete()
-	}
-
-	if parts[0] == callbackResetToReview {
+	case callbackResetToReview:
 		if err := b.repo.ResetToReview(ctx, c.Chat().ID); err != nil {
 			b.log.ErrorContext(ctx, "failed to reset to review", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
-
 		return c.Delete()
 	}
 

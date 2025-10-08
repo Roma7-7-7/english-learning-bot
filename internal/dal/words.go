@@ -113,7 +113,7 @@ func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int6
 	})
 
 	if err := eg.Wait(); err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("find word_translations: %w", err)
 	}
 
 	return res, total, nil

@@ -3,9 +3,9 @@ package config
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go/aws"         //nolint:staticcheck // to be fixed by https://github.com/Roma7-7-7/english-learning-bot/issues/74
+	"github.com/aws/aws-sdk-go/aws/session" //nolint:staticcheck // to be fixed by https://github.com/Roma7-7-7/english-learning-bot/issues/74
+	"github.com/aws/aws-sdk-go/service/ssm" //nolint:staticcheck // to be fixed by https://github.com/Roma7-7-7/english-learning-bot/issues/74
 )
 
 func FetchAWSParams(keys ...string) (map[string]string, error) {
