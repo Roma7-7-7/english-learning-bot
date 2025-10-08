@@ -136,7 +136,7 @@ func (b *Bot) handleWordToReviewCallback(ctx context.Context, c tb.Context, cDat
 func parseCallbackData(val string) (callbackData, error) {
 	val = strings.TrimSpace(val)
 	parts := strings.Split(val, ":")
-	if len(parts) != 2 {
+	if len(parts) != 2 { //nolint:mnd // it's ok
 		return callbackData{}, fmt.Errorf("invalid callback data: %s", val)
 	}
 	return callbackData{
