@@ -170,6 +170,7 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 	return err //nolint:wrapcheck // lets ignore it here
 }
 
+//nolint:gocognit,funlen // to be fixed as part of https://github.com/Roma7-7-7/english-learning-bot/issues/73
 func (b *Bot) HandleCallback(c tb.Context) error {
 	ctx, cancel := processCtx()
 	defer cancel()
@@ -182,27 +183,24 @@ func (b *Bot) HandleCallback(c tb.Context) error {
 		return c.RespondText(somethingWentWrongMsg)
 	}
 
-	if parts[0] == callbackAuthConfirm {
+	switch parts[0] {
+	case callbackAuthConfirm:
 		if err := b.repo.ConfirmAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
 			b.log.ErrorContext(ctx, "failed to confirm callback data", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
-
 		return c.Delete()
-	} else if parts[0] == callbackAuthDecline {
+	case callbackAuthDecline:
 		if err := b.repo.DeleteAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
 			b.log.ErrorContext(ctx, "failed to decline callback data", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
 		return c.Delete()
-	}
-
-	if parts[0] == callbackResetToReview {
+	case callbackResetToReview:
 		if err := b.repo.ResetToReview(ctx, c.Chat().ID); err != nil {
 			b.log.ErrorContext(ctx, "failed to reset to review", "error", err)
 			return c.RespondText(somethingWentWrongMsg)
 		}
-
 		return c.Delete()
 	}
 
