@@ -1,0 +1,44 @@
+name: Go Vulnerability Check
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  schedule:
+    # Run daily at 6:00 AM
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  govulncheck:
+    name: Run govulncheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+      - name: Report vulnerabilities
+        if: failure()
+        run: |
+          echo "::error::Vulnerabilities found! Please review the output above."
+          echo "Visit https://pkg.go.dev/vuln/ for more information on vulnerabilities."

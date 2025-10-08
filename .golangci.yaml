@@ -12,8 +12,10 @@ linters:
     - dupl
     - durationcheck
     - errcheck
+    - errchkjson         # Security: detect unchecked JSON errors
     - errname
     - errorlint
+    - execinquery        # Security: detect dangerous SQL exec patterns
     - exhaustive
     - fatcontext
     - forbidigo
@@ -30,8 +32,10 @@ linters:
     - gomoddirectives
     - gomodguard
     - goprintffuncname
-    - gosec
+    - gosec              # Security: Go security checker
+    - gosmopolitan       # Security: detect locale/timezone issues
     - govet
+    - grouper
     - iface
     - ineffassign
     - intrange
@@ -61,6 +65,8 @@ linters:
     - spancheck
     - sqlclosecheck
     - staticcheck
+    - tagalign
+    - tenv               # Security: detect leaked test environment
     - testableexamples
     - testifylint
     - testpackage
@@ -71,6 +77,8 @@ linters:
     - usestdlibvars
     - wastedassign
     - whitespace
+    - wrapcheck          # Security: ensure errors are properly wrapped
+    - zerologlint
   settings:
     cyclop:
       max-complexity: 30
@@ -176,6 +184,21 @@ linters:
     sloglint:
       no-global: all
       context: scope
+    wrapcheck:
+      # Ignore wrapping for these packages
+      ignoreSigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+      ignorePackageGlobs:
+        - github.com/pkg/errors
+        - github.com/labstack/echo/v4
   exclusions:
     generated: lax
     presets:

@@ -1,0 +1,68 @@
+name: NPM Security Audit
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'web/package*.json'
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - 'web/package*.json'
+  schedule:
+    # Run daily at 6:00 AM
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  npm-audit:
+    name: Run npm audit
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./web
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: './web/package-lock.json'
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+
+      - name: Run npm audit (production only)
+        if: success() || failure()
+        run: npm audit --production --audit-level=high
+
+      - name: Generate audit report
+        if: failure()
+        run: |
+          echo "## Security vulnerabilities found!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please run \`npm audit\` locally to see details and fix vulnerabilities." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To fix automatically (when possible): \`npm audit fix\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          npm audit --json || true >> audit.json
+          echo "Full audit report available in job artifacts." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload audit report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: web/audit.json
