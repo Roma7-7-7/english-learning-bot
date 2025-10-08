@@ -23,7 +23,6 @@ const (
 	callbackAuthConfirm    = "callback#auth#confirm"
 	callbackAuthDecline    = "callback#auth#decline"
 	callbackSeeTranslation = "callback#see_translation"
-	callbackResetToReview  = "callback#reset_to_review"
 	callbackWordGuessed    = "callback#word#guessed"
 	callbackWordMissed     = "callback#word#missed"
 	callbackWordToReview   = "callback#word#to_review"
@@ -168,110 +167,6 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 		tb.ModeMarkdownV2, tb.Silent, seeTranslationMarkup(callbackID),
 	)
 	return err //nolint:wrapcheck // lets ignore it here
-}
-
-//nolint:gocognit,funlen // to be fixed as part of https://github.com/Roma7-7-7/english-learning-bot/issues/73
-func (b *Bot) HandleCallback(c tb.Context) error {
-	ctx, cancel := processCtx()
-	defer cancel()
-
-	data := c.Callback().Data
-	parts := strings.Split(data, ":")
-
-	if len(parts) > 2 { //nolint: mnd // key:<cacheUUID>
-		b.log.Warn("wrong callback data", "data", data)
-		return c.RespondText(somethingWentWrongMsg)
-	}
-
-	switch parts[0] {
-	case callbackAuthConfirm:
-		if err := b.repo.ConfirmAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
-			b.log.ErrorContext(ctx, "failed to confirm callback data", "error", err)
-			return c.RespondText(somethingWentWrongMsg)
-		}
-		return c.Delete()
-	case callbackAuthDecline:
-		if err := b.repo.DeleteAuthConfirmation(ctx, c.Chat().ID, parts[1]); err != nil {
-			b.log.ErrorContext(ctx, "failed to decline callback data", "error", err)
-			return c.RespondText(somethingWentWrongMsg)
-		}
-		return c.Delete()
-	case callbackResetToReview:
-		if err := b.repo.ResetToReview(ctx, c.Chat().ID); err != nil {
-			b.log.ErrorContext(ctx, "failed to reset to review", "error", err)
-			return c.RespondText(somethingWentWrongMsg)
-		}
-		return c.Delete()
-	}
-
-	cData, err := b.repo.FindCallback(ctx, c.Chat().ID, parts[1])
-	if err != nil {
-		if errors.Is(err, dal.ErrNotFound) {
-			b.log.Warn("callback data not found", "data", data)
-			return c.RespondText("too much time passed")
-		}
-
-		b.log.ErrorContext(ctx, "failed to find callback data", "error", err)
-		return c.RespondText(somethingWentWrongMsg)
-	}
-
-	switch parts[0] {
-	case callbackSeeTranslation:
-		var wt *dal.WordTranslation
-		wt, err = b.repo.FindWordTranslation(ctx, c.Chat().ID, cData.Word)
-		if err != nil {
-			b.log.ErrorContext(ctx, "failed to get word translation", "error", err)
-			return c.RespondText(somethingWentWrongMsg)
-		}
-		msg := fmt.Sprintf("**%s**", wt.Translation)
-		if wt.Description != "" {
-			msg += fmt.Sprintf(": _%s_", wt.Description)
-		}
-		err = c.Send(normalizeMessage(msg), guessedResponseMarkup(cData.ID), tb.ModeMarkdownV2, tb.Silent)
-	case callbackWordGuessed:
-		err = b.repo.Transact(ctx, func(r dal.Repository) error {
-			if err := r.IncreaseGuessedStreak(ctx, c.Chat().ID, cData.Word); err != nil {
-				return fmt.Errorf("increase guessed streak: %w", err)
-			}
-			if err := r.IncrementWordGuessed(ctx, c.Chat().ID); err != nil {
-				return fmt.Errorf("increment word guessed: %w", err)
-			}
-			if err := r.UpdateTotalWordsLearned(ctx, c.Chat().ID); err != nil {
-				return fmt.Errorf("update total words learned: %w", err)
-			}
-			return nil
-		})
-	case callbackWordMissed:
-		err = b.repo.Transact(ctx, func(r dal.Repository) error {
-			if err := r.ResetGuessedStreak(ctx, c.Chat().ID, cData.Word); err != nil {
-				return fmt.Errorf("reset guessed streak: %w", err)
-			}
-			if err := r.IncrementWordMissed(ctx, c.Chat().ID); err != nil {
-				return fmt.Errorf("increment word missed: %w", err)
-			}
-			if err := r.UpdateTotalWordsLearned(ctx, c.Chat().ID); err != nil {
-				return fmt.Errorf("update total words learned: %w", err)
-			}
-			return nil
-		})
-	case callbackWordToReview:
-		err = b.repo.Transact(ctx, func(r dal.Repository) error {
-			if err := r.MarkToReview(ctx, c.Chat().ID, cData.Word, true); err != nil {
-				return fmt.Errorf("mark to review: %w", err)
-			}
-			return nil
-		})
-	default:
-		b.log.Warn("unknown callback action", "action", parts[0])
-		return c.RespondText(somethingWentWrongMsg)
-	}
-
-	if err != nil {
-		b.log.ErrorContext(ctx, "failed to process callback", "error", err)
-		return c.RespondText(somethingWentWrongMsg)
-	}
-
-	return c.Delete()
 }
 
 func (r *noOpReplier) Reply(any, ...any) error {

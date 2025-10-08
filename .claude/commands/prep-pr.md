@@ -41,6 +41,12 @@ You are preparing a GitHub Pull Request for review. Follow these steps:
 6. **Prepare PR Description:**
    - Create a CONCISE PR description that can be read in ~5 minutes maximum
    - **CRITICAL**: Only document changes visible in `git diff main...HEAD`
+   - **Issue References:**
+     - Check PR title and commit messages for issue references (e.g., "#73", "issue 73")
+     - If issue numbers are mentioned, add proper GitHub linking keywords to PR description:
+       - Use `Fixes #<number>`, `Closes #<number>`, or `Resolves #<number>` to auto-close issues
+       - Or use `#<number>` to link without auto-closing
+     - Add issue references in the description body, not the title
    - **DO NOT include**:
      - Intermediate fixes made during development that don't appear in final diff
      - Implementation details from conversation that were changed/reverted
@@ -50,7 +56,7 @@ You are preparing a GitHub Pull Request for review. Follow these steps:
      - **Summary:** 2-3 sentence overview of what was added/changed
      - **Key Changes:** Bulleted list organized by component/area (be brief!)
      - **Testing:** Minimal commands to verify functionality
-     - **Related:** Links to relevant documentation
+     - **Related:** Links to relevant documentation and issues
    - Use markdown formatting for clarity
    - Keep it scannable - reviewers should understand changes in 5 minutes
 
