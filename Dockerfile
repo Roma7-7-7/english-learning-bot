@@ -8,7 +8,7 @@ WORKDIR /app
 RUN make build
 
 # run
-FROM alpine:3.20
+FROM alpine:3.22
 
 ENV ENV="prod"
 ENV TELEGRAM_TOKEN=""
