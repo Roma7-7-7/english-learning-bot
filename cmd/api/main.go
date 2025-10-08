@@ -11,12 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
-	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal/sql"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
 
@@ -88,7 +87,7 @@ func run(ctx context.Context) int {
 
 func dependencies(ctx context.Context, conf *config.API, db *sql.DB, log *slog.Logger) api.Dependencies {
 	return api.Dependencies{
-		Repo:           sqlrepo.NewRepository(ctx, db, dal.SQLite, log),
+		Repo:           sqlrepo.NewSQLiteRepository(ctx, db, log),
 		TelegramClient: telegram.NewClient(conf.Telegram.Token, log),
 		Logger:         log,
 	}

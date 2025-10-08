@@ -1,4 +1,4 @@
-package sql
+package dal
 
 import (
 	"context"
@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
+	"github.com/Masterminds/squirrel"
 )
+
+//nolint:gochecknoglobals // this is query builder
+var qb = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 type (
 	Client interface {
@@ -17,28 +20,27 @@ type (
 		QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	}
 
-	Repository struct {
-		client  Client
-		queries *dal.Queries
-		log     *slog.Logger
+	SQLiteRepository struct {
+		db  *sql.DB
+		log *slog.Logger
 	}
 )
 
-func NewRepository(ctx context.Context, client Client, dbType dal.DBType, log *slog.Logger) *Repository {
-	res := newSQLRepository(client, dal.NewQueries(dbType), log)
+func NewSQLiteRepository(ctx context.Context, client *sql.DB, log *slog.Logger) *SQLiteRepository {
+	res := newSQLRepository(client, log)
 	go res.cleanupCallbacksJob(ctx)
 	go res.cleanupAuthConfirmations(ctx)
 	return res
 }
 
-func (r *Repository) Transact(ctx context.Context, txFunc func(r dal.Repository) error) error {
-	tx, err := r.client.BeginTx(ctx, nil)
+func (r *SQLiteRepository) Transact(ctx context.Context, txFunc func(r Repository) error) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck // ignore rollback errors
 
-	if err = txFunc(newSQLRepository(r.client, r.queries.Clone(), r.log)); err != nil {
+	if err = txFunc(newSQLRepository(r.db, r.log)); err != nil {
 		return err
 	}
 
@@ -49,6 +51,6 @@ func (r *Repository) Transact(ctx context.Context, txFunc func(r dal.Repository)
 	return nil
 }
 
-func newSQLRepository(client Client, queries *dal.Queries, log *slog.Logger) *Repository {
-	return &Repository{client: client, queries: queries, log: log}
+func newSQLRepository(db *sql.DB, log *slog.Logger) *SQLiteRepository {
+	return &SQLiteRepository{db: db, log: log}
 }

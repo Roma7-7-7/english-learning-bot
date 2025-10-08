@@ -1,0 +1,127 @@
+package dal
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/Masterminds/squirrel"
+)
+
+func (r *SQLiteRepository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
+	if chatID == 0 {
+		return errors.New("chat id is required")
+	}
+	if expiresIn <= 0 {
+		return errors.New("expires in is required")
+	}
+
+	query := qb.Insert("auth_confirmations").
+		Columns("chat_id", "token", "expires_at").
+		Values(chatID, token, time.Now().Add(expiresIn))
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, sql, args...)
+	if err != nil {
+		return fmt.Errorf("insert auth confirmation: %w", err)
+	}
+
+	return nil
+}
+
+func (r *SQLiteRepository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
+	query := qb.Select("confirmed").
+		From("auth_confirmations").
+		Where(squirrel.Eq{
+			"chat_id": chatID,
+			"token":   token,
+		}).
+		Where(squirrel.Expr("expires_at > " + ("datetime('now', 'localtime')")))
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return false, fmt.Errorf("build query: %w", err)
+	}
+
+	var confirmed bool
+	err = r.db.QueryRowContext(ctx, sqlQuery, args...).Scan(&confirmed)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrNotFound
+		}
+		return false, fmt.Errorf("is confirmed: %w", err)
+	}
+
+	return confirmed, nil
+}
+
+func (r *SQLiteRepository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
+	query := qb.Update("auth_confirmations").
+		Set("confirmed", true).
+		Where(squirrel.Eq{
+			"chat_id": chatID,
+			"token":   token,
+		}).
+		Where(squirrel.Expr("expires_at > " + ("datetime('now', 'localtime')")))
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, sql, args...)
+	if err != nil {
+		return fmt.Errorf("confirm auth confirmation: %w", err)
+	}
+
+	return nil
+}
+
+func (r *SQLiteRepository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
+	query := qb.Delete("auth_confirmations").
+		Where(squirrel.Eq{
+			"chat_id": chatID,
+			"token":   token,
+		})
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, sql, args...)
+	if err != nil {
+		return fmt.Errorf("delete auth confirmation: %w", err)
+	}
+
+	return nil
+}
+
+func (r *SQLiteRepository) cleanupAuthConfirmations(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Hour):
+			query := qb.Delete("auth_confirmations").
+				Where(squirrel.Expr("expires_at < " + ("datetime('now', 'localtime')")))
+
+			sql, args, err := query.ToSql()
+			if err != nil {
+				r.log.ErrorContext(ctx, "failed to build cleanup query", "error", err)
+				continue
+			}
+
+			_, err = r.db.ExecContext(ctx, sql, args...)
+			if err != nil {
+				r.log.ErrorContext(ctx, "failed to cleanup auth confirmations", "error", err)
+			}
+		}
+	}
+}
