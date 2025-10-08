@@ -11,7 +11,7 @@ import (
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
+func (r *SQLiteRepository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
 	if chatID == 0 {
 		return errors.New("chat id is required")
 	}
@@ -28,7 +28,7 @@ func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, t
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.client.ExecContext(ctx, sql, args...)
+	_, err = r.db.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("insert auth confirmation: %w", err)
 	}
@@ -36,7 +36,7 @@ func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, t
 	return nil
 }
 
-func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
+func (r *SQLiteRepository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
 	query := r.qb.Select("confirmed").
 		From("auth_confirmations").
 		Where(squirrel.Eq{
@@ -51,7 +51,7 @@ func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string
 	}
 
 	var confirmed bool
-	err = r.client.QueryRowContext(ctx, sqlQuery, args...).Scan(&confirmed)
+	err = r.db.QueryRowContext(ctx, sqlQuery, args...).Scan(&confirmed)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, dal.ErrNotFound
@@ -62,7 +62,7 @@ func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string
 	return confirmed, nil
 }
 
-func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
+func (r *SQLiteRepository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
 	query := r.qb.Update("auth_confirmations").
 		Set("confirmed", true).
 		Where(squirrel.Eq{
@@ -76,7 +76,7 @@ func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, 
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.client.ExecContext(ctx, sql, args...)
+	_, err = r.db.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("confirm auth confirmation: %w", err)
 	}
@@ -84,7 +84,7 @@ func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, 
 	return nil
 }
 
-func (r *Repository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
+func (r *SQLiteRepository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
 	query := r.qb.Delete("auth_confirmations").
 		Where(squirrel.Eq{
 			"chat_id": chatID,
@@ -96,7 +96,7 @@ func (r *Repository) DeleteAuthConfirmation(ctx context.Context, chatID int64, t
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.client.ExecContext(ctx, sql, args...)
+	_, err = r.db.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("delete auth confirmation: %w", err)
 	}
@@ -104,7 +104,7 @@ func (r *Repository) DeleteAuthConfirmation(ctx context.Context, chatID int64, t
 	return nil
 }
 
-func (r *Repository) cleanupAuthConfirmations(ctx context.Context) {
+func (r *SQLiteRepository) cleanupAuthConfirmations(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -119,7 +119,7 @@ func (r *Repository) cleanupAuthConfirmations(ctx context.Context) {
 				continue
 			}
 
-			_, err = r.client.ExecContext(ctx, sql, args...)
+			_, err = r.db.ExecContext(ctx, sql, args...)
 			if err != nil {
 				r.log.ErrorContext(ctx, "failed to cleanup auth confirmations", "error", err)
 			}

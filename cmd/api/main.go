@@ -87,7 +87,7 @@ func run(ctx context.Context) int {
 
 func dependencies(ctx context.Context, conf *config.API, db *sql.DB, log *slog.Logger) api.Dependencies {
 	return api.Dependencies{
-		Repo:           sqlrepo.NewRepository(ctx, db, log),
+		Repo:           sqlrepo.NewSQLiteRepository(ctx, db, log),
 		TelegramClient: telegram.NewClient(conf.Telegram.Token, log),
 		Logger:         log,
 	}

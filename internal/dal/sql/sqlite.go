@@ -18,28 +18,28 @@ type (
 		QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	}
 
-	Repository struct {
-		client Client
-		qb     squirrel.StatementBuilderType
-		log    *slog.Logger
+	SQLiteRepository struct {
+		db  *sql.DB
+		qb  squirrel.StatementBuilderType
+		log *slog.Logger
 	}
 )
 
-func NewRepository(ctx context.Context, client Client, log *slog.Logger) *Repository {
+func NewSQLiteRepository(ctx context.Context, client *sql.DB, log *slog.Logger) *SQLiteRepository {
 	res := newSQLRepository(client, log)
 	go res.cleanupCallbacksJob(ctx)
 	go res.cleanupAuthConfirmations(ctx)
 	return res
 }
 
-func (r *Repository) Transact(ctx context.Context, txFunc func(r dal.Repository) error) error {
-	tx, err := r.client.BeginTx(ctx, nil)
+func (r *SQLiteRepository) Transact(ctx context.Context, txFunc func(r dal.Repository) error) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck // ignore rollback errors
 
-	if err = txFunc(newSQLRepository(r.client, r.log)); err != nil {
+	if err = txFunc(newSQLRepository(r.db, r.log)); err != nil {
 		return err
 	}
 
@@ -50,6 +50,6 @@ func (r *Repository) Transact(ctx context.Context, txFunc func(r dal.Repository)
 	return nil
 }
 
-func newSQLRepository(client Client, log *slog.Logger) *Repository {
-	return &Repository{client: client, qb: squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar), log: log}
+func newSQLRepository(db *sql.DB, log *slog.Logger) *SQLiteRepository {
+	return &SQLiteRepository{db: db, qb: squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar), log: log}
 }

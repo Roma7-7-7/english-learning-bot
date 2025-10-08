@@ -61,7 +61,7 @@ func run(ctx context.Context) int {
 		return exitCodeDBConnect
 	}
 	defer db.Close()
-	repo := sqlrepo.NewRepository(ctx, db, log)
+	repo := sqlrepo.NewSQLiteRepository(ctx, db, log)
 
 	bot, err := telegram.NewBot(conf.TelegramToken, repo, log, telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(conf.AllowedChatIDs))
 	if err != nil {

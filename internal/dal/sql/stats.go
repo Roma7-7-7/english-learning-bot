@@ -11,7 +11,7 @@ import (
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.TotalStats, error) {
+func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*dal.TotalStats, error) {
 	query := r.qb.Select(
 		"chat_id",
 		"SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus",
@@ -28,7 +28,7 @@ func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.Tota
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	row := r.client.QueryRowContext(ctx, sqlQuery, args...)
+	row := r.db.QueryRowContext(ctx, sqlQuery, args...)
 
 	var stats dal.TotalStats
 	err = row.Scan(
@@ -49,7 +49,7 @@ func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.Tota
 	return &stats, nil
 }
 
-func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time) (*dal.Stats, error) {
+func (r *SQLiteRepository) GetStats(ctx context.Context, chatID int64, date time.Time) (*dal.Stats, error) {
 	var r2 any = date.Format("2006-01-02")
 	query := r.qb.Select(
 		"chat_id", "date", "words_guessed", "words_missed",
@@ -66,7 +66,7 @@ func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time)
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	row := r.client.QueryRowContext(ctx, sqlQuery, args...)
+	row := r.db.QueryRowContext(ctx, sqlQuery, args...)
 
 	var stats dal.Stats
 	var strDate string
@@ -91,7 +91,7 @@ func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time)
 	return &stats, nil
 }
 
-func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]dal.Stats, error) {
+func (r *SQLiteRepository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]dal.Stats, error) {
 	query := r.qb.Select(
 		"chat_id", "date", "words_guessed", "words_missed",
 		"total_words_learned", "created_at",
@@ -106,7 +106,7 @@ func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to t
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	rows, err := r.client.QueryContext(ctx, sql, args...)
+	rows, err := r.db.QueryContext(ctx, sql, args...)
 	if err != nil {
 		return nil, fmt.Errorf("get stats range: %w", err)
 	}
@@ -141,7 +141,7 @@ func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to t
 	return stats, nil
 }
 
-func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
+func (r *SQLiteRepository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
 	query := r.qb.Insert("statistics").
 		Columns("chat_id", "date", "words_guessed").
 		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
@@ -152,14 +152,14 @@ func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) err
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.client.ExecContext(ctx, sql, args...)
+	_, err = r.db.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increment word guessed: %w", err)
 	}
 	return nil
 }
 
-func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) error {
+func (r *SQLiteRepository) IncrementWordMissed(ctx context.Context, chatID int64) error {
 	query := r.qb.Insert("statistics").
 		Columns("chat_id", "date", "words_missed").
 		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
@@ -170,14 +170,14 @@ func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) erro
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.client.ExecContext(ctx, sql, args...)
+	_, err = r.db.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increment word missed: %w", err)
 	}
 	return nil
 }
 
-func (r *Repository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
+func (r *SQLiteRepository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
 	query := r.qb.Update("statistics").
 		Set("total_words_learned", squirrel.Select("COUNT(*)").
 			From("word_translations").
@@ -195,7 +195,7 @@ func (r *Repository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) 
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.client.ExecContext(ctx, sql, args...)
+	_, err = r.db.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("update total words learned: %w", err)
 	}

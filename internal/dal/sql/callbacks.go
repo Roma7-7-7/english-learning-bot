@@ -12,7 +12,7 @@ import (
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) (string, error) {
+func (r *SQLiteRepository) InsertCallback(ctx context.Context, data dal.CallbackData) (string, error) {
 	if data.ChatID == 0 {
 		return "", errors.New("chat id is required")
 	}
@@ -37,7 +37,7 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 		return "", fmt.Errorf("build query: %w", err)
 	}
 
-	row := r.client.QueryRowContext(ctx, sql, args...)
+	row := r.db.QueryRowContext(ctx, sql, args...)
 	err = row.Scan(&data.ID)
 	if err != nil {
 		return "", fmt.Errorf("insert callback: %w", err)
@@ -46,7 +46,7 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 	return data.ID, nil
 }
 
-func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
+func (r *SQLiteRepository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
 	query := r.qb.Select("data", "expires_at").
 		From("callback_data").
 		Where(squirrel.Eq{
@@ -64,7 +64,7 @@ func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string
 		expiresAt time.Time
 	)
 
-	err = r.client.QueryRowContext(ctx, sqlQuery, args...).Scan(&rawData, &expiresAt)
+	err = r.db.QueryRowContext(ctx, sqlQuery, args...).Scan(&rawData, &expiresAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, dal.ErrNotFound
@@ -89,7 +89,7 @@ func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string
 	return &res, nil
 }
 
-func (r *Repository) cleanupCallbacksJob(ctx context.Context) {
+func (r *SQLiteRepository) cleanupCallbacksJob(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -106,7 +106,7 @@ func (r *Repository) cleanupCallbacksJob(ctx context.Context) {
 				continue
 			}
 
-			_, err = r.client.ExecContext(ctx, sql, args...)
+			_, err = r.db.ExecContext(ctx, sql, args...)
 			if err != nil {
 				r.log.ErrorContext(ctx, "failed to run cleanup job", "error", err)
 			}
