@@ -15,7 +15,6 @@ linters:
     - errchkjson         # Security: detect unchecked JSON errors
     - errname
     - errorlint
-    - execinquery        # Security: detect dangerous SQL exec patterns
     - exhaustive
     - fatcontext
     - forbidigo
@@ -66,7 +65,6 @@ linters:
     - sqlclosecheck
     - staticcheck
     - tagalign
-    - tenv               # Security: detect leaked test environment
     - testableexamples
     - testifylint
     - testpackage
@@ -184,21 +182,6 @@ linters:
     sloglint:
       no-global: all
       context: scope
-    wrapcheck:
-      # Ignore wrapping for these packages
-      ignoreSigs:
-        - .Errorf(
-        - errors.New(
-        - errors.Unwrap(
-        - errors.Join(
-        - .Wrap(
-        - .Wrapf(
-        - .WithMessage(
-        - .WithMessagef(
-        - .WithStack(
-      ignorePackageGlobs:
-        - github.com/pkg/errors
-        - github.com/labstack/echo/v4
   exclusions:
     generated: lax
     presets:
