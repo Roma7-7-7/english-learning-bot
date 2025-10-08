@@ -1,7 +1,7 @@
 # build
 FROM golang:1.24.1-alpine3.20 AS build
 
-RUN apk add --no-cache make
+RUN apk add --no-cache make build-base
 
 COPY . /app
 WORKDIR /app
