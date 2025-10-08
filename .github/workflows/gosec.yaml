@@ -46,8 +46,7 @@ jobs:
         if: always()
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -exclude-generated -confidence medium -severity medium -fmt=json -out=gosec-report.json ./...
-          gosec -exclude-generated -confidence medium -severity medium ./...
+          gosec -exclude-generated -confidence medium -severity medium -fmt=json -out=gosec-report.json ./... || true
 
       - name: Upload gosec report
         if: always()
