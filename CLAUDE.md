@@ -55,6 +55,14 @@ This is a personal English learning platform with three main components:
 - Per-chat scheduling with error handling
 - Graceful shutdown handling
 
+## Claude Code Slash Commands
+
+This project includes custom slash commands for Claude Code:
+- `/commit` - Analyze staged changes and create a commit with an appropriate message
+- `/prep-pr` - Prepare current PR for review by verifying completeness and updating documentation
+
+See `.claude/commands/` for implementation details.
+
 ## Development Environment
 
 ### Go Configuration
