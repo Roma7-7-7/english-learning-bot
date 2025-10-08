@@ -7,11 +7,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
 func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.TotalStats, error) {
-	query := r.queries.GetTotalStatsQuery(chatID)
+	query := r.qb.Select(
+		"chat_id",
+		"SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus",
+		"SUM(CASE WHEN guessed_streak BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS streak_10_to_14",
+		"SUM(CASE WHEN guessed_streak BETWEEN 1 AND 9 THEN 1 ELSE 0 END) AS streak_1_to_9",
+		"COUNT(*) AS total_words",
+	).
+		From("word_translations").
+		Where(squirrel.Eq{"chat_id": chatID}).
+		GroupBy("chat_id")
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
@@ -40,7 +50,16 @@ func (r *Repository) GetTotalStats(ctx context.Context, chatID int64) (*dal.Tota
 }
 
 func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time) (*dal.Stats, error) {
-	query := r.queries.GetStatsQuery(chatID, date)
+	var r2 any = date.Format("2006-01-02")
+	query := r.qb.Select(
+		"chat_id", "date", "words_guessed", "words_missed",
+		"total_words_learned", "created_at",
+	).
+		From("statistics").
+		Where(squirrel.Eq{
+			"chat_id": chatID,
+			"date":    r2,
+		})
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
@@ -73,7 +92,14 @@ func (r *Repository) GetStats(ctx context.Context, chatID int64, date time.Time)
 }
 
 func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]dal.Stats, error) {
-	query := r.queries.GetStatsRangeQuery(chatID, from, to)
+	query := r.qb.Select(
+		"chat_id", "date", "words_guessed", "words_missed",
+		"total_words_learned", "created_at",
+	).
+		From("statistics").
+		Where(squirrel.Eq{"chat_id": chatID}).
+		Where(squirrel.Expr("date BETWEEN ? AND ?", from, to)).
+		OrderBy("date")
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -116,7 +142,10 @@ func (r *Repository) GetStatsRange(ctx context.Context, chatID int64, from, to t
 }
 
 func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
-	query := r.queries.IncrementWordGuessedQuery(chatID)
+	query := r.qb.Insert("statistics").
+		Columns("chat_id", "date", "words_guessed").
+		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
+		Suffix("ON CONFLICT (chat_id, date) DO UPDATE SET words_guessed = statistics.words_guessed + 1")
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -131,7 +160,10 @@ func (r *Repository) IncrementWordGuessed(ctx context.Context, chatID int64) err
 }
 
 func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) error {
-	query := r.queries.IncrementWordMissedQuery(chatID)
+	query := r.qb.Insert("statistics").
+		Columns("chat_id", "date", "words_missed").
+		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
+		Suffix("ON CONFLICT (chat_id, date) DO UPDATE SET words_missed = statistics.words_missed + 1")
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -146,7 +178,17 @@ func (r *Repository) IncrementWordMissed(ctx context.Context, chatID int64) erro
 }
 
 func (r *Repository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
-	query := r.queries.UpdateTotalWordsLearnedQuery(chatID)
+	query := r.qb.Update("statistics").
+		Set("total_words_learned", squirrel.Select("COUNT(*)").
+			From("word_translations").
+			Where(squirrel.Eq{"chat_id": chatID}).
+			Where("guessed_streak >= 15")).
+		Where(squirrel.And{
+			squirrel.Eq{
+				"chat_id": chatID,
+			},
+			squirrel.Expr(fmt.Sprintf("date = %s", "date('now', 'localtime')")),
+		})
 
 	sql, args, err := query.ToSql()
 	if err != nil {

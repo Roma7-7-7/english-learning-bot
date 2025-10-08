@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
@@ -18,14 +19,14 @@ type (
 	}
 
 	Repository struct {
-		client  Client
-		queries *dal.Queries
-		log     *slog.Logger
+		client Client
+		qb     squirrel.StatementBuilderType
+		log    *slog.Logger
 	}
 )
 
-func NewRepository(ctx context.Context, client Client, dbType dal.DBType, log *slog.Logger) *Repository {
-	res := newSQLRepository(client, dal.NewQueries(dbType), log)
+func NewRepository(ctx context.Context, client Client, log *slog.Logger) *Repository {
+	res := newSQLRepository(client, log)
 	go res.cleanupCallbacksJob(ctx)
 	go res.cleanupAuthConfirmations(ctx)
 	return res
@@ -38,7 +39,7 @@ func (r *Repository) Transact(ctx context.Context, txFunc func(r dal.Repository)
 	}
 	defer tx.Rollback() //nolint:errcheck // ignore rollback errors
 
-	if err = txFunc(newSQLRepository(r.client, r.queries.Clone(), r.log)); err != nil {
+	if err = txFunc(newSQLRepository(r.client, r.log)); err != nil {
 		return err
 	}
 
@@ -49,6 +50,6 @@ func (r *Repository) Transact(ctx context.Context, txFunc func(r dal.Repository)
 	return nil
 }
 
-func newSQLRepository(client Client, queries *dal.Queries, log *slog.Logger) *Repository {
-	return &Repository{client: client, queries: queries, log: log}
+func newSQLRepository(client Client, log *slog.Logger) *Repository {
+	return &Repository{client: client, qb: squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar), log: log}
 }

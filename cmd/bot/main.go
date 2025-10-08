@@ -13,7 +13,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal/sql"
 	"github.com/Roma7-7-7/english-learning-bot/internal/schedule"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
@@ -62,7 +61,7 @@ func run(ctx context.Context) int {
 		return exitCodeDBConnect
 	}
 	defer db.Close()
-	repo := sqlrepo.NewRepository(ctx, db, dal.SQLite, log)
+	repo := sqlrepo.NewRepository(ctx, db, log)
 
 	bot, err := telegram.NewBot(conf.TelegramToken, repo, log, telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(conf.AllowedChatIDs))
 	if err != nil {

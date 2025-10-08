@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
@@ -18,7 +19,9 @@ func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, t
 		return errors.New("expires in is required")
 	}
 
-	query := r.queries.InsertAuthConfirmationQuery(chatID, token, time.Now().Add(expiresIn))
+	query := r.qb.Insert("auth_confirmations").
+		Columns("chat_id", "token", "expires_at").
+		Values(chatID, token, time.Now().Add(expiresIn))
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -34,7 +37,13 @@ func (r *Repository) InsertAuthConfirmation(ctx context.Context, chatID int64, t
 }
 
 func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string) (bool, error) {
-	query := r.queries.IsConfirmedQuery(chatID, token)
+	query := r.qb.Select("confirmed").
+		From("auth_confirmations").
+		Where(squirrel.Eq{
+			"chat_id": chatID,
+			"token":   token,
+		}).
+		Where(squirrel.Expr("expires_at > " + ("datetime('now', 'localtime')")))
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
@@ -54,7 +63,13 @@ func (r *Repository) IsConfirmed(ctx context.Context, chatID int64, token string
 }
 
 func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, token string) error {
-	query := r.queries.ConfirmAuthConfirmationQuery(chatID, token)
+	query := r.qb.Update("auth_confirmations").
+		Set("confirmed", true).
+		Where(squirrel.Eq{
+			"chat_id": chatID,
+			"token":   token,
+		}).
+		Where(squirrel.Expr("expires_at > " + ("datetime('now', 'localtime')")))
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -70,7 +85,11 @@ func (r *Repository) ConfirmAuthConfirmation(ctx context.Context, chatID int64, 
 }
 
 func (r *Repository) DeleteAuthConfirmation(ctx context.Context, chatID int64, token string) error {
-	query := r.queries.DeleteAuthConfirmationQuery(chatID, token)
+	query := r.qb.Delete("auth_confirmations").
+		Where(squirrel.Eq{
+			"chat_id": chatID,
+			"token":   token,
+		})
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -91,7 +110,8 @@ func (r *Repository) cleanupAuthConfirmations(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Hour):
-			query := r.queries.CleanupAuthConfirmationsQuery()
+			query := r.qb.Delete("auth_confirmations").
+				Where(squirrel.Expr("expires_at < " + ("datetime('now', 'localtime')")))
 
 			sql, args, err := query.ToSql()
 			if err != nil {

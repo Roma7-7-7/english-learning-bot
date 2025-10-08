@@ -3,10 +3,12 @@ package sql
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
@@ -18,10 +20,17 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 		return "", errors.New("expires at is required")
 	}
 
-	query, err := r.queries.InsertCallbackQuery(data.ChatID, data, data.ExpiresAt)
+	jsonData, err := json.Marshal(data)
 	if err != nil {
-		return "", fmt.Errorf("build query: %w", err)
+		return "", fmt.Errorf("marshal callback data: %w", err)
 	}
+	serializedData := string(jsonData)
+
+	query := r.qb.Insert("callback_data").
+		Columns("uuid", "chat_id", "data", "expires_at").
+		Values(squirrel.Expr("hex(randomblob(4))"), data.ChatID, serializedData, data.ExpiresAt).
+		Suffix("ON CONFLICT (uuid, chat_id) DO UPDATE SET data = EXCLUDED.data").
+		Suffix("RETURNING uuid")
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -38,7 +47,12 @@ func (r *Repository) InsertCallback(ctx context.Context, data dal.CallbackData) 
 }
 
 func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
-	query := r.queries.FindCallbackQuery(chatID, uuid)
+	query := r.qb.Select("data", "expires_at").
+		From("callback_data").
+		Where(squirrel.Eq{
+			"chat_id": chatID,
+			"uuid":    uuid,
+		})
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
@@ -58,16 +72,21 @@ func (r *Repository) FindCallback(ctx context.Context, chatID int64, uuid string
 		return nil, fmt.Errorf("find callback: %w", err)
 	}
 
-	data, err := r.queries.DeserializeCallbackData(rawData)
-	if err != nil {
-		return nil, fmt.Errorf("deserialize callback data: %w", err)
+	// For SQLite, we need to deserialize from JSON string
+	strData, ok := rawData.(string)
+	if !ok {
+		return nil, fmt.Errorf("expected string data for SQLite, got %T", rawData)
+	}
+	var res dal.CallbackData
+	if err := json.Unmarshal([]byte(strData), &res); err != nil {
+		return nil, fmt.Errorf("unmarshal callback data: %w", err)
 	}
 
-	data.ChatID = chatID
-	data.ID = uuid
-	data.ExpiresAt = expiresAt
+	res.ChatID = chatID
+	res.ID = uuid
+	res.ExpiresAt = expiresAt
 
-	return data, nil
+	return &res, nil
 }
 
 func (r *Repository) cleanupCallbacksJob(ctx context.Context) {
@@ -78,7 +97,8 @@ func (r *Repository) cleanupCallbacksJob(ctx context.Context) {
 		case <-time.After(time.Hour):
 			r.log.InfoContext(ctx, "running cleanup job")
 
-			query := r.queries.CleanupCallbacksQuery()
+			query := r.qb.Delete("callback_data").
+				Where(squirrel.Expr("expires_at < " + ("datetime('now', 'localtime')")))
 
 			sql, args, err := query.ToSql()
 			if err != nil {
