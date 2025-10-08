@@ -1,4 +1,4 @@
-package sql
+package dal
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"log/slog"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
+//nolint:gochecknoglobals // this is query builder
 var qb = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 type (
@@ -33,7 +33,7 @@ func NewSQLiteRepository(ctx context.Context, client *sql.DB, log *slog.Logger) 
 	return res
 }
 
-func (r *SQLiteRepository) Transact(ctx context.Context, txFunc func(r dal.Repository) error) error {
+func (r *SQLiteRepository) Transact(ctx context.Context, txFunc func(r Repository) error) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)

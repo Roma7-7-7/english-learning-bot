@@ -1,4 +1,4 @@
-package sql
+package dal
 
 import (
 	"context"
@@ -9,8 +9,6 @@ import (
 
 	"github.com/Masterminds/squirrel"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
 func (r *SQLiteRepository) AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
@@ -31,7 +29,7 @@ func (r *SQLiteRepository) AddWordTranslation(ctx context.Context, chatID int64,
 	return nil
 }
 
-func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int64, filter dal.WordTranslationsFilter) ([]dal.WordTranslation, int, error) {
+func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error) {
 	baseQuery := qb.Select().
 		From("word_translations").
 		Where(squirrel.Eq{"chat_id": chatID})
@@ -52,12 +50,12 @@ func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int6
 	}
 
 	switch filter.Guessed {
-	case "", dal.GuessedAll:
-	case dal.GuessedLearned:
+	case "", GuessedAll:
+	case GuessedLearned:
 		baseQuery = baseQuery.Where("guessed_streak >= 15")
-	case dal.GuessedBatched:
+	case GuessedBatched:
 		baseQuery = baseQuery.Where("EXISTS (SELECT 1 FROM learning_batches lb WHERE lb.chat_id = word_translations.chat_id AND lb.word = word_translations.word)")
-	case dal.GuessedToLearn:
+	case GuessedToLearn:
 		baseQuery = baseQuery.Where("guessed_streak = 0")
 	}
 
@@ -71,7 +69,7 @@ func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int6
 	selectQuery, countQuery := selectQuery2, countQuery2
 
 	eg, ctx := errgroup.WithContext(ctx)
-	res := make([]dal.WordTranslation, 0, filter.Limit)
+	res := make([]WordTranslation, 0, filter.Limit)
 	total := 0
 
 	eg.Go(func() error {
@@ -261,7 +259,7 @@ func (r *SQLiteRepository) GetBatchedWordTranslationsCount(ctx context.Context, 
 	return count, nil
 }
 
-func (r *SQLiteRepository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*dal.WordTranslation, error) {
+func (r *SQLiteRepository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error) {
 	query := qb.Select(
 		"wt.chat_id", "wt.word", "wt.translation",
 		"COALESCE(wt.description, '')", "wt.guessed_streak",
@@ -279,14 +277,14 @@ func (r *SQLiteRepository) FindWordTranslation(ctx context.Context, chatID int64
 	wt, err := hydrateWordTranslation(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, dal.ErrNotFound
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("find word translation: %w", err)
 	}
 	return wt, nil
 }
 
-func (r *SQLiteRepository) FindRandomWordTranslation(ctx context.Context, chatID int64, filter dal.FindRandomWordFilter) (*dal.WordTranslation, error) {
+func (r *SQLiteRepository) FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error) {
 	var query2 squirrel.SelectBuilder
 
 	if filter.Batched {
@@ -326,7 +324,7 @@ func (r *SQLiteRepository) FindRandomWordTranslation(ctx context.Context, chatID
 	wt, err := hydrateWordTranslation(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, dal.ErrNotFound
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("get random word translation: %w", err)
 	}
@@ -358,8 +356,8 @@ func (r *SQLiteRepository) DeleteFromLearningBatchGtGuessedStreak(ctx context.Co
 
 func hydrateWordTranslation(row interface {
 	Scan(dest ...interface{}) error
-}) (*dal.WordTranslation, error) {
-	var wt dal.WordTranslation
+}) (*WordTranslation, error) {
+	var wt WordTranslation
 	err := row.Scan(
 		&wt.ChatID,
 		&wt.Word,

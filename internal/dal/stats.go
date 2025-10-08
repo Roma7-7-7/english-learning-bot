@@ -1,4 +1,4 @@
-package sql
+package dal
 
 import (
 	"context"
@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*dal.TotalStats, error) {
+func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*TotalStats, error) {
 	query := qb.Select(
 		"chat_id",
 		"SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus",
@@ -30,7 +29,7 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*da
 
 	row := r.db.QueryRowContext(ctx, sqlQuery, args...)
 
-	var stats dal.TotalStats
+	var stats TotalStats
 	err = row.Scan(
 		&stats.ChatID,
 		&stats.GreaterThanOrEqual15,
@@ -40,7 +39,7 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*da
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return &dal.TotalStats{
+			return &TotalStats{
 				ChatID: chatID,
 			}, nil
 		}
@@ -49,7 +48,7 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*da
 	return &stats, nil
 }
 
-func (r *SQLiteRepository) GetStats(ctx context.Context, chatID int64, date time.Time) (*dal.Stats, error) {
+func (r *SQLiteRepository) GetStats(ctx context.Context, chatID int64, date time.Time) (*Stats, error) {
 	var r2 any = date.Format("2006-01-02")
 	query := qb.Select(
 		"chat_id", "date", "words_guessed", "words_missed",
@@ -68,7 +67,7 @@ func (r *SQLiteRepository) GetStats(ctx context.Context, chatID int64, date time
 
 	row := r.db.QueryRowContext(ctx, sqlQuery, args...)
 
-	var stats dal.Stats
+	var stats Stats
 	var strDate string
 	err = row.Scan(
 		&stats.ChatID,
@@ -80,7 +79,7 @@ func (r *SQLiteRepository) GetStats(ctx context.Context, chatID int64, date time
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, dal.ErrNotFound
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("get stats: %w", err)
 	}
@@ -91,7 +90,7 @@ func (r *SQLiteRepository) GetStats(ctx context.Context, chatID int64, date time
 	return &stats, nil
 }
 
-func (r *SQLiteRepository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]dal.Stats, error) {
+func (r *SQLiteRepository) GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]Stats, error) {
 	query := qb.Select(
 		"chat_id", "date", "words_guessed", "words_missed",
 		"total_words_learned", "created_at",
@@ -112,10 +111,10 @@ func (r *SQLiteRepository) GetStatsRange(ctx context.Context, chatID int64, from
 	}
 	defer rows.Close()
 
-	var stats []dal.Stats
+	var stats []Stats
 	var dateStr string
 	for rows.Next() {
-		var stat dal.Stats
+		var stat Stats
 		err := rows.Scan(
 			&stat.ChatID,
 			&dateStr,

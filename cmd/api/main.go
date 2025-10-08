@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
-	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal/sql"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
 

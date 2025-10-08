@@ -1,4 +1,4 @@
-package sql
+package dal
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
 func (r *SQLiteRepository) InsertAuthConfirmation(ctx context.Context, chatID int64, token string, expiresIn time.Duration) error {
@@ -54,7 +53,7 @@ func (r *SQLiteRepository) IsConfirmed(ctx context.Context, chatID int64, token 
 	err = r.db.QueryRowContext(ctx, sqlQuery, args...).Scan(&confirmed)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return false, dal.ErrNotFound
+			return false, ErrNotFound
 		}
 		return false, fmt.Errorf("is confirmed: %w", err)
 	}

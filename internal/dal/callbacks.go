@@ -1,4 +1,4 @@
-package sql
+package dal
 
 import (
 	"context"
@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-func (r *SQLiteRepository) InsertCallback(ctx context.Context, data dal.CallbackData) (string, error) {
+func (r *SQLiteRepository) InsertCallback(ctx context.Context, data CallbackData) (string, error) {
 	if data.ChatID == 0 {
 		return "", errors.New("chat id is required")
 	}
@@ -46,7 +45,7 @@ func (r *SQLiteRepository) InsertCallback(ctx context.Context, data dal.Callback
 	return data.ID, nil
 }
 
-func (r *SQLiteRepository) FindCallback(ctx context.Context, chatID int64, uuid string) (*dal.CallbackData, error) {
+func (r *SQLiteRepository) FindCallback(ctx context.Context, chatID int64, uuid string) (*CallbackData, error) {
 	query := qb.Select("data", "expires_at").
 		From("callback_data").
 		Where(squirrel.Eq{
@@ -67,7 +66,7 @@ func (r *SQLiteRepository) FindCallback(ctx context.Context, chatID int64, uuid 
 	err = r.db.QueryRowContext(ctx, sqlQuery, args...).Scan(&rawData, &expiresAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, dal.ErrNotFound
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("find callback: %w", err)
 	}
@@ -77,7 +76,7 @@ func (r *SQLiteRepository) FindCallback(ctx context.Context, chatID int64, uuid 
 	if !ok {
 		return nil, fmt.Errorf("expected string data for SQLite, got %T", rawData)
 	}
-	var res dal.CallbackData
+	var res CallbackData
 	if err := json.Unmarshal([]byte(strData), &res); err != nil {
 		return nil, fmt.Errorf("unmarshal callback data: %w", err)
 	}
