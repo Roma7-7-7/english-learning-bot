@@ -18,14 +18,13 @@ var (
 	BadRequestError     = ErrorResponse{"Bad request"}           //nolint:gochecknoglobals // this is a constant response for bad request
 )
 
-//nolint:gocognit // no more changes are needed
 func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 	return func(err error, c echo.Context) {
 		log.ErrorContext(c.Request().Context(), "failed to process request", "error", err)
 
 		var echoError *echo.HTTPError
 		if !errors.As(err, &echoError) {
-			if err := c.JSON(http.StatusInternalServerError, InternalServerError); err != nil { //nolint:govet // ignore shadow declaration
+			if err := c.JSON(http.StatusInternalServerError, InternalServerError); err != nil {
 				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
 			}
 			return
@@ -38,21 +37,21 @@ func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
 			if echoError.Code == http.StatusInternalServerError {
 				message = InternalServerError.Message
 			}
-			if err := c.JSON(echoError.Code, ErrorResponse{Message: message}); err != nil { //nolint:govet // ignore shadow declaration
+			if err := c.JSON(echoError.Code, ErrorResponse{Message: message}); err != nil {
 				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
 			}
 
 			return
 		}
 
-		if bytes, err := json.Marshal(echoError.Message); err != nil { //nolint:govet // ignore shadow declaration
+		if bytes, err := json.Marshal(echoError.Message); err != nil {
 			log.ErrorContext(c.Request().Context(), "failed to marshal error message", "error", err)
-			if err := c.JSON(echoError.Code, InternalServerError); err != nil { //nolint:govet // ignore shadow declaration
+			if err := c.JSON(echoError.Code, InternalServerError); err != nil {
 				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
 			}
 		} else {
 			c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-			if err := c.String(echoError.Code, string(bytes)); err != nil { //nolint:govet // ignore shadow declaration
+			if err := c.String(echoError.Code, string(bytes)); err != nil {
 				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
 			}
 		}

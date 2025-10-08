@@ -33,7 +33,7 @@ func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, batchSize, g
 
 			log.DebugContext(ctx, "update learning batch execution started")
 			for _, chatID := range chatIDs {
-				ctx, cancel := context.WithTimeout(ctx, processTimeout) //nolint:govet // it is supposed to override ctx here
+				ctx, cancel := context.WithTimeout(ctx, processTimeout)
 
 				err := repo.Transact(ctx, func(repo dal.Repository) error {
 					return updateLearningBatch(ctx, chatID, guessedStreakLimit, repo, log, batchSize)
@@ -61,7 +61,6 @@ func updateLearningBatch(ctx context.Context, chatID int64, guessedStreakLimit i
 	}
 
 	for range batchSize - batched {
-		//nolint:govet // it is supposed to be used in a loop
 		word, err := repo.FindRandomWordTranslation(ctx, chatID, dal.FindRandomWordFilter{
 			StreakLimitDirection: dal.LimitDirectionLessThan,
 			StreakLimit:          guessedStreakLimit,

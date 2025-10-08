@@ -53,7 +53,7 @@ func StartWordCheckSchedule(ctx context.Context, conf WordCheckConfig, p Publish
 			}
 
 			for _, chatID := range conf.ChatIDs {
-				ctx, cancel := context.WithTimeout(ctx, publishTimeout) //nolint:govet // it is supposed to override ctx here
+				ctx, cancel := context.WithTimeout(ctx, publishTimeout)
 				log.DebugContext(ctx, "sending word check", "chat_id", chatID)
 				if err := p.SendWordCheck(ctx, chatID); err != nil {
 					if errors.Is(err, telebot.ErrBlockedByUser) {

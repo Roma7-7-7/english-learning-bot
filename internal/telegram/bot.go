@@ -146,11 +146,11 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
 			b.log.DebugContext(ctx, "no words to check", "chatID", chatID)
-			return replier.Reply("no words to check")
+			return replier.Reply("no words to check") //nolint:wrapcheck // lets ignore it here
 		}
 
 		b.log.ErrorContext(ctx, "failed to get random translation", "error", err)
-		return replier.Reply(somethingWentWrongMsg)
+		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
 	}
 
 	data := dal.CallbackData{
@@ -161,13 +161,13 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 	callbackID, err := b.repo.InsertCallback(ctx, data)
 	if err != nil {
 		b.log.ErrorContext(ctx, "failed to insert callback data", "error", err)
-		return replier.Reply(somethingWentWrongMsg)
+		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
 	}
 
 	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)),
 		tb.ModeMarkdownV2, tb.Silent, seeTranslationMarkup(callbackID),
 	)
-	return err
+	return err //nolint:wrapcheck // lets ignore it here
 }
 
 func (b *Bot) HandleCallback(c tb.Context) error {
