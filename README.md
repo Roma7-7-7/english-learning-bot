@@ -159,29 +159,21 @@ VITE_API_BASE_URL=http://localhost:8080
    ```bash
    make build
    ```
-
-3. **Run with Docker Compose**:
-   ```bash
-   docker-compose up -d
-   ```
-
-   Or run individually:
-   
-4. **Start the API server**:
+3. **Start the API server**:
    ```bash
    ./bin/english-learning-api
    # or
    ./run-api.sh
    ```
 
-5. **Start the Telegram bot**:
+4. **Start the Telegram bot**:
    ```bash
    ./bin/english-learning-bot  
    # or
    ./run-bot.sh
    ```
 
-6. **Start the web interface**:
+5. **Start the web interface**:
    ```bash
    cd web
    npm install
@@ -241,13 +233,6 @@ The application uses SQL schema files for database setup. For schema changes:
 3. Test with both SQLite and PostgreSQL if needed
 
 ## Deployment
-
-### Docker
-The project includes a `Dockerfile` and `docker-compose.yaml` for easy deployment:
-
-```bash
-docker-compose up -d
-```
 
 ### Manual Deployment
 1. Build binaries: `make build`
