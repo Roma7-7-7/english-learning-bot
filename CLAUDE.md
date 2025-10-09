@@ -82,28 +82,41 @@ See `.claude/commands/` for implementation details.
   - `react-router-dom` - Routing
 
 ### Build Commands
+
+**Use Makefile targets** (single source of truth for CI and local builds):
+
 ```bash
-# Backend
-go build -o bin/english-learning-api ./cmd/api
-go build -o bin/english-learning-bot ./cmd/bot
+# Local development (native OS/arch)
+make build-api          # Build API
+make build-bot          # Build bot
+make build-backend      # Build both
+make build-web          # Build frontend
+make build              # Build everything
 
-# Frontend
-cd web && npm run build
+# Production builds (Linux x86_64 - used by CI)
+make build-release      # Build both binaries (requires Linux or Docker)
 
-# All at once
-make build
+# With version info
+make build-api VERSION=v1.0.0 BUILD_TIME=$(date -u +%Y%m%d-%H%M%S)
+
+# See all available targets
+make help
 ```
+
+**Note**: Production builds with `make build-release` require Linux due to CGO (go-sqlite3). On macOS, use `make build-backend` for local development. Let GitHub Actions handle production builds.
 
 ### Testing Commands
 ```bash
 # Go tests
-go test ./...
+make test               # Run tests
+make vet                # Run go vet
+make ci-test            # Run both (used by CI)
 
 # Frontend linting
 cd web && npm run lint
 
-# Go linting (if available)
-golangci-lint run
+# Go linting (optional, requires golangci-lint)
+make lint
 ```
 
 ## File Organization
@@ -226,8 +239,25 @@ The application uses environment-based configuration with prefixes:
 
 ## Deployment Notes
 
+### Automated CI/CD
+
+The project includes automated deployment for AWS EC2 (Amazon Linux 2):
+
+- **GitHub Actions**: Builds binaries on push to `main`, creates releases with version info
+- **EC2 Deployment**: Systemd services with automatic hourly updates from releases
+- **Version Tracking**: Build-time version injection via `-ldflags`, exposed in logs and `/health` endpoint
+- **Documentation**: Complete setup guide in `deployment/README.md`
+
+**Key Files**:
+- `.github/workflows/release.yml` - CI/CD workflow
+- `deployment/setup-ec2.sh` - One-command EC2 setup
+- `deployment/deploy.sh` - Automated deployment script
+- `deployment/systemd/*.service` - Systemd service definitions
+- `Makefile` - Unified build system (used by CI and local dev)
+
 ### Production Considerations
 - Configure proper backup strategies
 - Monitor resource usage and performance
 - Set up alerting for critical failures
 - Use HTTPS in production environments
+- See `deployment/README.md` for complete deployment documentation
