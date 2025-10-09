@@ -1,0 +1,30 @@
+[Unit]
+Description=English Learning Telegram Bot
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/opt/english-learning-bot
+EnvironmentFile=/opt/english-learning-bot/.env
+ExecStart=/opt/english-learning-bot/bin/english-learning-bot
+Restart=always
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=english-bot
+
+# Resource limits (adjust based on your needs)
+MemoryLimit=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target
