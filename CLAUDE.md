@@ -202,7 +202,6 @@ The application uses environment-based configuration with prefixes:
 ### Debugging
 - Use structured logging with slog in Go
 - Browser dev tools for frontend debugging
-- Check Docker logs if using containers
 - Monitor database connections and queries
 
 ## Performance Considerations
@@ -227,14 +226,7 @@ The application uses environment-based configuration with prefixes:
 
 ## Deployment Notes
 
-### Docker
-- Multi-stage builds for optimized images
-- Environment variable configuration
-- Volume mounting for database persistence
-- Health checks for monitoring
-
 ### Production Considerations
-- Use PostgreSQL instead of SQLite for better concurrency
 - Configure proper backup strategies
 - Monitor resource usage and performance
 - Set up alerting for critical failures
