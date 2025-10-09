@@ -62,6 +62,21 @@ cat /opt/english-learning-bot/current_version
 tail -f /opt/english-learning-bot/deployment.log
 ```
 
+### Database Backup
+```bash
+# Manual backup
+sudo /opt/english-learning-bot/backup.sh
+
+# View backup log
+tail -f /opt/english-learning-bot/backup.log
+
+# List S3 backups
+aws s3 ls s3://your-bucket/path/
+
+# Check backup configuration
+cat /opt/english-learning-bot/.backup_config
+```
+
 ## Troubleshooting
 
 ### Service won't start

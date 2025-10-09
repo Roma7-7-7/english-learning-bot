@@ -296,6 +296,136 @@ If a deployment breaks something:
 
 Backups are kept for the last 5 deployments automatically.
 
+## Database Backup to S3
+
+The setup script can configure automatic daily database backups to S3.
+
+### During Initial Setup
+
+When running `setup-ec2.sh`, you'll be prompted:
+```
+Configure S3 backup (optional):
+If you want automatic daily backups to S3, provide your S3 bucket path.
+Example: s3://my-bucket/english-learning-bot/backups
+
+Enter S3 bucket path (or press Enter to skip):
+```
+
+Enter your S3 path (e.g., `s3://bucket/english-learning-bot/db_dumps`) and the setup will:
+- Download the backup script
+- Create `.backup_config` with your S3 path
+- Add a daily cron job (runs at 20:00 UTC)
+
+### Manual Setup (After Initial Setup)
+
+If you skipped S3 configuration during setup, you can add it later:
+
+1. **Create backup config**:
+   ```bash
+   sudo tee /opt/english-learning-bot/.backup_config << EOF
+   # S3 Backup Configuration
+   S3_BUCKET_PATH="s3://your-bucket/path"
+   EOF
+
+   sudo chmod 600 /opt/english-learning-bot/.backup_config
+   ```
+
+2. **Download backup script** (if not already present):
+   ```bash
+   sudo curl -sfL https://raw.githubusercontent.com/Roma7-7-7/english-learning-bot/main/deployment/backup.sh \
+     -o /opt/english-learning-bot/backup.sh
+   sudo chmod +x /opt/english-learning-bot/backup.sh
+   ```
+
+3. **Add cron job**:
+   ```bash
+   (sudo crontab -l 2>/dev/null; echo "0 20 * * * /opt/english-learning-bot/backup.sh >> /opt/english-learning-bot/backup.log 2>&1") | sudo crontab -
+   ```
+
+### Backup Details
+
+- **Schedule**: Daily at 20:00 UTC
+- **Method**: SQLite `.backup` command (creates consistent snapshot)
+- **Format**: `english_learning_backup_YYYY-MM-DDTHH:MM:SS.sqlite`
+- **Storage**: Uploaded to S3, then local copy deleted
+- **Logs**: Written to `/opt/english-learning-bot/backup.log`
+
+### IAM Permissions Required
+
+Your EC2 instance needs an IAM role with S3 permissions:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl"
+      ],
+      "Resource": "arn:aws:s3:::your-bucket/english-learning-bot/db_dumps/*"
+    }
+  ]
+}
+```
+
+Attach this policy to your EC2 instance's IAM role.
+
+### Manual Backup
+
+Run a backup manually at any time:
+```bash
+sudo /opt/english-learning-bot/backup.sh
+```
+
+### View Backup Logs
+
+```bash
+# Follow live
+tail -f /opt/english-learning-bot/backup.log
+
+# View all
+cat /opt/english-learning-bot/backup.log
+
+# Check last backup
+tail -20 /opt/english-learning-bot/backup.log
+```
+
+### Restore from S3 Backup
+
+```bash
+# List available backups
+aws s3 ls s3://your-bucket/english-learning-bot/db_dumps/
+
+# Download specific backup
+aws s3 cp s3://your-bucket/path/backup.sqlite /tmp/restore.sqlite
+
+# Stop services
+sudo systemctl stop english-learning-api.service english-learning-bot.service
+
+# Restore database
+sudo cp /tmp/restore.sqlite /opt/english-learning-bot/data/english_learning.db
+sudo chown ec2-user:ec2-user /opt/english-learning-bot/data/english_learning.db
+
+# Start services
+sudo systemctl start english-learning-api.service english-learning-bot.service
+```
+
+### Troubleshooting Backups
+
+**Error: "S3_BUCKET_PATH not set"**
+- Check `/opt/english-learning-bot/.backup_config` exists and contains `S3_BUCKET_PATH`
+
+**Error: "Failed to upload backup to S3"**
+- Verify IAM role has S3 permissions
+- Check S3 bucket exists: `aws s3 ls s3://your-bucket/`
+- Test AWS CLI: `aws s3 ls`
+
+**Error: "Database not found"**
+- Verify database path in config matches actual location
+- Default: `/opt/english-learning-bot/data/english_learning.db`
+
 ## Security Considerations
 
 ### Why This Setup is Secure:
