@@ -19,6 +19,13 @@ import (
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
 
+var (
+	// Version is set via -ldflags at build time
+	Version = "dev" //nolint:gochecknoglobals // must be global to be replaced at build time
+	// BuildTime is set via -ldflags at build time
+	BuildTime = "unknown" //nolint:gochecknoglobals // must be global to be replaced at build time
+)
+
 const (
 	exitCodeOK int = iota
 	exitCodeConfigParse
@@ -56,8 +63,14 @@ func run(ctx context.Context) int {
 	defer db.Close()
 
 	deps := dependencies(ctx, conf, db, log)
+	conf.BuildInfo.Version = Version
+	conf.BuildInfo.BuildTime = BuildTime
 	router := api.NewRouter(ctx, conf, deps)
-	log.InfoContext(ctx, "starting api server")
+	log.InfoContext(ctx, "starting api server",
+		"version", Version,
+		"build_time", BuildTime,
+		"address", conf.Server.Addr,
+	)
 
 	server := &http.Server{
 		ReadHeaderTimeout: conf.Server.ReadHeaderTimeout,

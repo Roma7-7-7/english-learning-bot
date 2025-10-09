@@ -79,6 +79,15 @@ func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Ha
 
 	e.HTTPErrorHandler = HTTPErrorHandler(deps.Logger)
 
+	// Health endpoint
+	e.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{
+			"status":     "ok",
+			"version":    conf.BuildInfo.Version,
+			"build_time": conf.BuildInfo.BuildTime,
+		})
+	})
+
 	jwtProcessor := NewJWTProcessor(conf.HTTP.JWT, conf.HTTP.Cookie.AuthExpiresIn, conf.HTTP.Cookie.AccessExpiresIn)
 	cookiesProcessor := NewCookiesProcessor(conf.HTTP.Cookie)
 

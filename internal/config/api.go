@@ -49,12 +49,18 @@ type (
 		AllowedChatIDs []int64 `envconfig:"ALLOWED_CHAT_IDS" required:"false"`
 	}
 
+	BuildInfo struct {
+		Version   string
+		BuildTime string
+	}
+
 	API struct {
-		Dev      bool `envconfig:"DEV" default:"false"`
-		DB       DB
-		HTTP     HTTP
-		Telegram Telegram
-		Server   Server
+		Dev       bool `envconfig:"DEV" default:"false"`
+		DB        DB
+		HTTP      HTTP
+		Telegram  Telegram
+		Server    Server
+		BuildInfo BuildInfo
 	}
 )
 

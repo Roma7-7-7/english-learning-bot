@@ -18,6 +18,13 @@ import (
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
 
+var (
+	// Version is set via -ldflags at build time
+	Version = "dev" //nolint:gochecknoglobals // must be global to be replaced at build time
+	// BuildTime is set via -ldflags at build time
+	BuildTime = "unknown" //nolint:gochecknoglobals // must be global to be replaced at build time
+)
+
 const (
 	batchSize          = 50
 	guessedStreakLimit = 15
@@ -52,7 +59,12 @@ func run(ctx context.Context) int {
 	log := mustLogger(conf.Dev)
 	loc := conf.Schedule.MustTimeLocation()
 
-	log.InfoContext(ctx, "starting bot", "config", loggableConfig(conf), "current_time_in_location", time.Now().In(loc))
+	log.InfoContext(ctx, "starting bot",
+		"version", Version,
+		"build_time", BuildTime,
+		"config", loggableConfig(conf),
+		"current_time_in_location", time.Now().In(loc),
+	)
 	defer log.InfoContext(ctx, "bot is stopped")
 
 	db, err := sql.Open("sqlite3", conf.DBURL)

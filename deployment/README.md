@@ -13,26 +13,26 @@ The deployment system is designed to be:
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Developer pushes to main branch                                │
-└────────────────────────┬────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  Developer pushes to main branch                    │
+└────────────────────────┬────────────────────────────┘
                          │
                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  GitHub Actions (Automated CI/CD)                               │
-│  1. Runs tests (go test, go vet)                               │
-│  2. Builds binaries for Linux (CGO_ENABLED=0)                  │
-│  3. Creates GitHub Release with binaries as assets             │
-└────────────────────────┬────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  GitHub Actions (Automated CI/CD)                   │
+│  1. Runs tests (go test, go vet)                    │
+│  2. Builds binaries for Linux (CGO_ENABLED=0)       │
+│  3. Creates GitHub Release with binaries as assets  │
+└────────────────────────┬────────────────────────────┘
                          │
                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  EC2 Instance (Amazon Linux 2)                                  │
-│  - Cron job checks for new releases every hour                 │
-│  - Downloads new binaries if version changed                   │
-│  - Restarts systemd services with new binaries                 │
-│  - No build tools installed (just curl + systemd)              │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  EC2 Instance (Amazon Linux 2)                     │
+│  - Cron job checks for new releases every hour     │
+│  - Downloads new binaries if version changed       │
+│  - Restarts systemd services with new binaries     │
+│  - No build tools installed (just curl + systemd)  │
+└────────────────────────────────────────────────────┘
 ```
 
 ## Files in This Directory
