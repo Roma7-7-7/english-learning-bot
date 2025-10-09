@@ -28,10 +28,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Run tests
-        run: go test -v ./...
-
-      - name: Run go vet
-        run: go vet ./...
+        run: make ci-test
 
   build-and-release:
     name: Build and Release Binaries
@@ -54,28 +51,8 @@ jobs:
           echo "timestamp=$(date -u +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
           echo "tag=v$(date -u +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Build API binary
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-            -ldflags="-w -s -X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=${{ steps.version.outputs.timestamp }}" \
-            -o bin/english-learning-api \
-            ./cmd/api
-
-      - name: Build Bot binary
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-            -ldflags="-w -s -X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=${{ steps.version.outputs.timestamp }}" \
-            -o bin/english-learning-bot \
-            ./cmd/bot
-
-      - name: Make binaries executable
-        run: chmod +x bin/english-learning-api bin/english-learning-bot
-
-      - name: Create version file
-        run: |
-          echo "${{ steps.version.outputs.tag }}" > bin/VERSION
-          echo "Built at: ${{ steps.version.outputs.timestamp }}" >> bin/VERSION
-          echo "Commit: $(git rev-parse HEAD)" >> bin/VERSION
+      - name: Build binaries
+        run: make ci-build VERSION=${{ steps.version.outputs.version }} BUILD_TIME=${{ steps.version.outputs.timestamp }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
