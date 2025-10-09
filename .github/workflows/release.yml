@@ -1,0 +1,83 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Run tests
+        run: make ci-test
+
+  build-and-release:
+    name: Build and Release Binaries
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Get version info
+        id: version
+        run: |
+          # Use commit SHA as version
+          echo "version=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date -u +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          echo "tag=v$(date -u +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: make ci-build VERSION=${{ steps.version.outputs.version }} BUILD_TIME=${{ steps.version.outputs.timestamp }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            Automated release from commit ${{ github.sha }}
+
+            **Changes:**
+            ${{ github.event.head_commit.message }}
+
+            **Binaries:**
+            - `english-learning-api` - API server
+            - `english-learning-bot` - Telegram bot
+            - `VERSION` - Version information
+
+            **Deployment:**
+            On your EC2 instance, the deployment script will automatically pick up this release within an hour.
+            Or run manually: `sudo /opt/english-learning-bot/deploy.sh`
+          files: |
+            bin/english-learning-api
+            bin/english-learning-bot
+            bin/VERSION
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

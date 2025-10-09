@@ -234,12 +234,38 @@ The application uses SQL schema files for database setup. For schema changes:
 
 ## Deployment
 
+This project includes automated CI/CD for AWS EC2 deployment. See [`deployment/README.md`](deployment/README.md) for complete setup instructions.
+
+### Quick Start (EC2/Amazon Linux 2)
+```bash
+# One-command setup
+curl -sfL https://raw.githubusercontent.com/Roma7-7-7/english-learning-bot/main/deployment/setup-ec2.sh | sudo bash
+```
+
+This sets up:
+- Systemd services for API and bot
+- Automatic hourly deployment from GitHub releases
+- Health monitoring and auto-restart
+- Shared SQLite database
+
+### CI/CD Workflow
+1. Push to `main` branch
+2. GitHub Actions builds binaries (with version info)
+3. Creates GitHub Release
+4. EC2 automatically deploys within an hour
+
 ### Manual Deployment
-1. Build binaries: `make build`
+For non-EC2 or custom deployments:
+1. Build binaries: `make build-release VERSION=v1.0.0`
 2. Build web assets: `cd web && npm run build`
 3. Deploy binaries and web assets to server
 4. Configure environment variables
-5. Set up systemd services or process manager
+5. Set up systemd services (see `deployment/systemd/`)
+
+See also:
+- [`deployment/README.md`](deployment/README.md) - Complete deployment guide
+- [`deployment/QUICKREF.md`](deployment/QUICKREF.md) - Common operations
+- [`deployment/MAKEFILE.md`](deployment/MAKEFILE.md) - Build system documentation
 
 ## Contributing
 
