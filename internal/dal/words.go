@@ -223,23 +223,6 @@ func (r *SQLiteRepository) UpdateWordTranslation(ctx context.Context, chatID int
 	return nil
 }
 
-func (r *SQLiteRepository) ResetToReview(ctx context.Context, chatID int64) error {
-	query := qb.Update("word_translations").
-		Set("to_review", false).
-		Where(squirrel.Eq{"chat_id": chatID})
-
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return fmt.Errorf("build update query: %w", err)
-	}
-
-	_, err = r.db.ExecContext(ctx, sql, args...)
-	if err != nil {
-		return fmt.Errorf("reset to review: %w", err)
-	}
-	return nil
-}
-
 func (r *SQLiteRepository) GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error) {
 	query := qb.Select("COUNT(*)").
 		From("word_translations wt").

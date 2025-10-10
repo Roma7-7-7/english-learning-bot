@@ -14,7 +14,7 @@ This is a personal English learning platform with three main components:
 ### Backend (Go)
 - **Framework**: Echo v4 web framework
 - **Architecture**: Clean architecture with separate layers
-- **Database**: SQLite primary, PostgreSQL support via interface
+- **Database**: SQLite
 - **Authentication**: JWT with HTTP-only cookies + Telegram verification
 - **Error Handling**: Structured logging with slog
 - **Middleware**: Rate limiting, CORS, security headers, request logging
@@ -140,7 +140,6 @@ make lint
 
 ### Database Files
 - `schema/schema_sqlite.sql` - SQLite schema
-- `schema/schema_postgre.sql` - PostgreSQL schema
 - `data/` - Database files (SQLite)
 
 ## Configuration
@@ -170,7 +169,7 @@ The application uses environment-based configuration with prefixes:
 1. Update schema files in `schema/`
 2. Add corresponding Go structs in `internal/dal/models.go`
 3. Update repository interfaces and implementations
-4. Test with both SQLite and PostgreSQL if applicable
+4. Test with SQLite if applicable
 
 ### Frontend Components
 - Follow existing patterns in `web/src/components/`

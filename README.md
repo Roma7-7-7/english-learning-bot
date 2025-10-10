@@ -41,7 +41,7 @@ The project consists of three main components:
 ### Backend
 - **Language**: Go 1.24.1
 - **Web Framework**: Echo v4
-- **Database**: SQLite (with PostgreSQL support)
+- **Database**: SQLite
 - **Telegram**: gopkg.in/telebot.v3
 - **Authentication**: JWT tokens with HTTP-only cookies
 - **Database Layer**: Squirrel query builder
@@ -108,7 +108,7 @@ The bot uses a spaced repetition system:
 - Go 1.24+
 - Node.js 18+
 - Telegram Bot Token
-- SQLite or PostgreSQL
+- SQLite
 
 ### Configuration
 
@@ -228,9 +228,9 @@ cd web && npm run lint
 ### Database Migrations
 The application uses SQL schema files for database setup. For schema changes:
 
-1. Update `schema/schema_sqlite.sql` or `schema/schema_postgre.sql`
+1. Update `schema/schema_sqlite.sql`
 2. Apply changes to your development database
-3. Test with both SQLite and PostgreSQL if needed
+3. Test with SQLite if needed
 
 ## Deployment
 
