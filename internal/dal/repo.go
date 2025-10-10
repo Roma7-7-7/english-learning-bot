@@ -56,7 +56,6 @@ type (
 		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
 		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
 		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
-		ResetToReview(ctx context.Context, chatID int64) error
 		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
 		DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error)
 	}

@@ -490,17 +490,6 @@ crontab -e
 ### Q: What if I want to skip a deployment?
 A: GitHub Actions only runs when Go code changes. If you push only documentation changes, no release will be created.
 
-### Q: Can I use this with PostgreSQL instead of SQLite?
-A: Yes! Just change the `.env` file:
-```bash
-DB_TYPE=postgres
-DB_HOST=your-rds-endpoint
-DB_PORT=5432
-DB_NAME=english_learning
-DB_USER=your_user
-DB_PASSWORD=your_password
-```
-
 ### Q: How do I update the deployment scripts themselves?
 A: The scripts are version-controlled in GitHub. To update on EC2:
 ```bash

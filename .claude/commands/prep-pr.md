@@ -33,7 +33,7 @@ You are preparing a GitHub Pull Request for review. Follow these steps:
    - Check frontend: `cd web && npm run lint` would pass
    - Ensure proper error handling patterns (structured logging with slog)
    - Check if tests were added for new functionality
-   - Check database schema changes are in both SQLite and PostgreSQL files
+   - Check database schema changes are in SQLite files
    - Verify API endpoint changes match OpenAPI/documentation
    - Check Telegram bot command changes are properly registered
 
