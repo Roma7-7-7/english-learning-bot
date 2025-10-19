@@ -1,10 +1,10 @@
 import { type JSX, useEffect, useState, useRef } from "react";
 import client, { type Words, type WordsQueryParams } from "../api/client.tsx";
 import { useAppState } from "../context.tsx";
-import { Container, Row, Col, Form, Button, Table, Pagination, Alert, Spinner, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Form, Button, Table, Pagination, Alert, Spinner, Badge, InputGroup } from 'react-bootstrap';
 import {WordModal} from "../components/WordModal.tsx";
 
-import { PencilSquare, Trash } from 'react-bootstrap-icons';
+import { PencilSquare, Trash, X } from 'react-bootstrap-icons';
 
 interface ModalState {
     show: boolean;
@@ -180,20 +180,38 @@ export function Home() {
                     <Row className="mb-3 g-2">
                         <Col xs={12} sm={6} lg={3}>
                             <Form.Group>
-                                <Form.Control
-                                    ref={searchInputRef}
-                                    type="text"
-                                    placeholder="Search words..."
-                                    value={qp.search}
-                                    onChange={present => {
-                                        setQP((existing: WordsQueryParams) => {
-                                            return {
-                                                ...existing,
-                                                search: present.target.value,
-                                            }
-                                        });
-                                    }}
-                                />
+                                <InputGroup>
+                                    <Form.Control
+                                        ref={searchInputRef}
+                                        type="text"
+                                        placeholder="Search words..."
+                                        value={qp.search}
+                                        onChange={present => {
+                                            setQP((existing: WordsQueryParams) => {
+                                                return {
+                                                    ...existing,
+                                                    search: present.target.value,
+                                                }
+                                            });
+                                        }}
+                                    />
+                                    {qp.search && (
+                                        <Button
+                                            variant="outline-secondary"
+                                            onClick={() => {
+                                                setQP((existing: WordsQueryParams) => {
+                                                    return {
+                                                        ...existing,
+                                                        search: "",
+                                                    }
+                                                });
+                                            }}
+                                            title="Clear search"
+                                        >
+                                            <X />
+                                        </Button>
+                                    )}
+                                </InputGroup>
                             </Form.Group>
                         </Col>
                         <Col xs={6} sm={3} lg={2}>
