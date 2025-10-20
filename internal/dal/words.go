@@ -69,7 +69,7 @@ func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int6
 	selectQuery, countQuery := selectQuery2, countQuery2
 
 	eg, ctx := errgroup.WithContext(ctx)
-	res := make([]WordTranslation, 0, filter.Limit)
+	res := make([]WordTranslation, 0, 25) //nolint:mnd // let it be default limit
 	total := 0
 
 	eg.Go(func() error {
