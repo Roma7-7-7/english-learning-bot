@@ -88,7 +88,7 @@ export function WordModal({
                     client.markToReview({
                         word: newWordInput,
                         to_review: false,
-                    })
+                    });
                 }
                 onSuccess();
                 onHide();
