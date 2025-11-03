@@ -113,6 +113,25 @@ systemctl enable english-learning-api.service
 systemctl enable english-learning-bot.service
 print_success "Services enabled"
 
+# Step 6.5: Configure sudoers for passwordless systemctl
+print_step "Configuring passwordless systemctl access for ec2-user"
+SUDOERS_FILE="/etc/sudoers.d/english-learning-bot"
+cat > "$SUDOERS_FILE" << 'SUDOEOF'
+# Allow ec2-user to manage english-learning-bot services without password
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl start english-learning-api.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop english-learning-api.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart english-learning-api.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl start english-learning-bot.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop english-learning-bot.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart english-learning-bot.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl status english-learning-api.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl status english-learning-bot.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl is-active english-learning-api.service
+ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl is-active english-learning-bot.service
+SUDOEOF
+chmod 0440 "$SUDOERS_FILE"
+print_success "Sudoers configured - ec2-user can now manage services without password"
+
 # Step 7: Set up database backup to S3
 print_step "Setting up database backup to S3"
 echo ""
@@ -126,6 +145,7 @@ if [ -n "$S3_BUCKET_PATH" ]; then
     # Download backup script
     curl -sfL "${REPO_URL}/deployment/backup.sh" -o "${INSTALL_DIR}/backup.sh"
     chmod +x "${INSTALL_DIR}/backup.sh"
+    chown ec2-user:ec2-user "${INSTALL_DIR}/backup.sh"
 
     # Create backup config
     cat > "${INSTALL_DIR}/.backup_config" << BACKUPEOF
@@ -135,30 +155,18 @@ BACKUPEOF
     chown ec2-user:ec2-user "${INSTALL_DIR}/.backup_config"
     chmod 600 "${INSTALL_DIR}/.backup_config"
 
-    # Add backup cron job (daily at 20:00)
+    # Add backup cron job to ec2-user's crontab (daily at 20:00)
     BACKUP_CRON="0 20 * * * ${INSTALL_DIR}/backup.sh >> ${INSTALL_DIR}/backup.log 2>&1"
-    if crontab -l 2>/dev/null | grep -Fq "${INSTALL_DIR}/backup.sh"; then
+    if sudo -u ec2-user crontab -l 2>/dev/null | grep -Fq "${INSTALL_DIR}/backup.sh"; then
         print_warning "Backup cron job already exists - skipping"
     else
-        (crontab -l 2>/dev/null; echo "$BACKUP_CRON") | crontab -
+        (sudo -u ec2-user crontab -l 2>/dev/null; echo "$BACKUP_CRON") | sudo -u ec2-user crontab -
         print_success "Daily backup configured (runs at 20:00 UTC)"
         echo "  S3 path: $S3_BUCKET_PATH"
     fi
 else
     print_warning "S3 backup skipped - you can configure it later"
     echo "  To set up later: edit ${INSTALL_DIR}/.backup_config and add cron job"
-fi
-
-# Step 8: Set up hourly deployment cron job
-print_step "Setting up automatic deployment (hourly check)"
-CRON_JOB="0 * * * * ${INSTALL_DIR}/deploy.sh >> ${INSTALL_DIR}/deployment.log 2>&1"
-
-# Check if cron job already exists
-if crontab -l 2>/dev/null | grep -Fq "${INSTALL_DIR}/deploy.sh"; then
-    print_warning "Cron job already exists - skipping"
-else
-    (crontab -l 2>/dev/null; echo "$CRON_JOB") | crontab -
-    print_success "Automatic deployment configured (checks every hour)"
 fi
 
 # Final summary
@@ -172,7 +180,6 @@ echo -e "${NC}"
 
 print_success "Installation directory: $INSTALL_DIR"
 print_success "Services: english-learning-api, english-learning-bot"
-print_success "Auto-deployment: Checks for updates every hour"
 if [ -f "${INSTALL_DIR}/.backup_config" ]; then
     print_success "Database backup: Daily at 20:00 UTC to S3"
 fi
@@ -186,13 +193,18 @@ echo "   sudo systemctl restart english-learning-api.service"
 echo "   sudo systemctl restart english-learning-bot.service"
 echo ""
 echo "${BLUE}USEFUL COMMANDS:${NC}"
-echo "  Check service status:     sudo systemctl status english-learning-api.service"
-echo "  View logs:                sudo journalctl -u english-learning-api.service -f"
-echo "  Restart services:         sudo systemctl restart english-learning-api.service"
-echo "  Manual deployment:        sudo ${INSTALL_DIR}/deploy.sh"
+echo "  Check service status:     systemctl status english-learning-api.service"
+echo "  View logs:                journalctl -u english-learning-api.service -f"
+echo "  Restart services:         systemctl restart english-learning-api.service"
+echo "  Manual deployment:        ${INSTALL_DIR}/deploy.sh"
 echo "  View deployment log:      tail -f ${INSTALL_DIR}/deployment.log"
 if [ -f "${INSTALL_DIR}/.backup_config" ]; then
-    echo "  Manual backup:            sudo ${INSTALL_DIR}/backup.sh"
+    echo "  Manual backup:            ${INSTALL_DIR}/backup.sh"
     echo "  View backup log:          tail -f ${INSTALL_DIR}/backup.log"
 fi
+echo ""
+echo -e "${YELLOW}NOTE:${NC}"
+echo "- Deployment is MANUAL ONLY (no automatic updates)"
+echo "- Run '${INSTALL_DIR}/deploy.sh' when you want to update"
+echo "- No sudo needed - passwordless systemctl is configured"
 echo ""
