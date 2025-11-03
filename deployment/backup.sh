@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+# This script can be run as ec2-user (no sudo needed)
 # Configuration
 INSTALL_DIR="/opt/english-learning-bot"
 BACKUP_CONFIG="${INSTALL_DIR}/.backup_config"

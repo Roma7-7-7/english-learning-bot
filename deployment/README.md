@@ -5,7 +5,7 @@ This directory contains all the necessary files and documentation for deploying 
 ## Overview
 
 The deployment system is designed to be:
-- **Automated**: GitHub Actions builds binaries, EC2 polls for updates hourly
+- **Manual and controlled**: GitHub Actions builds binaries, you manually deploy when ready
 - **Resource-efficient**: No build tools needed on EC2 (no Go, no Node.js)
 - **Zero-auth**: Uses public GitHub releases (no SSH keys, no secrets)
 - **Documented**: Everything is version-controlled and reproducible
@@ -28,7 +28,7 @@ The deployment system is designed to be:
                          ▼
 ┌────────────────────────────────────────────────────┐
 │  EC2 Instance (Amazon Linux 2)                     │
-│  - Cron job checks for new releases every hour     │
+│  - You manually SSH in and run deploy.sh           │
 │  - Downloads new binaries if version changed       │
 │  - Restarts systemd services with new binaries     │
 │  - No build tools installed (just curl + systemd)  │
@@ -45,7 +45,7 @@ The deployment system is designed to be:
 - Downloads deployment scripts and systemd service files from GitHub
 - Creates `.env` file template
 - Installs and enables systemd services
-- Sets up hourly cron job for automatic deployment
+- Optionally sets up daily S3 database backups (in ec2-user's crontab)
 - Runs initial deployment
 
 **When to use**: Once, when setting up a new EC2 instance.
@@ -63,8 +63,8 @@ The deployment system is designed to be:
 - If same: exits without doing anything
 
 **When to use**:
-- Automatically via cron (every hour)
-- Manually when you want to force an update: `sudo /opt/english-learning-bot/deploy.sh`
+- Manually when you want to deploy the latest release: `/opt/english-learning-bot/deploy.sh`
+- No sudo needed - sudoers is configured for passwordless systemctl access
 
 ### 3. `systemd/english-learning-api.service`
 **Purpose**: Systemd service definition for the API server.
@@ -80,6 +80,15 @@ The deployment system is designed to be:
 **Purpose**: Systemd service definition for the Telegram bot.
 
 **Key features**: Same as API service (restart, user, env, logs, limits).
+
+### 5. Sudoers Configuration
+The setup script creates `/etc/sudoers.d/english-learning-bot` to allow `ec2-user` to manage services without a password.
+
+**Allowed commands** (passwordless):
+- `systemctl start/stop/restart/status` for both services
+- `systemctl is-active` for both services
+
+This enables the deploy script to run without sudo while still managing systemd services.
 
 ## Setting Up a New EC2 Instance
 
@@ -144,8 +153,8 @@ Both should show `active (running)` in green.
 ### Done! 🎉
 From now on, whenever you push to `main` branch:
 1. GitHub Actions will build and release new binaries
-2. Within an hour, EC2 will detect the new version
-3. Services will automatically restart with the new version
+2. You can manually deploy by running: `/opt/english-learning-bot/deploy.sh` (no sudo needed)
+3. Services will restart with the new version
 
 ## Useful Commands
 
@@ -183,8 +192,8 @@ tail -f /opt/english-learning-bot/deployment.log
 
 ### Manual Deployment
 ```bash
-# Force check and deploy latest version
-sudo /opt/english-learning-bot/deploy.sh
+# Check and deploy latest version
+/opt/english-learning-bot/deploy.sh
 
 # View current version
 cat /opt/english-learning-bot/current_version
@@ -192,17 +201,20 @@ cat /opt/english-learning-bot/current_version
 
 ### Troubleshooting
 ```bash
-# Check if cron job is set up
-crontab -l | grep deploy
+# Check if backup cron job is set up
+crontab -l | grep backup
 
 # Test API endpoint
 curl http://localhost:8080/health
 
 # Check what releases are available
 curl -s https://api.github.com/repos/Roma7-7-7/english-learning-bot/releases/latest | grep tag_name
+
+# Verify sudoers configuration
+sudo cat /etc/sudoers.d/english-learning-bot
 ```
 
-## How Automatic Deployment Works
+## How Deployment Works
 
 ### 1. GitHub Actions Workflow
 Located at `.github/workflows/release.yml`:
@@ -214,11 +226,13 @@ Located at `.github/workflows/release.yml`:
   4. Creates release with tag format: `vYYYYMMDD-HHMMSS-<commit-sha>`
   5. Uploads binaries as release assets
 
-### 2. EC2 Cron Job
-Runs every hour (at minute 0):
+### 2. Manual Deployment
+When you're ready to deploy, SSH into EC2 and run:
 ```bash
-0 * * * * /opt/english-learning-bot/deploy.sh >> /opt/english-learning-bot/deployment.log 2>&1
+/opt/english-learning-bot/deploy.sh
 ```
+
+The script uses sudoers configuration for passwordless systemctl access, so no sudo is needed.
 
 ### 3. Deployment Script Logic
 ```
@@ -228,7 +242,7 @@ Compare with current_version file
   ↓
 If different:
   - Download binaries (curl, no auth needed for public repo)
-  - Stop systemd services
+  - Stop systemd services (via sudo, configured for passwordless access)
   - Backup old binaries
   - Install new binaries
   - Start systemd services
@@ -242,6 +256,7 @@ Services only restart if there's a new version. This means:
 - No unnecessary downtime
 - Logs clearly show when deployments happen
 - Easy to audit deployment history
+- Full control over when updates are applied
 
 ## Resource Usage on EC2
 
@@ -479,12 +494,12 @@ For production monitoring, consider setting up AWS CloudWatch:
 ### Q: How do I deploy to a different branch?
 A: Edit `.github/workflows/release.yml` and change `branches: [main]` to your desired branch.
 
-### Q: How do I change the deployment check interval?
-A: Edit the cron job:
+### Q: How do I deploy automatically on a schedule?
+A: You can add a cron job to ec2-user's crontab if desired:
 ```bash
 crontab -e
-# Change: 0 * * * * (every hour)
-# To: */30 * * * * (every 30 minutes)
+# Add: 0 * * * * /opt/english-learning-bot/deploy.sh >> /opt/english-learning-bot/deployment.log 2>&1
+# This would check every hour at minute 0
 ```
 
 ### Q: What if I want to skip a deployment?

@@ -23,12 +23,6 @@ log_colored() {
     echo -e "${2}[$(date '+%Y-%m-%d %H:%M:%S')] $1${NC}" | tee -a "$LOG_FILE"
 }
 
-# Check if running as root or with sudo
-if [ "$EUID" -ne 0 ]; then
-    log_colored "Please run with sudo: sudo $0" "$RED"
-    exit 1
-fi
-
 log "Starting deployment check..."
 
 # Get latest release tag from GitHub
@@ -89,8 +83,8 @@ chmod +x "${TMP_DIR}/english-learning-bot"
 
 # Stop services
 log "Stopping services..."
-systemctl stop english-learning-api.service || log_colored "API service was not running" "$YELLOW"
-systemctl stop english-learning-bot.service || log_colored "Bot service was not running" "$YELLOW"
+sudo systemctl stop english-learning-api.service || log_colored "API service was not running" "$YELLOW"
+sudo systemctl stop english-learning-bot.service || log_colored "Bot service was not running" "$YELLOW"
 
 # Backup old binaries (optional but recommended)
 if [ -f "${BIN_DIR}/english-learning-api" ]; then
@@ -116,19 +110,16 @@ cp "${TMP_DIR}/VERSION" "${BIN_DIR}/"
 # Update version file
 echo "$LATEST_RELEASE" > "$VERSION_FILE"
 
-# Set proper ownership
-chown -R ec2-user:ec2-user "$BIN_DIR"
-
 # Start services
 log "Starting services..."
-systemctl start english-learning-api.service
-systemctl start english-learning-bot.service
+sudo systemctl start english-learning-api.service
+sudo systemctl start english-learning-bot.service
 
 # Wait a moment and check if services are running
 sleep 2
 
-API_STATUS=$(systemctl is-active english-learning-api.service)
-BOT_STATUS=$(systemctl is-active english-learning-bot.service)
+API_STATUS=$(sudo systemctl is-active english-learning-api.service)
+BOT_STATUS=$(sudo systemctl is-active english-learning-bot.service)
 
 if [ "$API_STATUS" = "active" ] && [ "$BOT_STATUS" = "active" ]; then
     log_colored "Deployment successful! Both services are running." "$GREEN"
