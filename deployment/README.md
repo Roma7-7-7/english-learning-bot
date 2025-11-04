@@ -50,6 +50,26 @@ The deployment system is designed to be:
 
 **When to use**: Once, when setting up a new EC2 instance.
 
+### 1.5. `setup-cloudflared.sh`
+**Purpose**: Automated setup script for Cloudflare Tunnel (cloudflared).
+
+**What it does**:
+- Adds official Cloudflare yum repository
+- Installs cloudflared via yum (with GitHub fallback)
+- Creates systemd service for cloudflared
+- Configures tunnel with your token
+- Enables auto-start on boot
+- Sets up passwordless systemctl access for ec2-user
+
+**When to use**: After initial EC2 setup, when you want to expose your API through Cloudflare Tunnel without exposing your EC2 instance directly.
+
+**Usage**:
+```bash
+sudo ./setup-cloudflared.sh --token YOUR_TUNNEL_TOKEN
+```
+
+See "Setting Up Cloudflare Tunnel" section below for detailed instructions.
+
 ### 2. `deploy.sh`
 **Purpose**: Deployment script that checks for and applies updates.
 
@@ -155,6 +175,271 @@ From now on, whenever you push to `main` branch:
 1. GitHub Actions will build and release new binaries
 2. You can manually deploy by running: `/opt/english-learning-bot/deploy.sh` (no sudo needed)
 3. Services will restart with the new version
+
+## Setting Up Cloudflare Tunnel
+
+After completing the EC2 setup, you can optionally configure Cloudflare Tunnel to expose your API securely without opening ports on your EC2 instance. This provides:
+
+- **Security**: No direct exposure of your EC2 instance
+- **DDoS Protection**: Cloudflare's network protects your API
+- **SSL/TLS**: Automatic HTTPS with Cloudflare certificates
+- **Access Control**: Built-in authentication and authorization options
+- **Analytics**: Traffic monitoring through Cloudflare Dashboard
+
+### Prerequisites
+
+1. **Cloudflare Account**: Free account at https://cloudflare.com
+2. **Domain**: A domain managed by Cloudflare (or add one to Cloudflare)
+3. **EC2 Setup**: Completed the EC2 setup steps above
+4. **API Running**: Verify API is running with `systemctl status english-learning-api.service`
+
+### Step-by-Step Cloudflare Tunnel Setup
+
+#### 1. Create a Cloudflare Tunnel
+
+Go to Cloudflare Zero Trust Dashboard:
+1. Visit https://one.dash.cloudflare.com/
+2. Navigate to **Networks** → **Tunnels**
+3. Click **Create a tunnel**
+4. Select **Cloudflared** as the tunnel type
+5. Name your tunnel (e.g., `english-learning-bot`)
+6. Click **Save tunnel**
+
+#### 2. Get Your Tunnel Token
+
+After creating the tunnel:
+1. In the tunnel setup page, you'll see installation instructions
+2. Look for the command that starts with `cloudflared service install`
+3. Copy the **token** from that command (it's a long JWT string)
+4. The token looks like: `1234567890987654321...`
+
+#### 3. Configure Public Hostname (in Cloudflare Dashboard)
+
+Before running the setup script, configure the public hostname:
+1. In the tunnel configuration, go to **Public Hostname** tab
+2. Click **Add a public hostname**
+3. Configure:
+   - **Subdomain**: `api` (or any name you prefer)
+   - **Domain**: Select your domain from the dropdown
+   - **Service Type**: `HTTP`
+   - **URL**: `localhost:8080`
+4. Click **Save hostname**
+
+Your API will be accessible at `https://api.your-domain.com`
+
+#### 4. Run the Setup Script on EC2
+
+SSH into your EC2 instance and run:
+
+```bash
+# Download the setup script
+curl -sfL https://raw.githubusercontent.com/Roma7-7-7/english-learning-bot/main/deployment/setup-cloudflared.sh -o setup-cloudflared.sh
+chmod +x setup-cloudflared.sh
+
+# Run with your tunnel token
+sudo ./setup-cloudflared.sh --token YOUR_TUNNEL_TOKEN
+```
+
+**Advanced usage**:
+```bash
+# Custom tunnel name and port
+sudo ./setup-cloudflared.sh \
+  --token YOUR_TOKEN \
+  --tunnel-name my-custom-name \
+  --api-port 8080
+```
+
+#### 5. Verify the Tunnel is Working
+
+```bash
+# Check cloudflared service status
+systemctl status cloudflared.service
+
+# View logs
+journalctl -u cloudflared.service -f
+
+# Test your API through Cloudflare
+curl https://api.your-domain.com/health
+```
+
+### Cloudflare Tunnel Management
+
+#### Service Commands
+
+```bash
+# Check status
+systemctl status cloudflared.service
+
+# View logs
+journalctl -u cloudflared.service -f
+
+# Restart tunnel
+sudo systemctl restart cloudflared.service
+
+# Stop tunnel
+sudo systemctl stop cloudflared.service
+
+# Start tunnel
+sudo systemctl start cloudflared.service
+```
+
+#### Updating Tunnel Configuration
+
+If you need to change the tunnel token or configuration:
+
+1. **Update the token**:
+   ```bash
+   sudo nano /etc/cloudflared/tunnel_token
+   ```
+
+2. **Update the systemd service**:
+   ```bash
+   sudo nano /etc/systemd/system/cloudflared.service
+   # Update the token in ExecStart line
+   ```
+
+3. **Reload and restart**:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart cloudflared.service
+   ```
+
+#### Updating cloudflared
+
+If cloudflared was installed via yum, you can update it using:
+
+```bash
+# Update cloudflared package
+sudo yum update -y cloudflared
+
+# Restart the service
+sudo systemctl restart cloudflared.service
+```
+
+#### Removing Cloudflare Tunnel
+
+If you want to remove cloudflared:
+
+```bash
+# Stop and disable service
+sudo systemctl stop cloudflared.service
+sudo systemctl disable cloudflared.service
+
+# Remove service file
+sudo rm /etc/systemd/system/cloudflared.service
+sudo systemctl daemon-reload
+
+# Remove package (if installed via yum)
+sudo yum remove -y cloudflared
+
+# Or remove binary (if installed from GitHub)
+sudo rm /usr/local/bin/cloudflared
+
+# Remove config and repository
+sudo rm -rf /etc/cloudflared
+sudo rm /etc/yum.repos.d/cloudflare.repo
+
+# Remove sudoers file
+sudo rm /etc/sudoers.d/cloudflared
+```
+
+### Security Considerations
+
+#### EC2 Security Groups
+
+With Cloudflare Tunnel, you can **remove** public access to port 8080 in your EC2 security group:
+
+1. Go to AWS EC2 Console → Security Groups
+2. Find your instance's security group
+3. **Remove** the inbound rule for port 8080
+4. Keep only SSH (port 22) for management
+
+This ensures your API is **only** accessible through Cloudflare, not directly.
+
+#### Cloudflare Access (Optional)
+
+For additional security, you can add authentication:
+
+1. In Cloudflare Dashboard, go to **Access** → **Applications**
+2. Click **Add an application**
+3. Select **Self-hosted**
+4. Configure authentication (Google, GitHub, email OTP, etc.)
+5. Apply the policy to your API subdomain
+
+Now users must authenticate before accessing your API.
+
+### Troubleshooting Cloudflare Tunnel
+
+#### Tunnel Not Connecting
+
+**Check service status**:
+```bash
+systemctl status cloudflared.service
+journalctl -u cloudflared.service -n 50
+```
+
+**Common issues**:
+- Invalid token: Verify token in `/etc/cloudflared/tunnel_token`
+- Network issues: Check internet connectivity from EC2
+- Cloudflare outage: Check https://www.cloudflarestatus.com/
+
+#### API Not Accessible
+
+**Check API is running locally**:
+```bash
+curl http://localhost:8080/health
+```
+
+**Check tunnel configuration in Cloudflare Dashboard**:
+- Verify public hostname is configured
+- Ensure service URL is `localhost:8080`
+- Check tunnel status shows "HEALTHY"
+
+**Check DNS propagation**:
+```bash
+dig api.your-domain.com
+nslookup api.your-domain.com
+```
+
+#### Logs Show Connection Errors
+
+**Check API port matches**:
+- Verify API is listening on the correct port (default 8080)
+- Check `.env` file: `cat /opt/english-learning-bot/.env | grep API_PORT`
+- Ensure tunnel is configured for the same port
+
+**Check firewall rules**:
+```bash
+# On Amazon Linux 2, firewalld should allow localhost connections
+sudo systemctl status firewalld
+```
+
+### Performance and Monitoring
+
+#### View Tunnel Analytics
+
+In Cloudflare Dashboard:
+1. Go to **Networks** → **Tunnels**
+2. Click on your tunnel
+3. View **Analytics** tab for:
+   - Request count
+   - Bandwidth usage
+   - Response times
+   - Error rates
+
+#### Resource Usage
+
+Cloudflared is lightweight:
+- **Memory**: ~20-30MB
+- **CPU**: <5% under normal load
+- **Network**: Minimal overhead (compression enabled)
+
+#### Rate Limiting
+
+Configure rate limiting in Cloudflare:
+1. Go to **Security** → **WAF**
+2. Create custom rules for your API
+3. Set rate limits per IP or globally
 
 ## Useful Commands
 
@@ -490,6 +775,21 @@ For production monitoring, consider setting up AWS CloudWatch:
 - Set up alerts for service failures
 
 ## FAQ
+
+### Q: Do I need to use Cloudflare Tunnel?
+A: No, Cloudflare Tunnel is optional. You can expose your API directly by:
+- Opening port 8080 in EC2 security group
+- Using an Elastic IP or domain pointing to your EC2
+- Setting up your own reverse proxy (nginx, Apache)
+
+However, Cloudflare Tunnel provides:
+- Better security (no exposed ports)
+- Free DDoS protection
+- Automatic HTTPS
+- Built-in access control options
+
+### Q: Can I use Cloudflare Tunnel for the Telegram bot too?
+A: The Telegram bot doesn't need Cloudflare Tunnel because it uses polling (outbound connections only) rather than webhooks. Only the API needs public access.
 
 ### Q: How do I deploy to a different branch?
 A: Edit `.github/workflows/release.yml` and change `branches: [main]` to your desired branch.
