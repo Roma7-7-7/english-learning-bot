@@ -11,7 +11,7 @@ import (
 
 type (
 	DB struct {
-		URL string `required:"false"`
+		Path string `required:"false" default:"./data/english_learning.db?cache=shared&mode=rwc"`
 	}
 
 	CORS struct {
@@ -27,7 +27,7 @@ type (
 	Cookie struct {
 		Path            string        `envconfig:"CPATH" default:"/"` // not using PATH here because it may conflict with os.Path
 		Domain          string        `envconfig:"DOMAIN" required:"true"`
-		AuthExpiresIn   time.Duration `envconfig:"AUTH_EXPIRES_IN" default:"15m"`
+		AuthExpiresIn   time.Duration `envconfig:"AUTH_EXPIRES_IN" default:"720h"`
 		AccessExpiresIn time.Duration `envconfig:"ACCESS_EXPIRES_IN" default:"24h"`
 	}
 
@@ -85,7 +85,6 @@ func NewAPI(ctx context.Context) (*API, error) {
 
 func setAPIProdConfig(ctx context.Context, target *API) error {
 	parameters, err := FetchAWSParams(ctx,
-		"/english-learning-api/prod/db_url",
 		"/english-learning-api/prod/secret",
 		"/english-learning-api/prod/telegram_token",
 		"/english-learning-api/prod/allowed_chat_ids",
@@ -96,8 +95,6 @@ func setAPIProdConfig(ctx context.Context, target *API) error {
 
 	for name, value := range parameters {
 		switch name {
-		case "/english-learning-api/prod/db_url":
-			target.DB.URL = value
 		case "/english-learning-api/prod/secret":
 			target.HTTP.JWT.Secret = value
 		case "/english-learning-api/prod/telegram_token":
@@ -114,7 +111,7 @@ func setAPIProdConfig(ctx context.Context, target *API) error {
 }
 
 func validateAPI(target *API) error {
-	if target.DB.URL == "" {
+	if target.DB.Path == "" {
 		return errors.New("db url is required")
 	}
 	if target.HTTP.JWT.Secret == "" {

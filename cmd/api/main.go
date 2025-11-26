@@ -55,7 +55,7 @@ func run(ctx context.Context) int {
 	}
 	log := mustLogger(conf.Dev)
 
-	db, err := sql.Open("sqlite3", conf.DB.URL)
+	db, err := sql.Open("sqlite3", conf.DB.Path)
 	if err != nil {
 		log.ErrorContext(ctx, "failed to create database connection pool", "error", err)
 		return exitCodeDBConnect

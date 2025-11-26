@@ -67,7 +67,7 @@ func run(ctx context.Context) int {
 	)
 	defer log.InfoContext(ctx, "bot is stopped")
 
-	db, err := sql.Open("sqlite3", conf.DBURL)
+	db, err := sql.Open("sqlite3", conf.DBPath)
 	if err != nil {
 		log.ErrorContext(ctx, "create database connection", "error", err)
 		return exitCodeDBConnect
