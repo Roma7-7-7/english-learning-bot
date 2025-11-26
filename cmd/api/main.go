@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
+	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
 
@@ -55,7 +55,7 @@ func run(ctx context.Context) int {
 	}
 	log := mustLogger(conf.Dev)
 
-	db, err := sql.Open("sqlite3", conf.DB.URL)
+	db, err := sql.Open("sqlite3", conf.DB.Path)
 	if err != nil {
 		log.ErrorContext(ctx, "failed to create database connection pool", "error", err)
 		return exitCodeDBConnect

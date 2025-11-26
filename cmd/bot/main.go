@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
+	sqlrepo "github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/Roma7-7-7/english-learning-bot/internal/schedule"
 	"github.com/Roma7-7-7/english-learning-bot/internal/telegram"
 )
@@ -67,7 +67,7 @@ func run(ctx context.Context) int {
 	)
 	defer log.InfoContext(ctx, "bot is stopped")
 
-	db, err := sql.Open("sqlite3", conf.DBURL)
+	db, err := sql.Open("sqlite3", conf.DBPath)
 	if err != nil {
 		log.ErrorContext(ctx, "create database connection", "error", err)
 		return exitCodeDBConnect

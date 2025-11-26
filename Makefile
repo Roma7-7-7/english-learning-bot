@@ -145,28 +145,6 @@ clean: ## Remove build artifacts
 	@echo "Cleaned build directory"
 
 # ==========================================
-# Docker
-# ==========================================
-
-docker-build: ## Build Docker image
-	docker build -t english-learning-bot .
-
-docker-run: ## Run Docker container
-	docker run --network shared \
-		-e ENV="$(ENV)" \
-		-e TELEGRAM_TOKEN="$(TELEGRAM_TOKEN)" \
-		-e ALLOWED_CHAT_IDS="$(ALLOWED_CHAT_IDS)" \
-		-e DB_URL="$(DB_URL)" \
-		-e PUBLISH_INTERVAL="$(PUBLISH_INTERVAL)" \
-		--restart always -d \
-		--name english-learning-bot \
-		english-learning-bot
-
-docker-compose: ## Run with docker-compose
-	docker-compose down
-	docker-compose up -d
-
-# ==========================================
 # Development
 # ==========================================
 

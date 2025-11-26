@@ -73,28 +73,17 @@ print_success "Systemd services installed"
 print_step "Creating .env file template"
 if [ ! -f "${INSTALL_DIR}/.env" ]; then
     cat > "${INSTALL_DIR}/.env" << 'ENVEOF'
-# Telegram Bot Configuration
-BOT_TOKEN=your_telegram_bot_token_here
-BOT_ALLOWED_CHAT_IDS=your_chat_id_here
+# Bot Configuration
+BOT_DB_PATH=file:/opt/english-learning-bot/data/english_learning.db?cache=shared&mode=rwc
 
 # API Configuration
-API_PORT=8080
-API_HOST=0.0.0.0
-API_JWT_SECRET=your_jwt_secret_here
+API_DB_PATH=file:/opt/english-learning-bot/data/english_learning.db?cache=shared&mode=rwc
+API_HTTP_CORS_ALLOW_ORIGINS=https://bot.domain
+API_HTTP_JWT_AUDIENCE=https://api.bot.domain
+API_HTTP_COOKIE_DOMAIN=bot.domain
 
-# Database Configuration
-DB_TYPE=sqlite
-DB_PATH=./data/english_learning.db
-
-# Scheduling Configuration (optional)
-SCHEDULE_ENABLED=true
-SCHEDULE_INTERVAL=4h
-SCHEDULE_START_HOUR=9
-SCHEDULE_END_HOUR=22
-SCHEDULE_TIMEZONE=America/New_York
-
-# Logging
-LOG_LEVEL=info
+# AWS
+AWS_REGION=eu-central-1
 ENVEOF
     chown ec2-user:ec2-user "${INSTALL_DIR}/.env"
     print_warning ".env file created - YOU MUST EDIT THIS FILE WITH YOUR CREDENTIALS"

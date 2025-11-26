@@ -14,7 +14,7 @@ type (
 	WordCheckSchedule struct {
 		PublishInterval time.Duration `envconfig:"PUBLISH_INTERVAL" default:"15m"`
 		HourFrom        int           `envconfig:"HOUR_FROM" default:"9"`
-		HourTo          int           `envconfig:"HOUR_TO" default:"21"`
+		HourTo          int           `envconfig:"HOUR_TO" default:"22"`
 		Location        string        `envconfig:"LOCATION" default:"Europe/Kyiv"`
 	}
 
@@ -22,7 +22,7 @@ type (
 		Dev            bool              `default:"false"`
 		TelegramToken  string            `envconfig:"TELEGRAM_TOKEN" default:""`
 		AllowedChatIDs []int64           `envconfig:"ALLOWED_CHAT_IDS" default:""`
-		DBURL          string            `envconfig:"DB_URL" default:""`
+		DBPath         string            `envconfig:"DB_PATH" default:"./data/english_learning.db?cache=shared&mode=rwc"`
 		Schedule       WordCheckSchedule `envconfig:"SCHEDULE"`
 	}
 )
@@ -59,12 +59,12 @@ func GetBot(ctx context.Context) (*Bot, error) {
 }
 
 func validateBot(conf *Bot) (*Bot, error) {
-	if conf.DBURL == "" {
+	if conf.DBPath == "" {
 		return nil, errors.New("db url is required")
 	}
 
 	errs := make([]string, 0, 10) //nolint:mnd // 10 is a reasonable default value
-	if conf.DBURL == "" {
+	if conf.DBPath == "" {
 		errs = append(errs, "db url is required")
 	}
 	if conf.Schedule.PublishInterval == 0 {
@@ -94,7 +94,6 @@ func setBotProdConfig(ctx context.Context, target *Bot) error {
 	parameters, err := FetchAWSParams(ctx,
 		"/english-learning-bot/prod/telegram-token",
 		"/english-learning-bot/prod/allowed-chat-ids",
-		"/english-learning-bot/prod/db-url",
 	)
 	if err != nil {
 		return fmt.Errorf("get parameters: %w", err)
@@ -109,8 +108,6 @@ func setBotProdConfig(ctx context.Context, target *Bot) error {
 			if err != nil {
 				return err
 			}
-		case "/english-learning-bot/prod/db-url":
-			target.DBURL = value
 		}
 	}
 

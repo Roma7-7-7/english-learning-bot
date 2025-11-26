@@ -118,7 +118,7 @@ Create a `.env` file with the following variables:
 # Bot Configuration
 BOT_TELEGRAM_TOKEN=your_telegram_bot_token
 BOT_ALLOWED_CHAT_IDS=123456789,987654321
-BOT_DB_URL=./data/db.sqlite
+BOT_DB_PATH=./data/db.sqlite
 BOT_DEV=false
 
 # Schedule Configuration  
@@ -130,7 +130,7 @@ BOT_SCHEDULE_TIMEZONE=Europe/London
 # API Configuration
 API_TELEGRAM_TOKEN=your_telegram_bot_token
 API_TELEGRAM_ALLOWED_CHAT_IDS=123456789,987654321
-API_DB_URL=./data/db.sqlite
+API_DB_PATH=./data/db.sqlite
 API_DEV=false
 API_SERVER_ADDR=:8080
 API_SERVER_READ_HEADER_TIMEOUT=30s
