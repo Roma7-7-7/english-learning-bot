@@ -86,8 +86,8 @@ func NewAPI(ctx context.Context) (*API, error) {
 func setAPIProdConfig(ctx context.Context, target *API) error {
 	parameters, err := FetchAWSParams(ctx,
 		"/english-learning-api/prod/secret",
-		"/english-learning-api/prod/telegram_token",
-		"/english-learning-api/prod/allowed_chat_ids",
+		"/english-learning-api/prod/telegram-token",
+		"/english-learning-api/prod/allowed-chat-ids",
 	)
 	if err != nil {
 		return fmt.Errorf("get parameters: %w", err)
@@ -97,9 +97,9 @@ func setAPIProdConfig(ctx context.Context, target *API) error {
 		switch name {
 		case "/english-learning-api/prod/secret":
 			target.HTTP.JWT.Secret = value
-		case "/english-learning-api/prod/telegram_token":
+		case "/english-learning-api/prod/telegram-token":
 			target.Telegram.Token = value
-		case "/english-learning-api/prod/allowed_chat_ids":
+		case "/english-learning-api/prod/allowed-chat-ids":
 			target.Telegram.AllowedChatIDs, err = parseChatIDs(value)
 			if err != nil {
 				return err

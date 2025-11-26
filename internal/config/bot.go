@@ -94,7 +94,6 @@ func setBotProdConfig(ctx context.Context, target *Bot) error {
 	parameters, err := FetchAWSParams(ctx,
 		"/english-learning-bot/prod/telegram-token",
 		"/english-learning-bot/prod/allowed-chat-ids",
-		"/english-learning-bot/prod/db-url",
 	)
 	if err != nil {
 		return fmt.Errorf("get parameters: %w", err)
@@ -109,8 +108,6 @@ func setBotProdConfig(ctx context.Context, target *Bot) error {
 			if err != nil {
 				return err
 			}
-		case "/english-learning-bot/prod/db-url":
-			target.DBPath = value
 		}
 	}
 
