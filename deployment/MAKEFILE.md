@@ -171,12 +171,7 @@ make ci-build
 
 If you need to build Linux binaries locally on macOS, you have three options:
 
-#### Option 1: Use Docker
-```bash
-docker run --rm -v "$PWD":/app -w /app golang:1.24 make build-release
-```
-
-#### Option 2: Switch to Pure-Go SQLite
+#### Switch to Pure-Go SQLite
 Replace `github.com/mattn/go-sqlite3` with `modernc.org/sqlite` (pure Go, no CGO):
 
 ```go
