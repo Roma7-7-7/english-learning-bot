@@ -87,19 +87,19 @@ build-bot: build-bot-local
 build-backend: build-backend-local
 
 # ==========================================
-# Release Builds (Linux x86_64)
+# Release Builds (Linux ARM 64)
 # ==========================================
 
-build-api-release: deps ## Build API for production (Linux x86_64)
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=amd64 \
+build-api-release: deps ## Build API for production (Linux ARM 64)
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=arm64 \
 	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(API_BIN) ./cmd/api
 	@echo "Built API: $(API_BIN)"
 	@echo "  Version: $(VERSION)"
 	@echo "  Build Time: $(BUILD_TIME)"
 	@echo "  Target: linux/amd64"
 
-build-bot-release: deps ## Build bot for production (Linux x86_64)
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=amd64 \
+build-bot-release: deps ## Build bot for production (Linux ARM 64)
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=arm64 \
 	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(BOT_BIN) ./cmd/bot
 	@echo "Built Bot: $(BOT_BIN)"
 	@echo "  Version: $(VERSION)"
