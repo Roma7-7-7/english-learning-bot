@@ -130,9 +130,9 @@ make build-api VERSION=v1.0.0 BUILD_TIME=20250109
 
 ## CGO and Cross-Compilation
 
-### Why CGO is Required
+### Why CGO was Required
 
-This project uses `github.com/mattn/go-sqlite3`, which requires CGO to interface with the native SQLite C library.
+This project used `github.com/mattn/go-sqlite3`, which requires CGO to interface with the native SQLite C library. However, we migrated to modernc.org/sqlite so it is no longer needed
 
 **Implications:**
 - ✅ Local builds work natively (macOS → macOS, Linux → Linux)

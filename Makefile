@@ -20,8 +20,8 @@ BIN_DIR := ./bin
 API_BIN := $(BIN_DIR)/english-learning-api
 BOT_BIN := $(BIN_DIR)/english-learning-bot
 
-# CGO is required for go-sqlite3
-CGO_ENABLED := 1
+# CGO was required for go-sqlite3 but we switched to modernc.org/sqlite
+CGO_ENABLED := 0
 
 # Build flags
 LDFLAGS := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)
