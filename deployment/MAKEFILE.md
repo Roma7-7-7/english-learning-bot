@@ -53,13 +53,13 @@ make info                # Show build configuration
 ### 2. Production Builds
 
 **`make build-api-release`**
-- Builds API for Linux x86_64
+- Builds API for Linux ARM 64
 - Strips debug symbols (`-w -s`) for smaller binaries
 - Includes version info
 - **Note**: Cannot be run on macOS due to CGO cross-compilation limitations (see CGO section below)
 
 **`make build-bot-release`**
-- Builds bot for Linux x86_64
+- Builds bot for Linux ARM 64
 - Strips debug symbols (`-w -s`) for smaller binaries
 - Includes version info
 - **Note**: Cannot be run on macOS due to CGO cross-compilation limitations

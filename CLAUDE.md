@@ -93,7 +93,7 @@ make build-backend      # Build both
 make build-web          # Build frontend
 make build              # Build everything
 
-# Production builds (Linux x86_64 - used by CI)
+# Production builds (Linux ARM 64 - used by CI)
 make build-release      # Build both binaries (requires Linux or Docker)
 
 # With version info
