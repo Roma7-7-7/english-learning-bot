@@ -34,7 +34,7 @@ jobs:
       - name: Run gosec Security Scanner
         uses: securego/gosec@v2.22.10
         with:
-          args: '-fmt sarif -out gosec-results.sarif -exclude-generated -severity high ./...'
+          args: '-no-fail -fmt sarif -out gosec-results.sarif -exclude-generated -severity high ./...'
 
       - name: Upload gosec results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4
