@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -32,7 +32,7 @@ jobs:
           go-version: '1.25.x'
 
       - name: Run gosec Security Scanner
-        uses: securego/gosec@v2.22.10
+        uses: securego/gosec@v2.22.11
         with:
           args: '-no-fail -fmt sarif -out gosec-results.sarif -exclude-generated -severity high ./...'
 
@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload gosec report
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: gosec-report
           path: gosec-report.json
