@@ -70,9 +70,10 @@ func NewAPI(ctx context.Context) (*API, error) {
 		return nil, fmt.Errorf("parse api environment: %w", err)
 	}
 
-	if !res.Dev {
+	// In dev mode or if all required params are set via env vars, skip SSM
+	if !res.Dev && !hasAPIRequiredParams(res) {
 		if err := setAPIProdConfig(ctx, res); err != nil {
-			return nil, fmt.Errorf("set api prod config: %w", err)
+			return nil, fmt.Errorf("set api prod config (set required env vars to skip SSM): %w", err)
 		}
 	}
 
@@ -81,6 +82,13 @@ func NewAPI(ctx context.Context) (*API, error) {
 	}
 
 	return res, nil
+}
+
+// hasAPIRequiredParams checks if all required parameters are already set via environment variables
+func hasAPIRequiredParams(conf *API) bool {
+	return conf.HTTP.JWT.Secret != "" &&
+		conf.Telegram.Token != "" &&
+		len(conf.Telegram.AllowedChatIDs) > 0
 }
 
 func setAPIProdConfig(ctx context.Context, target *API) error {

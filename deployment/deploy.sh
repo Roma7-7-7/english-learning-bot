@@ -53,6 +53,24 @@ fi
 
 log_colored "New version available! Deploying $LATEST_RELEASE..." "$YELLOW"
 
+# Detect architecture
+ARCH=$(uname -m)
+case "${ARCH}" in
+    x86_64)
+        ARCH_SUFFIX="amd64"
+        ;;
+    aarch64|arm64)
+        ARCH_SUFFIX="arm64"
+        ;;
+    *)
+        log_colored "Unsupported architecture: ${ARCH}" "$RED"
+        log_colored "Supported architectures: x86_64 (amd64), aarch64/arm64" "$RED"
+        exit 1
+        ;;
+esac
+
+log "Detected architecture: ${ARCH} (will download ${ARCH_SUFFIX} binaries)"
+
 # Create temporary directory for downloads
 TMP_DIR=$(mktemp -d)
 trap "rm -rf $TMP_DIR" EXIT
@@ -72,10 +90,14 @@ download_file() {
     return 0
 }
 
-# Download all required files
-download_file "english-learning-api" || exit 1
-download_file "english-learning-bot" || exit 1
+# Download architecture-specific binaries
+download_file "english-learning-api-${ARCH_SUFFIX}" || exit 1
+download_file "english-learning-bot-${ARCH_SUFFIX}" || exit 1
 download_file "VERSION" || exit 1
+
+# Rename binaries to remove architecture suffix for local use
+mv "${TMP_DIR}/english-learning-api-${ARCH_SUFFIX}" "${TMP_DIR}/english-learning-api"
+mv "${TMP_DIR}/english-learning-bot-${ARCH_SUFFIX}" "${TMP_DIR}/english-learning-bot"
 
 # Make binaries executable
 chmod +x "${TMP_DIR}/english-learning-api"

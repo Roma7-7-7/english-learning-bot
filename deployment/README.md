@@ -1,6 +1,34 @@
 # Deployment Guide
 
-This directory contains all the necessary files and documentation for deploying the English Learning Bot to AWS EC2 (Amazon Linux 2).
+This directory contains scripts and configuration files for deploying English Learning Bot.
+
+## Deployment Options
+
+**Choose the deployment approach that fits your needs:**
+
+### Simple Deployment (Recommended for most users)
+- ✅ Works on any Linux server (Hetzner, Contabo, OVH, etc.)
+- ✅ No AWS dependencies or costs
+- ✅ Simple `.env` file configuration
+- ✅ Manual backups (SCP from your laptop)
+- ✅ Lower costs (~$5/month vs ~$15/month)
+
+**[📖 Simple Deployment Guide →](SIMPLE-DEPLOYMENT.md)**
+
+### AWS EC2 Deployment
+- ✅ Automated S3 backups
+- ✅ AWS SSM Parameter Store for secrets
+- ✅ Integrated with AWS ecosystem
+- ⚠️ Higher costs
+- ⚠️ More complex setup
+
+**[📖 AWS EC2 Deployment Guide →](#ec2-deployment-guide)** (see below)
+
+---
+
+# EC2 Deployment Guide
+
+This guide covers deployment to AWS EC2 instances with full AWS integration.
 
 ## Overview
 
