@@ -150,6 +150,29 @@ The application uses environment-based configuration with prefixes:
 - `API_*` - API server configuration
 - `VITE_*` - Frontend build configuration
 
+### Configuration Sources
+
+Both Bot and API configurations support two modes:
+
+1. **Environment Variables** (recommended for simple deployments):
+   - Set all required variables in `.env` file or environment
+   - Skips AWS SSM lookup entirely
+   - Works on any server without AWS dependencies
+
+2. **AWS SSM Parameter Store** (production EC2 deployments):
+   - If required env vars are not set and `DEV=false`
+   - Fetches secrets from SSM parameters
+   - Requires IAM permissions for `ssm:GetParameters`
+
+**Bot Required Parameters** (via env or SSM):
+- `BOT_TELEGRAM_TOKEN` - Telegram bot token
+- `BOT_ALLOWED_CHAT_IDS` - Comma-separated allowed chat IDs
+
+**API Required Parameters** (via env or SSM):
+- `API_HTTP_JWT_SECRET` - JWT signing secret
+- `API_TELEGRAM_TOKEN` - Telegram bot token (for sending notifications)
+- `API_TELEGRAM_ALLOWED_CHAT_IDS` - Comma-separated allowed chat IDs
+
 ### Key Configuration Areas
 1. **Database**: Connection strings, timeouts
 2. **Telegram**: Bot token, allowed chat IDs
@@ -238,25 +261,52 @@ The application uses environment-based configuration with prefixes:
 
 ## Deployment Notes
 
+### Deployment Options
+
+The project supports two deployment modes:
+
+1. **Simple Deployment** (recommended for most users)
+   - Works on any Linux server (Hetzner, Contabo, OVH, etc.)
+   - No AWS dependencies
+   - Configuration via `.env` file
+   - Manual backups (SCP from local machine)
+   - Lower costs (~$5/month vs ~$15/month)
+   - See `deployment/SIMPLE-DEPLOYMENT.md`
+
+2. **AWS EC2 Deployment**
+   - Automated S3 backups
+   - AWS SSM Parameter Store for secrets
+   - IAM role-based authentication
+   - See `deployment/README.md` (EC2 section)
+
+### Multi-Architecture Support
+
+The build system produces binaries for both architectures:
+
+- `english-learning-api-amd64` / `english-learning-bot-amd64` - For Intel/AMD x86_64 processors (most VPS providers)
+- `english-learning-api-arm64` / `english-learning-bot-arm64` - For ARM64 processors (AWS Graviton, etc.)
+
+The `deploy.sh` script automatically detects the server architecture using `uname -m` and downloads the correct binaries.
+
 ### Automated CI/CD
 
-The project includes automated deployment for AWS EC2 (Amazon Linux 2):
-
-- **GitHub Actions**: Builds binaries on push to `main`, creates releases with version info
-- **EC2 Deployment**: Systemd services with automatic hourly updates from releases
+- **GitHub Actions**: Builds both AMD64 and ARM64 binaries on push to `main`, creates releases with version info
+- **Deployment**: Systemd services with automatic updates (or manual via `deploy.sh`)
 - **Version Tracking**: Build-time version injection via `-ldflags`, exposed in logs and `/health` endpoint
-- **Documentation**: Complete setup guide in `deployment/README.md`
+- **Documentation**: Complete setup guides in `deployment/` directory
 
 **Key Files**:
-- `.github/workflows/release.yml` - CI/CD workflow
-- `deployment/setup-ec2.sh` - One-command EC2 setup
-- `deployment/deploy.sh` - Automated deployment script
-- `deployment/systemd/*.service` - Systemd service definitions
-- `Makefile` - Unified build system (used by CI and local dev)
+- `.github/workflows/release.yml` - CI/CD workflow (multi-arch builds)
+- `deployment/setup-simple.sh` - Simple deployment setup
+- `deployment/setup-ec2.sh` - AWS EC2 setup
+- `deployment/deploy.sh` - Automated deployment script (auto-detects architecture)
+- `deployment/systemd/*-simple.service` - Simple deployment systemd services
+- `deployment/systemd/*.service` - EC2 systemd services
+- `Makefile` - Unified build system (builds both architectures for CI)
 
 ### Production Considerations
-- Configure proper backup strategies
+- Configure proper backup strategies (automated S3 or manual SCP)
 - Monitor resource usage and performance
 - Set up alerting for critical failures
 - Use HTTPS in production environments
-- See `deployment/README.md` for complete deployment documentation
+- See `deployment/README.md` or `deployment/SIMPLE-DEPLOYMENT.md` for complete documentation

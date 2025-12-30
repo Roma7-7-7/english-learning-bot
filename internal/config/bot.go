@@ -49,13 +49,19 @@ func GetBot(ctx context.Context) (*Bot, error) {
 		return nil, fmt.Errorf("parse bot environment: %w", err)
 	}
 
-	if !res.Dev {
+	// In dev mode or if all required params are set via env vars, skip SSM
+	if !res.Dev && !hasBotRequiredParams(res) {
 		if err := setBotProdConfig(ctx, res); err != nil {
-			return nil, fmt.Errorf("set bot prod config: %w", err)
+			return nil, fmt.Errorf("set bot prod config (set required env vars to skip SSM): %w", err)
 		}
 	}
 
 	return validateBot(res)
+}
+
+// hasBotRequiredParams checks if all required parameters are already set via environment variables
+func hasBotRequiredParams(conf *Bot) bool {
+	return conf.TelegramToken != "" && len(conf.AllowedChatIDs) > 0
 }
 
 func validateBot(conf *Bot) (*Bot, error) {

@@ -1,0 +1,35 @@
+[Unit]
+Description=English Learning API Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{SERVICE_USER}}
+Group={{SERVICE_USER}}
+WorkingDirectory=/opt/english-learning-bot
+
+# Load environment variables from file
+EnvironmentFile=/opt/english-learning-bot/.env
+
+ExecStart=/opt/english-learning-bot/bin/english-learning-api
+
+# Restart configuration
+Restart=always
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=english-learning-api
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

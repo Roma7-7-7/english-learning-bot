@@ -87,27 +87,33 @@ build-bot: build-bot-local
 build-backend: build-backend-local
 
 # ==========================================
-# Release Builds (Linux ARM 64)
+# Release Builds (Multi-Architecture)
 # ==========================================
 
-build-api-release: deps ## Build API for production (Linux ARM 64)
+build-api-release: deps ## Build API for production (AMD64 and ARM64)
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=amd64 \
+	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(API_BIN)-amd64 ./cmd/api
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=arm64 \
-	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(API_BIN) ./cmd/api
-	@echo "Built API: $(API_BIN)"
+	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(API_BIN)-arm64 ./cmd/api
+	@echo "Built API binaries:"
+	@echo "  $(API_BIN)-amd64 (linux/amd64)"
+	@echo "  $(API_BIN)-arm64 (linux/arm64)"
 	@echo "  Version: $(VERSION)"
 	@echo "  Build Time: $(BUILD_TIME)"
-	@echo "  Target: linux/amd64"
 
-build-bot-release: deps ## Build bot for production (Linux ARM 64)
+build-bot-release: deps ## Build bot for production (AMD64 and ARM64)
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=amd64 \
+	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(BOT_BIN)-amd64 ./cmd/bot
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=arm64 \
-	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(BOT_BIN) ./cmd/bot
-	@echo "Built Bot: $(BOT_BIN)"
+	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(BOT_BIN)-arm64 ./cmd/bot
+	@echo "Built Bot binaries:"
+	@echo "  $(BOT_BIN)-amd64 (linux/amd64)"
+	@echo "  $(BOT_BIN)-arm64 (linux/arm64)"
 	@echo "  Version: $(VERSION)"
 	@echo "  Build Time: $(BUILD_TIME)"
-	@echo "  Target: linux/amd64"
 
 build-release: build-api-release build-bot-release version-file ## Build all binaries for production
-	@chmod +x $(API_BIN) $(BOT_BIN)
+	@chmod +x $(BIN_DIR)/*
 	@ls -lh $(BIN_DIR)
 
 # ==========================================

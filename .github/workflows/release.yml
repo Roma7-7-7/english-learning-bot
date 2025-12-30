@@ -66,16 +66,21 @@ jobs:
             ${{ github.event.head_commit.message }}
 
             **Binaries:**
-            - `english-learning-api` - API server
-            - `english-learning-bot` - Telegram bot
+            - `english-learning-api-amd64` - API server for AMD64/x86_64 (Intel/AMD processors)
+            - `english-learning-api-arm64` - API server for ARM64 (AWS Graviton, Apple Silicon, etc.)
+            - `english-learning-bot-amd64` - Telegram bot for AMD64/x86_64
+            - `english-learning-bot-arm64` - Telegram bot for ARM64
             - `VERSION` - Version information
 
             **Deployment:**
+            The deployment scripts will automatically detect your architecture and download the correct binaries.
             On your EC2 instance, the deployment script will automatically pick up this release within an hour.
             Or run manually: `sudo /opt/english-learning-bot/deploy.sh`
           files: |
-            bin/english-learning-api
-            bin/english-learning-bot
+            bin/english-learning-api-amd64
+            bin/english-learning-api-arm64
+            bin/english-learning-bot-amd64
+            bin/english-learning-bot-arm64
             bin/VERSION
           draft: false
           prerelease: false
