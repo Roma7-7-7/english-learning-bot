@@ -5,11 +5,11 @@ on:
     branches:
       - main
     paths:
-      - 'cmd/**'
-      - 'internal/**'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/release.yml'
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/release.yml"
 
 permissions:
   contents: write
@@ -25,7 +25,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
 
       - name: Run tests
         run: make ci-test
@@ -41,7 +41,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
 
       - name: Get version info
         id: version
@@ -63,7 +63,7 @@ jobs:
             Automated release from commit ${{ github.sha }}
 
             **Changes:**
-            ${{ github.event.head_commit.message }}
+            $COMMIT_MESSAGE
 
             **Binaries:**
             - `english-learning-api-amd64` - API server for AMD64/x86_64 (Intel/AMD processors)
@@ -86,3 +86,4 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
