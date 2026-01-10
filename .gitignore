@@ -38,3 +38,6 @@ tmp/
 **/.DS_Store
 package
 english-learning-release.zip
+
+# AI-only documents and notes
+.ai/

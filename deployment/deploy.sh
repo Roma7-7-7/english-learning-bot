@@ -29,7 +29,7 @@ log "Starting deployment check..."
 log "Fetching latest release information..."
 LATEST_RELEASE=$(curl -sf "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
-if [ -z "$LATEST_RELEASE" ]; then
+if [[ -z "$LATEST_RELEASE" ]]; then
     log_colored "Failed to fetch latest release information from GitHub" "$RED"
     exit 1
 fi
@@ -38,7 +38,7 @@ log "Latest release: $LATEST_RELEASE"
 
 # Check current version
 CURRENT_VERSION=""
-if [ -f "$VERSION_FILE" ]; then
+if [[ -f "$VERSION_FILE" ]]; then
     CURRENT_VERSION=$(cat "$VERSION_FILE")
     log "Current version: $CURRENT_VERSION"
 else
@@ -46,7 +46,7 @@ else
 fi
 
 # Compare versions
-if [ "$CURRENT_VERSION" = "$LATEST_RELEASE" ]; then
+if [[ "$CURRENT_VERSION" = "$LATEST_RELEASE" ]]; then
     log_colored "Already running the latest version ($LATEST_RELEASE). No deployment needed." "$GREEN"
     exit 0
 fi
@@ -109,7 +109,7 @@ sudo systemctl stop english-learning-api.service || log_colored "API service was
 sudo systemctl stop english-learning-bot.service || log_colored "Bot service was not running" "$YELLOW"
 
 # Backup old binaries (optional but recommended)
-if [ -f "${BIN_DIR}/english-learning-api" ]; then
+if [[ -f "${BIN_DIR}/english-learning-api" ]]; then
     log "Backing up old binaries..."
     mkdir -p "${INSTALL_DIR}/backups"
     BACKUP_DIR="${INSTALL_DIR}/backups/backup-$(date +%Y%m%d-%H%M%S)"
@@ -143,7 +143,7 @@ sleep 2
 API_STATUS=$(sudo systemctl is-active english-learning-api.service)
 BOT_STATUS=$(sudo systemctl is-active english-learning-bot.service)
 
-if [ "$API_STATUS" = "active" ] && [ "$BOT_STATUS" = "active" ]; then
+if [[ "$API_STATUS" = "active" && "$BOT_STATUS" = "active" ]]; then
     log_colored "Deployment successful! Both services are running." "$GREEN"
     log "API Status: $API_STATUS"
     log "Bot Status: $BOT_STATUS"
