@@ -5,19 +5,18 @@ on:
     branches:
       - main
     paths:
-      - 'cmd/**'
-      - 'internal/**'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/release.yml'
-
-permissions:
-  contents: write
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/release.yml"
 
 jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -25,7 +24,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
 
       - name: Run tests
         run: make ci-test
@@ -34,6 +33,8 @@ jobs:
     name: Build and Release Binaries
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -41,7 +42,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
 
       - name: Get version info
         id: version
@@ -63,7 +64,7 @@ jobs:
             Automated release from commit ${{ github.sha }}
 
             **Changes:**
-            ${{ github.event.head_commit.message }}
+            $COMMIT_MESSAGE
 
             **Binaries:**
             - `english-learning-api-amd64` - API server for AMD64/x86_64 (Intel/AMD processors)
@@ -86,3 +87,4 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
