@@ -6,6 +6,8 @@ description: Shell script development guidelines and best practices
 
 This project follows strict shell scripting standards for maintainability, safety, and code quality.
 
+> **📝 Maintenance Note**: When adding new shell scripts or changing shell scripting patterns in the project, update this skill file. See CLAUDE.md "Documentation Maintenance" section for guidelines.
+
 ## Required Function Pattern
 
 All shell functions in this project must follow this pattern:

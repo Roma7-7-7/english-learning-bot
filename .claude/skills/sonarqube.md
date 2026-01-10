@@ -6,6 +6,8 @@ description: SonarCloud/SonarQube code quality analysis and compliance
 
 This project uses **SonarCloud** for continuous code quality analysis across Go, TypeScript, and Shell scripts.
 
+> **📝 Maintenance Note**: When encountering new SonarQube rules or patterns, add them to this skill file. See CLAUDE.md "Documentation Maintenance" section for guidelines.
+
 ## Checking Issues
 
 ### Public API (Recommended)
