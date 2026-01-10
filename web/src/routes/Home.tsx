@@ -360,22 +360,23 @@ export function Home() {
                           <td className="text-break d-none d-sm-table-cell">
                             {item.word}
                           </td>
-                          <td
-                            className="text-break d-sm-none"
-                            role="button"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => {
-                              setModalState({
-                                show: true,
-                                action: "edit",
-                                word: item.word,
-                                translation: item.translation,
-                                description: item.description,
-                              });
-                            }}
-                            title="Tap to edit"
-                          >
-                            {item.word}
+                          <td className="text-break d-sm-none">
+                            <button
+                              type="button"
+                              className="btn btn-link text-start p-0 text-decoration-none text-reset"
+                              onClick={() => {
+                                setModalState({
+                                  show: true,
+                                  action: "edit",
+                                  word: item.word,
+                                  translation: item.translation,
+                                  description: item.description,
+                                });
+                              }}
+                              title="Tap to edit"
+                            >
+                              {item.word}
+                            </button>
                           </td>
                           <td className="d-none d-md-table-cell text-break">
                             {item.translation}
