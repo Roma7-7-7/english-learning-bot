@@ -22,18 +22,18 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then
+if [[ "$EUID" -ne 0 ]]; then
     echo -e "${RED}Please run as root or with sudo${NC}"
     exit 1
 fi
 
 # Determine which user to run the service as
-if [ -n "$SUDO_USER" ]; then
+if [[ -n "$SUDO_USER" ]]; then
     SERVICE_USER="$SUDO_USER"
 else
     echo -e "${YELLOW}Enter the username to run the service as (default: current user):${NC}"
     read -r SERVICE_USER
-    if [ -z "$SERVICE_USER" ]; then
+    if [[ -z "$SERVICE_USER" ]]; then
         SERVICE_USER=$(whoami)
     fi
 fi
@@ -48,12 +48,12 @@ if ! id "$SERVICE_USER" &>/dev/null; then
 fi
 
 # Check if already installed
-if [ -d "${INSTALL_DIR}" ]; then
+if [[ -d "${INSTALL_DIR}" ]]; then
     echo -e "${YELLOW}Warning: Installation directory ${INSTALL_DIR} already exists${NC}"
 
     # Check if database exists
     DB_FILE="${DATA_DIR}/english_learning.db"
-    if [ -f "$DB_FILE" ]; then
+    if [[ -f "$DB_FILE" ]]; then
         echo -e "${YELLOW}Database found at: ${DB_FILE}${NC}"
 
         # Create backup of existing database
@@ -127,7 +127,7 @@ echo ""
 echo -e "${GREEN}[5/7] Setting up environment file...${NC}"
 ENV_FILE="${INSTALL_DIR}/.env"
 
-if [ -f "$ENV_FILE" ]; then
+if [[ -f "$ENV_FILE" ]]; then
     echo -e "${YELLOW}Environment file already exists at: ${ENV_FILE}${NC}"
     echo -e "${YELLOW}Skipping environment file creation to preserve existing configuration${NC}"
 else
@@ -206,7 +206,7 @@ echo -e "${GREEN}[8/8] Verifying installation...${NC}"
 API_ACTIVE=$(systemctl is-active english-learning-api.service || echo "inactive")
 BOT_ACTIVE=$(systemctl is-active english-learning-bot.service || echo "inactive")
 
-if [ "$API_ACTIVE" = "active" ] && [ "$BOT_ACTIVE" = "active" ]; then
+if [[ "$API_ACTIVE" = "active" && "$BOT_ACTIVE" = "active" ]]; then
     echo "✓ Both services are running"
 else
     echo -e "${YELLOW}⚠ Some services may not be running:${NC}"
@@ -216,7 +216,7 @@ else
 fi
 
 # Check version
-if [ -f "${INSTALL_DIR}/current_version" ]; then
+if [[ -f "${INSTALL_DIR}/current_version" ]]; then
     VERSION=$(cat "${INSTALL_DIR}/current_version")
     echo "✓ Installed version: ${VERSION}"
 fi
@@ -228,7 +228,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Show database backup info if one was created
-if [ -n "${DB_BACKUP_FILE}" ] && [ -f "${DB_BACKUP_FILE}" ]; then
+if [[ -n "${DB_BACKUP_FILE}" && -f "${DB_BACKUP_FILE}" ]]; then
     echo -e "${GREEN}Database Safety Info:${NC}"
     echo "  A backup of your existing database was created at:"
     echo "  ${DB_BACKUP_FILE}"
