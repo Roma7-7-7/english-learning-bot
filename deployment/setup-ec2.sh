@@ -29,7 +29,7 @@ print_error() {
 }
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then
+if [[ "$EUID" -ne 0 ]]; then
     print_error "Please run with sudo: sudo $0"
     exit 1
 fi
@@ -71,7 +71,7 @@ print_success "Systemd services installed"
 
 # Step 4: Create .env file template
 print_step "Creating .env file template"
-if [ ! -f "${INSTALL_DIR}/.env" ]; then
+if [[ ! -f "${INSTALL_DIR}/.env" ]]; then
     cat > "${INSTALL_DIR}/.env" << 'ENVEOF'
 # Bot Configuration
 BOT_DB_PATH=file:/opt/english-learning-bot/data/english_learning.db?cache=shared&mode=rwc
@@ -130,7 +130,7 @@ echo "Example: s3://my-bucket/english-learning-bot/backups"
 echo ""
 read -p "Enter S3 bucket path (or press Enter to skip): " S3_BUCKET_PATH
 
-if [ -n "$S3_BUCKET_PATH" ]; then
+if [[ -n "$S3_BUCKET_PATH" ]]; then
     # Download backup script
     curl -sfL "${REPO_URL}/deployment/backup.sh" -o "${INSTALL_DIR}/backup.sh"
     chmod +x "${INSTALL_DIR}/backup.sh"
@@ -169,7 +169,7 @@ echo -e "${NC}"
 
 print_success "Installation directory: $INSTALL_DIR"
 print_success "Services: english-learning-api, english-learning-bot"
-if [ -f "${INSTALL_DIR}/.backup_config" ]; then
+if [[ -f "${INSTALL_DIR}/.backup_config" ]]; then
     print_success "Database backup: Daily at 20:00 UTC to S3"
 fi
 
@@ -187,7 +187,7 @@ echo "  View logs:                journalctl -u english-learning-api.service -f"
 echo "  Restart services:         systemctl restart english-learning-api.service"
 echo "  Manual deployment:        ${INSTALL_DIR}/deploy.sh"
 echo "  View deployment log:      tail -f ${INSTALL_DIR}/deployment.log"
-if [ -f "${INSTALL_DIR}/.backup_config" ]; then
+if [[ -f "${INSTALL_DIR}/.backup_config" ]]; then
     echo "  Manual backup:            ${INSTALL_DIR}/backup.sh"
     echo "  View backup log:          tail -f ${INSTALL_DIR}/backup.log"
 fi

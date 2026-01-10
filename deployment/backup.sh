@@ -18,7 +18,7 @@ log_error() {
 }
 
 # Check if config exists
-if [ ! -f "$BACKUP_CONFIG" ]; then
+if [[ ! -f "$BACKUP_CONFIG" ]]; then
     log_error "Backup config not found at $BACKUP_CONFIG"
     exit 1
 fi
@@ -26,13 +26,13 @@ fi
 # Load S3 path from config
 source "$BACKUP_CONFIG"
 
-if [ -z "$S3_BUCKET_PATH" ]; then
+if [[ -z "$S3_BUCKET_PATH" ]]; then
     log_error "S3_BUCKET_PATH not set in $BACKUP_CONFIG"
     exit 1
 fi
 
 # Check if database exists
-if [ ! -f "$DB_PATH" ]; then
+if [[ ! -f "$DB_PATH" ]]; then
     log_error "Database not found at $DB_PATH"
     exit 1
 fi
@@ -53,7 +53,7 @@ if ! sqlite3 "$DB_PATH" ".backup '$BACKUP_FILE'"; then
 fi
 
 # Verify backup file was created
-if [ ! -f "$BACKUP_FILE" ]; then
+if [[ ! -f "$BACKUP_FILE" ]]; then
     log_error "Backup file was not created"
     exit 1
 fi
