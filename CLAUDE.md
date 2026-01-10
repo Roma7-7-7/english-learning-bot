@@ -64,7 +64,8 @@ This project includes custom slash commands and skills for Claude Code:
 - `/prep-pr` - Prepare current PR for review by verifying completeness and updating documentation
 
 **Skills:**
-- `shell-scripts` - Shell script development guidelines and SonarQube compliance patterns
+- `shell-scripts` - Shell script development guidelines and best practices
+- `sonarqube` - SonarCloud code quality analysis and compliance (all languages)
 
 See `.claude/commands/` and `.claude/skills/` for implementation details.
 
@@ -126,22 +127,17 @@ make lint
 
 ### Code Quality - SonarCloud
 
-This project uses **SonarCloud** for continuous code quality analysis. SonarCloud analysis runs automatically via GitHub Actions.
+This project uses **SonarCloud** for continuous code quality analysis. See `.claude/skills/sonarqube.md` for:
+- How to check issues via API or Web UI
+- Common SonarQube rules for Go, TypeScript, and Shell
+- How to fix compliance issues
+- CI/CD integration details
 
-**Viewing Issues:**
+**Quick check:**
 ```bash
-# Use the public API to fetch current issues
 curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english-learning-bot&statuses=OPEN,CONFIRMED&sinceLeakPeriod=true&ps=100" | \
   jq -r '.issues[] | "\(.rule) | \(.component) | Line \(.line // "N/A") | \(.message)"'
 ```
-
-Or visit: https://sonarcloud.io/project/issues?id=Roma7-7-7_english-learning-bot (requires authentication)
-
-**For shell script development guidelines**, see `.claude/skills/shell-scripts.md` which covers:
-- SonarQube compliance patterns
-- Required function templates
-- Why we use local variables in each function
-- Common shell script rules and best practices
 
 ## File Organization
 
