@@ -55,13 +55,18 @@ This is a personal English learning platform with three main components:
 - Per-chat scheduling with error handling
 - Graceful shutdown handling
 
-## Claude Code Slash Commands
+## Claude Code Configuration
 
-This project includes custom slash commands for Claude Code:
+This project includes custom slash commands and skills for Claude Code:
+
+**Slash Commands:**
 - `/commit` - Analyze staged changes and create a commit with an appropriate message
 - `/prep-pr` - Prepare current PR for review by verifying completeness and updating documentation
 
-See `.claude/commands/` for implementation details.
+**Skills:**
+- `shell-scripts` - Shell script development guidelines and SonarQube compliance patterns
+
+See `.claude/commands/` and `.claude/skills/` for implementation details.
 
 ## Development Environment
 
@@ -121,76 +126,22 @@ make lint
 
 ### Code Quality - SonarCloud
 
-This project uses **SonarCloud** for continuous code quality analysis.
+This project uses **SonarCloud** for continuous code quality analysis. SonarCloud analysis runs automatically via GitHub Actions.
 
-#### Viewing Issues
-
-**Option 1: Web UI** (requires authentication)
-- Visit: https://sonarcloud.io/project/issues?id=Roma7-7-7_english-learning-bot
-- Filter by status: `OPEN`, `CONFIRMED`
-- View new issues: `sinceLeakPeriod=true`
-
-**Option 2: Public API** (recommended for automation)
+**Viewing Issues:**
 ```bash
-# Fetch all open/confirmed issues
-curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english-learning-bot&statuses=OPEN,CONFIRMED&ps=100" | jq
-
-# Fetch only new issues (since last analysis)
-curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english-learning-bot&statuses=OPEN,CONFIRMED&sinceLeakPeriod=true&ps=100" | jq
-
-# Format issues for readability
+# Use the public API to fetch current issues
 curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english-learning-bot&statuses=OPEN,CONFIRMED&sinceLeakPeriod=true&ps=100" | \
   jq -r '.issues[] | "\(.rule) | \(.component) | Line \(.line // "N/A") | \(.message)"'
 ```
 
-#### Common SonarQube Rules
+Or visit: https://sonarcloud.io/project/issues?id=Roma7-7-7_english-learning-bot (requires authentication)
 
-**Shell Scripts:**
-- `shelldre:S7682` - Functions must have explicit `return` statements
-- `shelldre:S7679` - Positional parameters (`$1`, `$2`) must be assigned to local variables
-
-**Go:**
-- `go:S3776` - Cognitive complexity should not exceed threshold (default: 15)
-- `go:S1192` - String literals should not be duplicated
-
-**TypeScript/React:**
-- `typescript:S6819` - Use semantic HTML elements for accessibility
-- `typescript:S3776` - Cognitive complexity threshold
-
-#### Shell Script Best Practices
-
-When writing shell scripts, follow these patterns to avoid SonarQube issues:
-
-```bash
-# ❌ BAD - Direct positional parameter usage, no explicit return
-bad_function() {
-    echo "Message: $1"
-}
-
-# ✅ GOOD - Assign to local variable, explicit return
-good_function() {
-    local message
-    message="$1"
-    echo "Message: $message"
-    return 0
-}
-
-# ✅ GOOD - Multiple parameters
-multi_param_function() {
-    local message
-    local color
-    message="$1"
-    color="$2"
-    echo -e "${color}${message}${NC}"
-    return 0
-}
-```
-
-#### Local SonarScanner Setup
-
-The project has `sonar-scanner` installed locally (via Homebrew on macOS). However, it requires authentication credentials for SonarCloud.
-
-**Note**: SonarCloud analysis is automatically run by CI/CD (GitHub Actions). Manual local scans are not required for development.
+**For shell script development guidelines**, see `.claude/skills/shell-scripts.md` which covers:
+- SonarQube compliance patterns
+- Required function templates
+- Why we use local variables in each function
+- Common shell script rules and best practices
 
 ## File Organization
 
