@@ -13,19 +13,31 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 print_step() {
-    echo -e "\n${BLUE}===> $1${NC}\n"
+    local message
+    message="$1"
+    echo -e "\n${BLUE}===> $message${NC}\n"
+    return 0
 }
 
 print_success() {
-    echo -e "${GREEN}✓ $1${NC}"
+    local message
+    message="$1"
+    echo -e "${GREEN}✓ $message${NC}"
+    return 0
 }
 
 print_warning() {
-    echo -e "${YELLOW}! $1${NC}"
+    local message
+    message="$1"
+    echo -e "${YELLOW}! $message${NC}"
+    return 0
 }
 
 print_error() {
-    echo -e "${RED}✗ $1${NC}"
+    local message
+    message="$1"
+    echo -e "${RED}✗ $message${NC}"
+    return 0
 }
 
 # Check if running as root

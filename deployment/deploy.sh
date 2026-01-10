@@ -16,11 +16,19 @@ NC='\033[0m' # No Color
 
 # Logging function
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    local message
+    message="$1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $message" | tee -a "$LOG_FILE"
+    return 0
 }
 
 log_colored() {
-    echo -e "${2}[$(date '+%Y-%m-%d %H:%M:%S')] $1${NC}" | tee -a "$LOG_FILE"
+    local message
+    local color
+    message="$1"
+    color="$2"
+    echo -e "${color}[$(date '+%Y-%m-%d %H:%M:%S')] $message${NC}" | tee -a "$LOG_FILE"
+    return 0
 }
 
 log "Starting deployment check..."
@@ -79,7 +87,8 @@ trap "rm -rf $TMP_DIR" EXIT
 log "Downloading binaries..."
 
 download_file() {
-    local filename=$1
+    local filename
+    filename="$1"
     local url="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_RELEASE}/${filename}"
 
     log "  Downloading $filename..."

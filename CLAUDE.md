@@ -2,6 +2,38 @@
 
 This document provides context for AI assistants working on this English Learning Bot project.
 
+## 📋 Documentation Maintenance
+
+**IMPORTANT**: When making changes to the project, keep documentation in sync:
+
+### When to Update This File (CLAUDE.md)
+- Adding new project components or services
+- Changing architecture or design patterns
+- Modifying build/test/deployment processes
+- Adding new dependencies or frameworks
+- Changing configuration structure
+- Adding new slash commands
+
+### When to Create/Update Skills (`.claude/skills/*.md`)
+- Adding language-specific best practices (Go, TypeScript, Shell, etc.)
+- Implementing new code quality tools (linters, analyzers)
+- Establishing coding standards or patterns
+- Adding testing frameworks or methodologies
+- Documenting common workflows or procedures
+
+### Existing Skills
+- `.claude/skills/shell-scripts.md` - Shell script development guidelines
+- `.claude/skills/sonarqube.md` - SonarCloud code quality analysis
+
+### Guidelines for Maintaining Skills
+1. **One skill per concern** - Don't mix shell scripting with SonarQube rules
+2. **Keep CLAUDE.md high-level** - Detailed patterns belong in skills
+3. **Cross-reference** - Skills can reference each other when appropriate
+4. **Include examples** - Show both good and bad patterns
+5. **Explain the "why"** - Don't just state rules, explain reasoning
+
+**Rule of thumb**: If a section in CLAUDE.md grows beyond 20 lines of language-specific details, extract it to a skill.
+
 ## Project Overview
 
 This is a personal English learning platform with three main components:
@@ -55,13 +87,19 @@ This is a personal English learning platform with three main components:
 - Per-chat scheduling with error handling
 - Graceful shutdown handling
 
-## Claude Code Slash Commands
+## Claude Code Configuration
 
-This project includes custom slash commands for Claude Code:
+This project includes custom slash commands and skills for Claude Code:
+
+**Slash Commands:**
 - `/commit` - Analyze staged changes and create a commit with an appropriate message
 - `/prep-pr` - Prepare current PR for review by verifying completeness and updating documentation
 
-See `.claude/commands/` for implementation details.
+**Skills:**
+- `shell-scripts` - Shell script development guidelines and best practices
+- `sonarqube` - SonarCloud code quality analysis and compliance (all languages)
+
+See `.claude/commands/` and `.claude/skills/` for implementation details.
 
 ## Development Environment
 
@@ -117,6 +155,20 @@ cd web && npm run lint
 
 # Go linting (optional, requires golangci-lint)
 make lint
+```
+
+### Code Quality - SonarCloud
+
+This project uses **SonarCloud** for continuous code quality analysis. See `.claude/skills/sonarqube.md` for:
+- How to check issues via API or Web UI
+- Common SonarQube rules for Go, TypeScript, and Shell
+- How to fix compliance issues
+- CI/CD integration details
+
+**Quick check:**
+```bash
+curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english-learning-bot&statuses=OPEN,CONFIRMED&sinceLeakPeriod=true&ps=100" | \
+  jq -r '.issues[] | "\(.rule) | \(.component) | Line \(.line // "N/A") | \(.message)"'
 ```
 
 ## File Organization
