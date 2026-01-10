@@ -119,6 +119,79 @@ cd web && npm run lint
 make lint
 ```
 
+### Code Quality - SonarCloud
+
+This project uses **SonarCloud** for continuous code quality analysis.
+
+#### Viewing Issues
+
+**Option 1: Web UI** (requires authentication)
+- Visit: https://sonarcloud.io/project/issues?id=Roma7-7-7_english-learning-bot
+- Filter by status: `OPEN`, `CONFIRMED`
+- View new issues: `sinceLeakPeriod=true`
+
+**Option 2: Public API** (recommended for automation)
+```bash
+# Fetch all open/confirmed issues
+curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english-learning-bot&statuses=OPEN,CONFIRMED&ps=100" | jq
+
+# Fetch only new issues (since last analysis)
+curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english-learning-bot&statuses=OPEN,CONFIRMED&sinceLeakPeriod=true&ps=100" | jq
+
+# Format issues for readability
+curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english-learning-bot&statuses=OPEN,CONFIRMED&sinceLeakPeriod=true&ps=100" | \
+  jq -r '.issues[] | "\(.rule) | \(.component) | Line \(.line // "N/A") | \(.message)"'
+```
+
+#### Common SonarQube Rules
+
+**Shell Scripts:**
+- `shelldre:S7682` - Functions must have explicit `return` statements
+- `shelldre:S7679` - Positional parameters (`$1`, `$2`) must be assigned to local variables
+
+**Go:**
+- `go:S3776` - Cognitive complexity should not exceed threshold (default: 15)
+- `go:S1192` - String literals should not be duplicated
+
+**TypeScript/React:**
+- `typescript:S6819` - Use semantic HTML elements for accessibility
+- `typescript:S3776` - Cognitive complexity threshold
+
+#### Shell Script Best Practices
+
+When writing shell scripts, follow these patterns to avoid SonarQube issues:
+
+```bash
+# ❌ BAD - Direct positional parameter usage, no explicit return
+bad_function() {
+    echo "Message: $1"
+}
+
+# ✅ GOOD - Assign to local variable, explicit return
+good_function() {
+    local message
+    message="$1"
+    echo "Message: $message"
+    return 0
+}
+
+# ✅ GOOD - Multiple parameters
+multi_param_function() {
+    local message
+    local color
+    message="$1"
+    color="$2"
+    echo -e "${color}${message}${NC}"
+    return 0
+}
+```
+
+#### Local SonarScanner Setup
+
+The project has `sonar-scanner` installed locally (via Homebrew on macOS). However, it requires authentication credentials for SonarCloud.
+
+**Note**: SonarCloud analysis is automatically run by CI/CD (GitHub Actions). Manual local scans are not required for development.
+
 ## File Organization
 
 ### Key Backend Files
