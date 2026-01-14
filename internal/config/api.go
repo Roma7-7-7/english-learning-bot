@@ -27,8 +27,8 @@ type (
 	Cookie struct {
 		Path            string        `envconfig:"CPATH" default:"/"` // not using PATH here because it may conflict with os.Path
 		Domain          string        `envconfig:"DOMAIN" required:"true"`
-		AuthExpiresIn   time.Duration `envconfig:"AUTH_EXPIRES_IN" default:"720h"`
-		AccessExpiresIn time.Duration `envconfig:"ACCESS_EXPIRES_IN" default:"24h"`
+		AuthExpiresIn   time.Duration `envconfig:"AUTH_EXPIRES_IN" default:"24h"`
+		AccessExpiresIn time.Duration `envconfig:"ACCESS_EXPIRES_IN" default:"720h"`
 	}
 
 	HTTP struct {
