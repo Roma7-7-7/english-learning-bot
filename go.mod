@@ -14,7 +14,7 @@ require (
 	golang.org/x/sync v0.19.0
 	golang.org/x/time v0.14.0
 	gopkg.in/telebot.v3 v3.3.8
-	modernc.org/sqlite v1.44.3
+	modernc.org/sqlite v1.45.0
 )
 
 require (
