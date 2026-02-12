@@ -39,7 +39,7 @@ The project consists of three main components:
 ## Tech Stack
 
 ### Backend
-- **Language**: Go 1.25.4
+- **Language**: Go 1.25.7
 - **Web Framework**: Echo v4
 - **Database**: SQLite
 - **Telegram**: gopkg.in/telebot.v3
