@@ -32,7 +32,7 @@ jobs:
           go-version: '1.25.7'
 
       - name: Run gosec Security Scanner
-        uses: securego/gosec@v2.22.11
+        uses: securego/gosec@v2.23.0
         with:
           args: '-no-fail -fmt sarif -out gosec-results.sarif -exclude-generated -severity high ./...'
 
