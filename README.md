@@ -39,7 +39,7 @@ The project consists of three main components:
 ## Tech Stack
 
 ### Backend
-- **Language**: Go 1.25.7
+- **Language**: Go 1.26.1
 - **Web Framework**: Echo v4
 - **Database**: SQLite
 - **Telegram**: gopkg.in/telebot.v3
@@ -105,7 +105,7 @@ The bot uses a spaced repetition system:
 ## Setup and Installation
 
 ### Prerequisites
-- Go 1.25+
+- Go 1.26.1+
 - Node.js 18+
 - Telegram Bot Token
 - SQLite
