@@ -49,19 +49,7 @@ func GetBot(ctx context.Context) (*Bot, error) {
 		return nil, fmt.Errorf("parse bot environment: %w", err)
 	}
 
-	// In dev mode or if all required params are set via env vars, skip SSM
-	if !res.Dev && !hasBotRequiredParams(res) {
-		if err := setBotProdConfig(ctx, res); err != nil {
-			return nil, fmt.Errorf("set bot prod config (set required env vars to skip SSM): %w", err)
-		}
-	}
-
 	return validateBot(res)
-}
-
-// hasBotRequiredParams checks if all required parameters are already set via environment variables
-func hasBotRequiredParams(conf *Bot) bool {
-	return conf.TelegramToken != "" && len(conf.AllowedChatIDs) > 0
 }
 
 func validateBot(conf *Bot) (*Bot, error) {
@@ -94,28 +82,4 @@ func validateBot(conf *Bot) (*Bot, error) {
 	}
 
 	return conf, nil
-}
-
-func setBotProdConfig(ctx context.Context, target *Bot) error {
-	parameters, err := FetchAWSParams(ctx,
-		"/english-learning-bot/prod/telegram-token",
-		"/english-learning-bot/prod/allowed-chat-ids",
-	)
-	if err != nil {
-		return fmt.Errorf("get parameters: %w", err)
-	}
-
-	for name, value := range parameters {
-		switch name {
-		case "/english-learning-bot/prod/telegram-token":
-			target.TelegramToken = value
-		case "/english-learning-bot/prod/allowed-chat-ids":
-			target.AllowedChatIDs, err = parseChatIDs(value)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }

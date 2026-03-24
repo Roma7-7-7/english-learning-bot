@@ -70,52 +70,11 @@ func NewAPI(ctx context.Context) (*API, error) {
 		return nil, fmt.Errorf("parse api environment: %w", err)
 	}
 
-	// In dev mode or if all required params are set via env vars, skip SSM
-	if !res.Dev && !hasAPIRequiredParams(res) {
-		if err := setAPIProdConfig(ctx, res); err != nil {
-			return nil, fmt.Errorf("set api prod config (set required env vars to skip SSM): %w", err)
-		}
-	}
-
 	if err := validateAPI(res); err != nil {
 		return nil, fmt.Errorf("validate api config: %w", err)
 	}
 
 	return res, nil
-}
-
-// hasAPIRequiredParams checks if all required parameters are already set via environment variables
-func hasAPIRequiredParams(conf *API) bool {
-	return conf.HTTP.JWT.Secret != "" &&
-		conf.Telegram.Token != "" &&
-		len(conf.Telegram.AllowedChatIDs) > 0
-}
-
-func setAPIProdConfig(ctx context.Context, target *API) error {
-	parameters, err := FetchAWSParams(ctx,
-		"/english-learning-api/prod/secret",
-		"/english-learning-api/prod/telegram-token",
-		"/english-learning-api/prod/allowed-chat-ids",
-	)
-	if err != nil {
-		return fmt.Errorf("get parameters: %w", err)
-	}
-
-	for name, value := range parameters {
-		switch name {
-		case "/english-learning-api/prod/secret":
-			target.HTTP.JWT.Secret = value
-		case "/english-learning-api/prod/telegram-token":
-			target.Telegram.Token = value
-		case "/english-learning-api/prod/allowed-chat-ids":
-			target.Telegram.AllowedChatIDs, err = parseChatIDs(value)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func validateAPI(target *API) error {
