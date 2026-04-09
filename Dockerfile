@@ -11,7 +11,7 @@ ARG BUILD_TIME=unknown
 WORKDIR /app
 
 COPY go.mod go.sum ./
-COPY vendor/ vendor/
+RUN go mod download
 
 COPY cmd/ cmd/
 COPY internal/ internal/
