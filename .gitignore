@@ -40,5 +40,8 @@ tmp/
 package
 english-learning-release.zip
 
+# Production compose (contains env-specific config)
+docker-compose.prod.yml
+
 # AI-only documents and notes
 .ai/
