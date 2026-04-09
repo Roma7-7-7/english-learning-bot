@@ -265,7 +265,6 @@ For non-EC2 or custom deployments:
 See also:
 - [`deployment/README.md`](deployment/README.md) - Complete deployment guide
 - [`deployment/QUICKREF.md`](deployment/QUICKREF.md) - Common operations
-- [`deployment/MAKEFILE.md`](deployment/MAKEFILE.md) - Build system documentation
 
 ## Contributing
 

@@ -36,10 +36,9 @@ This document provides context for AI assistants working on this English Learnin
 
 ## Project Overview
 
-This is a personal English learning platform with three main components:
-1. **Backend API** (Go) - REST API for vocabulary management
+This is a personal English learning platform with two main components:
+1. **Backend** (Go) - Single binary running both the Telegram bot and REST API for vocabulary management
 2. **Web UI** (React/TypeScript) - Web interface for managing translations
-3. **Telegram Bot** (Go) - Interactive bot for vocabulary practice
 
 ## Architecture & Design Patterns
 
@@ -125,23 +124,19 @@ See `.claude/commands/` and `.claude/skills/` for implementation details.
 
 ```bash
 # Local development (native OS/arch)
-make build-api          # Build API
-make build-bot          # Build bot
-make build-backend      # Build both
+make build-bot          # Build bot (includes API server)
 make build-web          # Build frontend
 make build              # Build everything
 
-# Production builds (Linux ARM 64 - used by CI)
-make build-release      # Build both binaries (requires Linux or Docker)
+# Production builds (multi-arch - used by CI)
+make build-release      # Build binary for AMD64 and ARM64
 
 # With version info
-make build-api VERSION=v1.0.0 BUILD_TIME=$(date -u +%Y%m%d-%H%M%S)
+make build-bot VERSION=v1.0.0 BUILD_TIME=$(date -u +%Y%m%d-%H%M%S)
 
 # See all available targets
 make help
 ```
-
-**Note**: Production builds with `make build-release` require Linux due to CGO (go-sqlite3). On macOS, use `make build-backend` for local development. Let GitHub Actions handle production builds.
 
 ### Testing Commands
 ```bash
@@ -174,8 +169,7 @@ curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english
 ## File Organization
 
 ### Key Backend Files
-- `cmd/api/main.go` - API server entry point
-- `cmd/bot/main.go` - Telegram bot entry point
+- `cmd/bot/main.go` - Single entry point (runs both Telegram bot and API server)
 - `internal/api/routes.go` - API route definitions and middleware
 - `internal/api/words.go` - Word management handlers
 - `internal/api/auth.go` - Authentication handlers
@@ -197,33 +191,17 @@ curl -s "https://sonarcloud.io/api/issues/search?componentKeys=Roma7-7-7_english
 ## Configuration
 
 ### Environment Variables
-The application uses environment-based configuration with prefixes:
-- `BOT_*` - Telegram bot configuration
-- `API_*` - API server configuration
+The application uses environment-based configuration with a unified `BOT_` prefix:
+- `BOT_*` - All backend configuration (bot, API, scheduling)
 - `VITE_*` - Frontend build configuration
 
-### Configuration Sources
-
-Both Bot and API configurations support two modes:
-
-1. **Environment Variables** (recommended for simple deployments):
-   - Set all required variables in `.env` file or environment
-   - Skips AWS SSM lookup entirely
-   - Works on any server without AWS dependencies
-
-2. **AWS SSM Parameter Store** (production EC2 deployments):
-   - If required env vars are not set and `DEV=false`
-   - Fetches secrets from SSM parameters
-   - Requires IAM permissions for `ssm:GetParameters`
-
-**Bot Required Parameters** (via env or SSM):
+**Required Parameters:**
 - `BOT_TELEGRAM_TOKEN` - Telegram bot token
-- `BOT_ALLOWED_CHAT_IDS` - Comma-separated allowed chat IDs
-
-**API Required Parameters** (via env or SSM):
-- `API_HTTP_JWT_SECRET` - JWT signing secret
-- `API_TELEGRAM_TOKEN` - Telegram bot token (for sending notifications)
-- `API_TELEGRAM_ALLOWED_CHAT_IDS` - Comma-separated allowed chat IDs
+- `BOT_TELEGRAM_ALLOWED_CHAT_IDS` - Comma-separated allowed chat IDs
+- `BOT_HTTP_JWT_SECRET` - JWT signing secret
+- `BOT_HTTP_CORS_ALLOW_ORIGINS` - Allowed CORS origins
+- `BOT_HTTP_COOKIE_DOMAIN` - Cookie domain
+- `BOT_HTTP_JWT_AUDIENCE` - JWT audience
 
 ### Key Configuration Areas
 1. **Database**: Connection strings, timeouts
@@ -333,17 +311,17 @@ The project supports two deployment modes:
 
 ### Multi-Architecture Support
 
-The build system produces binaries for both architectures:
+The build system produces a single binary for both architectures:
 
-- `english-learning-api-amd64` / `english-learning-bot-amd64` - For Intel/AMD x86_64 processors (most VPS providers)
-- `english-learning-api-arm64` / `english-learning-bot-arm64` - For ARM64 processors (AWS Graviton, etc.)
+- `english-learning-bot-amd64` - For Intel/AMD x86_64 processors (most VPS providers)
+- `english-learning-bot-arm64` - For ARM64 processors (AWS Graviton, etc.)
 
-The `deploy.sh` script automatically detects the server architecture using `uname -m` and downloads the correct binaries.
+The `deploy.sh` script automatically detects the server architecture using `uname -m` and downloads the correct binary.
 
 ### Automated CI/CD
 
-- **GitHub Actions**: Builds both AMD64 and ARM64 binaries on push to `main`, creates releases with version info
-- **Deployment**: Systemd services with automatic updates (or manual via `deploy.sh`)
+- **GitHub Actions**: Builds AMD64 and ARM64 binaries on push to `main`, creates releases with version info
+- **Deployment**: Single systemd service with manual updates via `deploy.sh`
 - **Version Tracking**: Build-time version injection via `-ldflags`, exposed in logs and `/health` endpoint
 - **Documentation**: Complete setup guides in `deployment/` directory
 
@@ -351,10 +329,9 @@ The `deploy.sh` script automatically detects the server architecture using `unam
 - `.github/workflows/release.yml` - CI/CD workflow (multi-arch builds)
 - `deployment/setup-simple.sh` - Simple deployment setup
 - `deployment/setup-ec2.sh` - AWS EC2 setup
-- `deployment/deploy.sh` - Automated deployment script (auto-detects architecture)
-- `deployment/systemd/*-simple.service` - Simple deployment systemd services
-- `deployment/systemd/*.service` - EC2 systemd services
-- `Makefile` - Unified build system (builds both architectures for CI)
+- `deployment/deploy.sh` - Deployment script (auto-detects architecture)
+- `deployment/systemd/*.service` - Systemd service files
+- `Makefile` - Build system (builds both architectures for CI)
 
 ### Production Considerations
 - Configure proper backup strategies (automated S3 or manual SCP)

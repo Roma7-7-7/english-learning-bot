@@ -6,7 +6,7 @@ This guide covers the simplified deployment approach for English Learning Bot, d
 
 **What this deployment includes:**
 - Automated binary deployment from GitHub releases
-- Two systemd services (API + Bot) with auto-restart
+- Single systemd service (runs both bot and API server) with auto-restart
 - Simple `.env` file configuration
 - Passwordless service management
 - Manual backup strategy
@@ -41,27 +41,25 @@ sudo ./setup-simple.sh
 ```
 
 The script will:
-1. Ask for the user to run the services as (default: current user)
+1. Ask for the user to run the service as (default: current user)
 2. Create directory structure at `/opt/english-learning-bot`
 3. Download deployment script
-4. Install both systemd services (API + Bot)
+4. Install the systemd service
 5. Configure sudoers for passwordless service management
-6. Prompt for configuration (bot token, API settings, etc.)
+6. Prompt for configuration (bot token, HTTP settings, etc.)
 7. Download and start the latest release
 
 ### 2. Verify installation
 
 ```bash
 # Check service status
-sudo systemctl status english-learning-api.service
 sudo systemctl status english-learning-bot.service
 
 # View logs
-sudo journalctl -u english-learning-api.service -f
 sudo journalctl -u english-learning-bot.service -f
 ```
 
-You're done! Both services should now be running.
+You're done! The service should now be running.
 
 ## Configuration
 
@@ -70,27 +68,25 @@ All configuration is stored in `/opt/english-learning-bot/.env`
 ### Environment Variables
 
 ```bash
-# Bot Configuration
+# Telegram Configuration
 BOT_TELEGRAM_TOKEN=your_bot_token_here
-BOT_ALLOWED_CHAT_IDS=123456,789012  # Comma-separated Telegram chat IDs
+BOT_TELEGRAM_ALLOWED_CHAT_IDS=123456,789012  # Comma-separated Telegram chat IDs
+
+# Database
 BOT_DB_PATH=/opt/english-learning-bot/data/english_learning.db?cache=shared&mode=rwc
 
-# API Configuration
-API_TELEGRAM_TOKEN=your_bot_token_here
-API_TELEGRAM_ALLOWED_CHAT_IDS=123456,789012
-API_DB_PATH=/opt/english-learning-bot/data/english_learning.db?cache=shared&mode=rwc
-API_HTTP_JWT_SECRET=your_random_secret_here
-API_HTTP_CORS_ALLOW_ORIGINS=https://yourdomain.com
-API_HTTP_COOKIE_DOMAIN=yourdomain.com
-API_HTTP_JWT_AUDIENCE=web,mobile
+# HTTP / Authentication
+BOT_HTTP_JWT_SECRET=your_random_secret_here
+BOT_HTTP_CORS_ALLOW_ORIGINS=https://yourdomain.com
+BOT_HTTP_COOKIE_DOMAIN=yourdomain.com
+BOT_HTTP_JWT_AUDIENCE=web,mobile
 
 # Optional: Uncomment and modify to override defaults
+# BOT_SERVER_ADDR=:8080
 # BOT_SCHEDULE_PUBLISH_INTERVAL=15m
 # BOT_SCHEDULE_HOUR_FROM=9
 # BOT_SCHEDULE_HOUR_TO=22
 # BOT_SCHEDULE_LOCATION=Europe/Kyiv
-# API_SERVER_ADDR=:8080
-# API_DEV=false
 # BOT_DEV=false
 ```
 
@@ -101,9 +97,9 @@ API_HTTP_JWT_AUDIENCE=web,mobile
 sudo nano /opt/english-learning-bot/.env
 ```
 
-2. Restart both services:
+2. Restart the service:
 ```bash
-sudo systemctl restart english-learning-api.service english-learning-bot.service
+sudo systemctl restart english-learning-bot.service
 ```
 
 ## Management Commands
@@ -113,25 +109,22 @@ All commands can be run by the service user without password (configured via sud
 ### Service Control
 
 ```bash
-# Start services
-sudo systemctl start english-learning-api.service english-learning-bot.service
+# Start service
+sudo systemctl start english-learning-bot.service
 
-# Stop services
-sudo systemctl stop english-learning-api.service english-learning-bot.service
+# Stop service
+sudo systemctl stop english-learning-bot.service
 
-# Restart services
-sudo systemctl restart english-learning-api.service english-learning-bot.service
+# Restart service
+sudo systemctl restart english-learning-bot.service
 
 # Check status
-sudo systemctl status english-learning-api.service
 sudo systemctl status english-learning-bot.service
 
 # View logs (follow mode)
-sudo journalctl -u english-learning-api.service -f
 sudo journalctl -u english-learning-bot.service -f
 
 # View last 100 lines of logs
-sudo journalctl -u english-learning-api.service -n 100
 sudo journalctl -u english-learning-bot.service -n 100
 ```
 
@@ -146,10 +139,10 @@ To update to the latest release:
 The deployment script:
 - Fetches the latest release from GitHub
 - Detects your server architecture (AMD64 or ARM64)
-- Stops both services
-- Backs up the current binaries
-- Installs the new binaries
-- Starts both services
+- Stops the service
+- Backs up the current binary
+- Installs the new binary
+- Starts the service
 - Keeps the last 5 binary backups
 
 ## Manual Backup Strategy
@@ -189,8 +182,7 @@ cp /opt/english-learning-bot/data/english_learning.db ~/english-learning-backup-
 ```
 /opt/english-learning-bot/
 ├── bin/
-│   ├── english-learning-api      # API binary
-│   ├── english-learning-bot      # Bot binary
+│   ├── english-learning-bot      # Application binary (bot + API server)
 │   └── VERSION                   # Version info
 ├── data/
 │   └── english_learning.db       # SQLite database
@@ -205,11 +197,10 @@ cp /opt/english-learning-bot/data/english_learning.db ~/english-learning-backup-
 
 ## Troubleshooting
 
-### Services won't start
+### Service won't start
 
 1. Check logs:
 ```bash
-sudo journalctl -u english-learning-api.service -n 50
 sudo journalctl -u english-learning-bot.service -n 50
 ```
 
@@ -218,7 +209,7 @@ sudo journalctl -u english-learning-bot.service -n 50
    - Invalid bot token
    - Database file permissions
    - Network connectivity issues
-   - Port 8080 already in use (for API)
+   - Port 8080 already in use
 
 ### Configuration errors
 
@@ -229,15 +220,15 @@ cat /opt/english-learning-bot/.env
 
 Required variables:
 - `BOT_TELEGRAM_TOKEN`
-- `BOT_ALLOWED_CHAT_IDS`
-- `API_HTTP_JWT_SECRET`
-- `API_HTTP_CORS_ALLOW_ORIGINS`
-- `API_HTTP_COOKIE_DOMAIN`
-- `API_HTTP_JWT_AUDIENCE`
+- `BOT_TELEGRAM_ALLOWED_CHAT_IDS`
+- `BOT_HTTP_JWT_SECRET`
+- `BOT_HTTP_CORS_ALLOW_ORIGINS`
+- `BOT_HTTP_COOKIE_DOMAIN`
+- `BOT_HTTP_JWT_AUDIENCE`
 
 ### Bot not responding
 
-1. Verify bot service is running:
+1. Verify the service is running:
 ```bash
 sudo systemctl status english-learning-bot.service
 ```
@@ -250,9 +241,9 @@ curl -s "https://api.telegram.org/bot${TOKEN}/getMe"
 
 ### API not accessible
 
-1. Verify API service is running:
+1. Verify the service is running:
 ```bash
-sudo systemctl status english-learning-api.service
+sudo systemctl status english-learning-bot.service
 ```
 
 2. Check if port 8080 is listening:
@@ -276,14 +267,14 @@ sudo chown -R your-user:your-user /opt/english-learning-bot
 
 Restore from backup:
 ```bash
-# Stop services
-sudo systemctl stop english-learning-api.service english-learning-bot.service
+# Stop service
+sudo systemctl stop english-learning-bot.service
 
 # Restore from your backup
 scp ~/backups/english_learning.db your-user@your-server:/opt/english-learning-bot/data/
 
-# Start services
-sudo systemctl start english-learning-api.service english-learning-bot.service
+# Start service
+sudo systemctl start english-learning-bot.service
 ```
 
 ## Security Notes
@@ -305,12 +296,12 @@ sudo chown your-user:your-user /opt/english-learning-bot/.env
 
 1. Generate new values for secrets
 2. Update `.env` file
-3. Restart both services
+3. Restart the service
 
 ```bash
 sudo nano /opt/english-learning-bot/.env
-# Update BOT_TELEGRAM_TOKEN and API_HTTP_JWT_SECRET
-sudo systemctl restart english-learning-api.service english-learning-bot.service
+# Update BOT_TELEGRAM_TOKEN and BOT_HTTP_JWT_SECRET
+sudo systemctl restart english-learning-bot.service
 ```
 
 ### Server Access
@@ -331,9 +322,9 @@ scp ec2-user@ec2-host:/opt/english-learning-bot/data/english_learning.db ~/
 
 2. **Run setup on new server** (follow Quick Start above)
 
-3. **Stop services** on new server:
+3. **Stop service** on new server:
 ```bash
-sudo systemctl stop english-learning-api.service english-learning-bot.service
+sudo systemctl stop english-learning-bot.service
 ```
 
 4. **Copy database** to new server:
@@ -347,9 +338,9 @@ scp ~/english_learning.db user@new-server:/opt/english-learning-bot/data/
 sudo chown your-user:your-user /opt/english-learning-bot/data/english_learning.db
 ```
 
-6. **Start services**:
+6. **Start service**:
 ```bash
-sudo systemctl start english-learning-api.service english-learning-bot.service
+sudo systemctl start english-learning-bot.service
 ```
 
 All your data and user progress will be preserved!
@@ -368,12 +359,11 @@ You can safely re-run `setup-simple.sh` on an existing installation:
 To completely remove English Learning Bot:
 
 ```bash
-# Stop and disable services
-sudo systemctl stop english-learning-api.service english-learning-bot.service
-sudo systemctl disable english-learning-api.service english-learning-bot.service
+# Stop and disable service
+sudo systemctl stop english-learning-bot.service
+sudo systemctl disable english-learning-bot.service
 
-# Remove systemd services
-sudo rm /etc/systemd/system/english-learning-api.service
+# Remove systemd service
 sudo rm /etc/systemd/system/english-learning-bot.service
 sudo systemctl daemon-reload
 
@@ -398,7 +388,7 @@ Example monthly costs for different hosting providers (as of 2024):
 | **OVH** | VPS Starter (1 vCPU, 2GB RAM) | ~$7 | |
 | **AWS EC2** | t3.micro (2 vCPU, 1GB RAM) | ~$10+ | Previous setup |
 
-All configurations are more than enough for running both services. Savings: ~$5-15/month compared to AWS.
+All configurations are more than enough for running the service. Savings: ~$5-15/month compared to AWS.
 
 ## Support
 

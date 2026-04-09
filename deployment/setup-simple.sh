@@ -38,7 +38,7 @@ else
     fi
 fi
 
-echo -e "${GREEN}Services will run as user: ${SERVICE_USER}${NC}"
+echo -e "${GREEN}Service will run as user: ${SERVICE_USER}${NC}"
 echo ""
 
 # Verify user exists
@@ -93,27 +93,17 @@ chown "${SERVICE_USER}:${SERVICE_USER}" "${INSTALL_DIR}/deploy.sh"
 echo "✓ Deploy script installed"
 
 echo ""
-echo -e "${GREEN}[3/7] Installing systemd services...${NC}"
-# Download and install API service
-curl -L -s "https://raw.githubusercontent.com/${GITHUB_REPO}/main/deployment/systemd/english-learning-api-simple.service" | \
-    sed "s/{{SERVICE_USER}}/${SERVICE_USER}/g" > /etc/systemd/system/english-learning-api.service
-
-# Download and install Bot service
+echo -e "${GREEN}[3/7] Installing systemd service...${NC}"
 curl -L -s "https://raw.githubusercontent.com/${GITHUB_REPO}/main/deployment/systemd/english-learning-bot-simple.service" | \
     sed "s/{{SERVICE_USER}}/${SERVICE_USER}/g" > /etc/systemd/system/english-learning-bot.service
 
 systemctl daemon-reload
-echo "✓ Systemd services installed"
+echo "✓ Systemd service installed"
 
 echo ""
 echo -e "${GREEN}[4/7] Configuring sudoers for passwordless service management...${NC}"
 # Create sudoers file for the service user
 cat > /etc/sudoers.d/english-learning-bot <<EOF
-${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl start english-learning-api.service
-${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl stop english-learning-api.service
-${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart english-learning-api.service
-${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl status english-learning-api.service
-${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl is-active english-learning-api.service
 ${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl start english-learning-bot.service
 ${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl stop english-learning-bot.service
 ${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart english-learning-bot.service
@@ -135,51 +125,45 @@ else
     echo -e "${BLUE}Configuration Setup:${NC}"
     echo ""
 
-    # Bot configuration
-    echo -e "${YELLOW}--- Bot Configuration ---${NC}"
+    # Telegram configuration
+    echo -e "${YELLOW}--- Telegram Configuration ---${NC}"
     echo -e "${BLUE}Enter your Telegram bot token (from @BotFather):${NC}"
     read -r BOT_TELEGRAM_TOKEN
 
     echo -e "${BLUE}Enter allowed Telegram chat IDs (comma-separated):${NC}"
     read -r BOT_ALLOWED_CHAT_IDS
 
-    # API configuration
+    # HTTP/API configuration
     echo ""
-    echo -e "${YELLOW}--- API Configuration ---${NC}"
+    echo -e "${YELLOW}--- HTTP/API Configuration ---${NC}"
     echo -e "${BLUE}Enter JWT secret (random string for session security):${NC}"
-    read -r API_JWT_SECRET
+    read -r BOT_JWT_SECRET
 
     echo -e "${BLUE}Enter allowed CORS origins (e.g., https://yourdomain.com):${NC}"
-    read -r API_CORS_ORIGINS
+    read -r BOT_CORS_ORIGINS
 
     echo -e "${BLUE}Enter cookie domain (e.g., yourdomain.com):${NC}"
-    read -r API_COOKIE_DOMAIN
+    read -r BOT_COOKIE_DOMAIN
 
     echo -e "${BLUE}Enter JWT audience (comma-separated, e.g., web,mobile):${NC}"
-    read -r API_JWT_AUDIENCE
+    read -r BOT_JWT_AUDIENCE
 
     cat > "$ENV_FILE" <<EOF
-# Bot Configuration
+# Configuration (single BOT_ prefix for all settings)
 BOT_TELEGRAM_TOKEN=${BOT_TELEGRAM_TOKEN}
-BOT_ALLOWED_CHAT_IDS=${BOT_ALLOWED_CHAT_IDS}
+BOT_TELEGRAM_ALLOWED_CHAT_IDS=${BOT_ALLOWED_CHAT_IDS}
 BOT_DB_PATH=${DATA_DIR}/english_learning.db?cache=shared&mode=rwc
-
-# API Configuration
-API_TELEGRAM_TOKEN=${BOT_TELEGRAM_TOKEN}
-API_TELEGRAM_ALLOWED_CHAT_IDS=${BOT_ALLOWED_CHAT_IDS}
-API_DB_PATH=${DATA_DIR}/english_learning.db?cache=shared&mode=rwc
-API_HTTP_JWT_SECRET=${API_JWT_SECRET}
-API_HTTP_CORS_ALLOW_ORIGINS=${API_CORS_ORIGINS}
-API_HTTP_COOKIE_DOMAIN=${API_COOKIE_DOMAIN}
-API_HTTP_JWT_AUDIENCE=${API_JWT_AUDIENCE}
+BOT_HTTP_JWT_SECRET=${BOT_JWT_SECRET}
+BOT_HTTP_CORS_ALLOW_ORIGINS=${BOT_CORS_ORIGINS}
+BOT_HTTP_COOKIE_DOMAIN=${BOT_COOKIE_DOMAIN}
+BOT_HTTP_JWT_AUDIENCE=${BOT_JWT_AUDIENCE}
 
 # Optional: Uncomment and modify these to override defaults
 # BOT_SCHEDULE_PUBLISH_INTERVAL=15m
 # BOT_SCHEDULE_HOUR_FROM=9
 # BOT_SCHEDULE_HOUR_TO=22
 # BOT_SCHEDULE_LOCATION=Europe/Kyiv
-# API_SERVER_ADDR=:8080
-# API_DEV=false
+# BOT_SERVER_ADDR=:8080
 # BOT_DEV=false
 EOF
 
@@ -195,23 +179,20 @@ echo "✓ Initial deployment completed"
 
 echo ""
 echo -e "${GREEN}[7/7] Enabling service auto-start...${NC}"
-systemctl enable english-learning-api.service
 systemctl enable english-learning-bot.service
-echo "✓ Services will start automatically on boot"
+echo "✓ Service will start automatically on boot"
 
 echo ""
-echo -e "${GREEN}[8/8] Verifying installation...${NC}"
+echo -e "${GREEN}Verifying installation...${NC}"
 
 # Check service status
-API_ACTIVE=$(systemctl is-active english-learning-api.service || echo "inactive")
 BOT_ACTIVE=$(systemctl is-active english-learning-bot.service || echo "inactive")
 
-if [[ "$API_ACTIVE" = "active" && "$BOT_ACTIVE" = "active" ]]; then
-    echo "✓ Both services are running"
+if [[ "$BOT_ACTIVE" = "active" ]]; then
+    echo "✓ Service is running"
 else
-    echo -e "${YELLOW}⚠ Some services may not be running:${NC}"
-    echo "  API: $API_ACTIVE"
-    echo "  Bot: $BOT_ACTIVE"
+    echo -e "${YELLOW}⚠ Service may not be running:${NC}"
+    echo "  Status: $BOT_ACTIVE"
     echo -e "${YELLOW}Check configuration and logs${NC}"
 fi
 
@@ -241,14 +222,12 @@ echo "Configuration file: ${ENV_FILE}"
 echo "  Edit this file to configure the bot and API (requires service restart)"
 echo ""
 echo -e "${YELLOW}Useful commands:${NC}"
-echo "  API Status:  sudo systemctl status english-learning-api.service"
-echo "  Bot Status:  sudo systemctl status english-learning-bot.service"
-echo "  API Logs:    sudo journalctl -u english-learning-api.service -f"
-echo "  Bot Logs:    sudo journalctl -u english-learning-bot.service -f"
-echo "  Deploy:      ${INSTALL_DIR}/deploy.sh"
-echo "  Stop All:    sudo systemctl stop english-learning-api.service english-learning-bot.service"
-echo "  Start All:   sudo systemctl start english-learning-api.service english-learning-bot.service"
-echo "  Restart All: sudo systemctl restart english-learning-api.service english-learning-bot.service"
+echo "  Status:   sudo systemctl status english-learning-bot.service"
+echo "  Logs:     sudo journalctl -u english-learning-bot.service -f"
+echo "  Deploy:   ${INSTALL_DIR}/deploy.sh"
+echo "  Stop:     sudo systemctl stop english-learning-bot.service"
+echo "  Start:    sudo systemctl start english-learning-bot.service"
+echo "  Restart:  sudo systemctl restart english-learning-bot.service"
 echo ""
 echo -e "${YELLOW}Manual Backups:${NC}"
 echo "  Database location: ${DATA_DIR}/english_learning.db"
