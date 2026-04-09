@@ -113,9 +113,9 @@ func run(ctx context.Context) int {
 		Handler:           router,
 	}
 
-	go func() {
+	go func() { //nolint:gosec // context.Background is intentional - ctx is already cancelled here
 		<-ctx.Done()
-		cCtx, cCancel := context.WithTimeout(context.Background(), 15*time.Second) //nolint:gosec // context.Background is intentional - ctx is already cancelled here
+		cCtx, cCancel := context.WithTimeout(context.Background(), 15*time.Second) //nolint:mnd // ignore mnd
 		defer cCancel()
 
 		if sErr := server.Shutdown(cCtx); sErr != nil {
