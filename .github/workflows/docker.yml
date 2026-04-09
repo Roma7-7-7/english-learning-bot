@@ -15,8 +15,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BOT_IMAGE: ghcr.io/${{ github.repository }}/bot
-  WEB_IMAGE: ghcr.io/${{ github.repository }}/web
 
 jobs:
   build-bot:
@@ -25,7 +23,12 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}/bot
     steps:
+      - name: Downcase image name
+        run: echo "IMAGE=${IMAGE,,}" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v6
 
@@ -53,8 +56,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ env.BOT_IMAGE }}:latest
-            ${{ env.BOT_IMAGE }}:${{ steps.version.outputs.sha_short }}
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.version.outputs.sha_short }}
           build-args: |
             VERSION=${{ steps.version.outputs.sha_short }}
             BUILD_TIME=${{ steps.version.outputs.timestamp }}
@@ -67,7 +70,12 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}/web
     steps:
+      - name: Downcase image name
+        run: echo "IMAGE=${IMAGE,,}" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v6
 
@@ -94,7 +102,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ env.WEB_IMAGE }}:latest
-            ${{ env.WEB_IMAGE }}:${{ steps.version.outputs.sha_short }}
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.version.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
