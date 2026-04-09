@@ -128,11 +128,9 @@ make build-bot          # Build bot (includes API server)
 make build-web          # Build frontend
 make build              # Build everything
 
-# Production builds (multi-arch - used by CI)
-make build-release      # Build binary for AMD64 and ARM64
-
-# With version info
-make build-bot VERSION=v1.0.0 BUILD_TIME=$(date -u +%Y%m%d-%H%M%S)
+# Docker
+make docker-up          # Build and run with Docker Compose
+make docker-down        # Stop Docker Compose services
 
 # See all available targets
 make help
@@ -289,53 +287,15 @@ The application uses environment-based configuration with a unified `BOT_` prefi
 - Optimized bundle size
 - Efficient state updates
 
-## Deployment Notes
+## Deployment
 
-### Deployment Options
+### Docker-based Deployment
 
-The project supports two deployment modes:
-
-1. **Simple Deployment** (recommended for most users)
-   - Works on any Linux server (Hetzner, Contabo, OVH, etc.)
-   - No AWS dependencies
-   - Configuration via `.env` file
-   - Manual backups (SCP from local machine)
-   - Lower costs (~$5/month vs ~$15/month)
-   - See `deployment/SIMPLE-DEPLOYMENT.md`
-
-2. **AWS EC2 Deployment**
-   - Automated S3 backups
-   - AWS SSM Parameter Store for secrets
-   - IAM role-based authentication
-   - See `deployment/README.md` (EC2 section)
-
-### Multi-Architecture Support
-
-The build system produces a single binary for both architectures:
-
-- `english-learning-bot-amd64` - For Intel/AMD x86_64 processors (most VPS providers)
-- `english-learning-bot-arm64` - For ARM64 processors (AWS Graviton, etc.)
-
-The `deploy.sh` script automatically detects the server architecture using `uname -m` and downloads the correct binary.
-
-### Automated CI/CD
-
-- **GitHub Actions**: Builds AMD64 and ARM64 binaries on push to `main`, creates releases with version info
-- **Deployment**: Single systemd service with manual updates via `deploy.sh`
-- **Version Tracking**: Build-time version injection via `-ldflags`, exposed in logs and `/health` endpoint
-- **Documentation**: Complete setup guides in `deployment/` directory
+The project uses Docker for all deployments. Multi-arch images (amd64/arm64) are built and pushed to GHCR on every push to `main`.
 
 **Key Files**:
-- `.github/workflows/release.yml` - CI/CD workflow (multi-arch builds)
-- `deployment/setup-simple.sh` - Simple deployment setup
-- `deployment/setup-ec2.sh` - AWS EC2 setup
-- `deployment/deploy.sh` - Deployment script (auto-detects architecture)
-- `deployment/systemd/*.service` - Systemd service files
-- `Makefile` - Build system (builds both architectures for CI)
-
-### Production Considerations
-- Configure proper backup strategies (automated S3 or manual SCP)
-- Monitor resource usage and performance
-- Set up alerting for critical failures
-- Use HTTPS in production environments
-- See `deployment/README.md` or `deployment/SIMPLE-DEPLOYMENT.md` for complete documentation
+- `.github/workflows/docker.yml` - CI/CD workflow (builds and pushes Docker images)
+- `Dockerfile` - Bot image
+- `web/Dockerfile` - Web UI image
+- `docker-compose.yml` - Local development
+- `docker-compose.prod.yml` - Production (uses pre-built GHCR images)

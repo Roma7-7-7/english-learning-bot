@@ -227,15 +227,6 @@ for file in "${files[@]}"; do
 done
 ```
 
-## Project Shell Scripts
-
-- `deployment/deploy.sh` - Automated deployment (downloads and installs binaries)
-- `deployment/backup.sh` - Database backup to S3 (EC2 deployments)
-- `deployment/setup-ec2.sh` - EC2 initial setup
-- `deployment/setup-simple.sh` - Simple deployment setup
-- `run-api.sh` - Local API runner (development)
-- `run-bot.sh` - Local bot runner (development)
-
 ## Testing Shell Scripts
 
 ### Syntax Check
@@ -261,17 +252,6 @@ shellcheck script.sh
 
 ## Common Patterns in This Project
 
-### Logging Functions
-All deployment scripts use consistent logging:
-```bash
-log() {
-    local message
-    message="$1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $message" | tee -a "$LOG_FILE"
-    return 0
-}
-```
-
 ### Color Output
 ```bash
 GREEN='\033[0;32m'
@@ -280,23 +260,6 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Success${NC}"
 echo -e "${RED}Error${NC}"
-```
-
-### Architecture Detection
-```bash
-ARCH=$(uname -m)
-case "${ARCH}" in
-    x86_64)
-        ARCH_SUFFIX="amd64"
-        ;;
-    aarch64|arm64)
-        ARCH_SUFFIX="arm64"
-        ;;
-    *)
-        echo "Unsupported architecture: ${ARCH}" >&2
-        exit 1
-        ;;
-esac
 ```
 
 ## When Writing New Shell Scripts

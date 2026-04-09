@@ -1,7 +1,6 @@
 .PHONY: help deps lint fix-nolint test vet clean
-.PHONY: build build-local build-release build-bot build-backend build-web
-.PHONY: build-bot-local build-bot-release
-.PHONY: version-file run-web
+.PHONY: build build-local build-bot build-backend build-web
+.PHONY: build-bot-local run-web
 .PHONY: docker-build docker-up docker-down
 
 # ==========================================
@@ -25,8 +24,6 @@ CGO_ENABLED := 0
 
 # Build flags
 LDFLAGS := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)
-# Release flags: strip debug info and symbol table for smaller binaries
-LDFLAGS_RELEASE := $(LDFLAGS) -w -s
 
 # Go commands
 GO := go
@@ -78,36 +75,6 @@ build-bot-local: deps ## Build bot for local development (native OS/arch)
 # Aliases for convenience
 build-bot: build-bot-local
 build-backend: build-bot-local
-
-# ==========================================
-# Release Builds (Multi-Architecture)
-# ==========================================
-
-build-bot-release: deps ## Build bot for production (AMD64 and ARM64)
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=amd64 \
-	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(BOT_BIN)-amd64 ./cmd/bot
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=arm64 \
-	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(BOT_BIN)-arm64 ./cmd/bot
-	@echo "Built Bot binaries:"
-	@echo "  $(BOT_BIN)-amd64 (linux/amd64)"
-	@echo "  $(BOT_BIN)-arm64 (linux/arm64)"
-	@echo "  Version: $(VERSION)"
-	@echo "  Build Time: $(BUILD_TIME)"
-
-build-release: build-bot-release version-file ## Build all binaries for production
-	@chmod +x $(BIN_DIR)/*
-	@ls -lh $(BIN_DIR)
-
-# ==========================================
-# Version File
-# ==========================================
-
-version-file: ## Create VERSION file with build metadata
-	@mkdir -p $(BIN_DIR)
-	@echo "$(VERSION)" > $(BIN_DIR)/VERSION
-	@echo "Built at: $(BUILD_TIME)" >> $(BIN_DIR)/VERSION
-	@echo "Commit: $(shell git rev-parse HEAD 2>/dev/null || echo 'unknown')" >> $(BIN_DIR)/VERSION
-	@echo "Created $(BIN_DIR)/VERSION"
 
 # ==========================================
 # Web Frontend
@@ -162,8 +129,6 @@ docker-down: ## Stop Docker Compose services
 # ==========================================
 
 ci-test: test vet ## Run all CI tests
-
-ci-build: build-release ## Build release binaries for CI
 
 # ==========================================
 # Info
