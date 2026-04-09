@@ -77,14 +77,14 @@ case "${ARCH}" in
         ;;
 esac
 
-log "Detected architecture: ${ARCH} (will download ${ARCH_SUFFIX} binaries)"
+log "Detected architecture: ${ARCH} (will download ${ARCH_SUFFIX} binary)"
 
 # Create temporary directory for downloads
 TMP_DIR=$(mktemp -d)
 trap "rm -rf $TMP_DIR" EXIT
 
-# Download binaries
-log "Downloading binaries..."
+# Download binary
+log "Downloading binary..."
 
 download_file() {
     local filename
@@ -99,31 +99,26 @@ download_file() {
     return 0
 }
 
-# Download architecture-specific binaries
-download_file "english-learning-api-${ARCH_SUFFIX}" || exit 1
+# Download architecture-specific binary
 download_file "english-learning-bot-${ARCH_SUFFIX}" || exit 1
 download_file "VERSION" || exit 1
 
-# Rename binaries to remove architecture suffix for local use
-mv "${TMP_DIR}/english-learning-api-${ARCH_SUFFIX}" "${TMP_DIR}/english-learning-api"
+# Rename binary to remove architecture suffix for local use
 mv "${TMP_DIR}/english-learning-bot-${ARCH_SUFFIX}" "${TMP_DIR}/english-learning-bot"
 
-# Make binaries executable
-chmod +x "${TMP_DIR}/english-learning-api"
+# Make binary executable
 chmod +x "${TMP_DIR}/english-learning-bot"
 
-# Stop services
-log "Stopping services..."
-sudo systemctl stop english-learning-api.service || log_colored "API service was not running" "$YELLOW"
+# Stop service
+log "Stopping service..."
 sudo systemctl stop english-learning-bot.service || log_colored "Bot service was not running" "$YELLOW"
 
-# Backup old binaries (optional but recommended)
-if [[ -f "${BIN_DIR}/english-learning-api" ]]; then
-    log "Backing up old binaries..."
+# Backup old binary (optional but recommended)
+if [[ -f "${BIN_DIR}/english-learning-bot" ]]; then
+    log "Backing up old binary..."
     mkdir -p "${INSTALL_DIR}/backups"
     BACKUP_DIR="${INSTALL_DIR}/backups/backup-$(date +%Y%m%d-%H%M%S)"
     mkdir -p "$BACKUP_DIR"
-    cp "${BIN_DIR}/english-learning-api" "$BACKUP_DIR/" 2>/dev/null || true
     cp "${BIN_DIR}/english-learning-bot" "$BACKUP_DIR/" 2>/dev/null || true
     cp "$VERSION_FILE" "$BACKUP_DIR/" 2>/dev/null || true
 
@@ -131,38 +126,32 @@ if [[ -f "${BIN_DIR}/english-learning-api" ]]; then
     cd "${INSTALL_DIR}/backups" && ls -t | tail -n +6 | xargs -r rm -rf
 fi
 
-# Copy new binaries
-log "Installing new binaries..."
+# Copy new binary
+log "Installing new binary..."
 mkdir -p "$BIN_DIR"
-cp "${TMP_DIR}/english-learning-api" "${BIN_DIR}/"
 cp "${TMP_DIR}/english-learning-bot" "${BIN_DIR}/"
 cp "${TMP_DIR}/VERSION" "${BIN_DIR}/"
 
 # Update version file
 echo "$LATEST_RELEASE" > "$VERSION_FILE"
 
-# Start services
-log "Starting services..."
-sudo systemctl start english-learning-api.service
+# Start service
+log "Starting service..."
 sudo systemctl start english-learning-bot.service
 
-# Wait a moment and check if services are running
+# Wait a moment and check if service is running
 sleep 2
 
-API_STATUS=$(sudo systemctl is-active english-learning-api.service)
 BOT_STATUS=$(sudo systemctl is-active english-learning-bot.service)
 
-if [[ "$API_STATUS" = "active" && "$BOT_STATUS" = "active" ]]; then
-    log_colored "Deployment successful! Both services are running." "$GREEN"
-    log "API Status: $API_STATUS"
-    log "Bot Status: $BOT_STATUS"
+if [[ "$BOT_STATUS" = "active" ]]; then
+    log_colored "Deployment successful! Service is running." "$GREEN"
+    log "Status: $BOT_STATUS"
     log "Deployed version: $LATEST_RELEASE"
     exit 0
 else
-    log_colored "WARNING: Some services may not be running properly!" "$RED"
-    log "API Status: $API_STATUS"
-    log "Bot Status: $BOT_STATUS"
-    log "Check logs with: journalctl -u english-learning-api.service -f"
-    log "                 journalctl -u english-learning-bot.service -f"
+    log_colored "WARNING: Service may not be running properly!" "$RED"
+    log "Status: $BOT_STATUS"
+    log "Check logs with: journalctl -u english-learning-bot.service -f"
     exit 1
 fi

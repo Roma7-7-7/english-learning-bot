@@ -1,4 +1,4 @@
-1# Version Information System
+# Version Information System
 
 ## Overview
 
@@ -28,7 +28,7 @@ var BuildTime = "2025-01-09" // set at build time
 
 ### 2. Variable Declaration
 
-In both `cmd/api/main.go` and `cmd/bot/main.go`:
+In `cmd/bot/main.go`:
 
 ```go
 var (
@@ -46,21 +46,8 @@ var (
 
 ### 3. Startup Logs
 
-Both services now log version info on startup:
+The application logs version info on startup:
 
-**API Server:**
-```json
-{
-  "time": "2025-01-09T10:30:00Z",
-  "level": "INFO",
-  "msg": "starting api server",
-  "version": "v20250109-103000-abc1234",
-  "build_time": "20250109-103000",
-  "address": ":8080"
-}
-```
-
-**Telegram Bot:**
 ```json
 {
   "time": "2025-01-09T10:30:00Z",
@@ -128,10 +115,10 @@ v20250109-103000-abc1234
 ### Build with version info:
 ```bash
 # Manual build with custom version
-go build -ldflags="-X main.Version=local-test -X main.BuildTime=$(date -u +%Y%m%d-%H%M%S)" -o bin/english-learning-api ./cmd/api
+go build -ldflags="-X main.Version=local-test -X main.BuildTime=$(date -u +%Y%m%d-%H%M%S)" -o bin/english-learning-bot ./cmd/bot
 
 # Run and check logs
-./bin/english-learning-api
+./bin/english-learning-bot
 # Should see: version=local-test build_time=20250109-103000
 
 # Check health endpoint
@@ -140,8 +127,8 @@ curl http://localhost:8080/health
 
 ### Build without version info (uses defaults):
 ```bash
-go build -o bin/english-learning-api ./cmd/api
-./bin/english-learning-api
+go build -o bin/english-learning-bot ./cmd/bot
+./bin/english-learning-bot
 # Should see: version=dev build_time=unknown
 ```
 
@@ -160,22 +147,22 @@ When you push to `main`, GitHub Actions automatically:
 
 2. **Builds with version baked in:**
    ```bash
-   go build -ldflags="-X main.Version=abc1234 -X main.BuildTime=20250109-103000" ...
+   go build -ldflags="-X main.Version=abc1234 -X main.BuildTime=20250109-103000" -o bin/english-learning-bot ./cmd/bot
    ```
 
 3. **Creates GitHub Release** with that tag
 
-4. **EC2 downloads and runs** the versioned binary
+4. **Server downloads and runs** the versioned binary
 
 ### Checking deployed version
 
-**On EC2:**
+**On the server:**
 ```bash
 # Check current deployed version
 cat /opt/english-learning-bot/current_version
 
 # Check via logs
-sudo journalctl -u english-learning-api.service | grep "starting api server"
+sudo journalctl -u english-learning-bot.service | grep "starting bot"
 
 # Check via health endpoint
 curl http://localhost:8080/health
@@ -183,8 +170,8 @@ curl http://localhost:8080/health
 
 **From your machine:**
 ```bash
-# If API is publicly accessible
-curl http://your-ec2-ip:8080/health
+# If the service is publicly accessible
+curl http://your-server-ip:8080/health
 ```
 
 ## Troubleshooting
@@ -214,10 +201,7 @@ sudo /opt/english-learning-bot/deploy.sh
 ### Want to see full version info
 
 ```bash
-# API startup log (full details)
-sudo journalctl -u english-learning-api.service -n 50 | grep "starting api server"
-
-# Bot startup log
+# Startup log (full details)
 sudo journalctl -u english-learning-bot.service -n 50 | grep "starting bot"
 
 # Version file (just the tag)
@@ -279,7 +263,7 @@ Health endpoint can be polled by Datadog:
 instances:
   - url: http://localhost:8080/health
     tags:
-      - service:english-learning-api
+      - service:english-learning-bot
 ```
 
 ### CloudWatch

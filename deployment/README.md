@@ -49,16 +49,16 @@ The deployment system is designed to be:
 ┌─────────────────────────────────────────────────────┐
 │  GitHub Actions (Automated CI/CD)                   │
 │  1. Runs tests (go test, go vet)                    │
-│  2. Builds binaries for Linux (CGO_ENABLED=0)       │
-│  3. Creates GitHub Release with binaries as assets  │
+│  2. Builds binary for Linux (CGO_ENABLED=0)         │
+│  3. Creates GitHub Release with binary as asset     │
 └────────────────────────┬────────────────────────────┘
                          │
                          ▼
 ┌────────────────────────────────────────────────────┐
 │  EC2 Instance (Amazon Linux 2)                     │
 │  - You manually SSH in and run deploy.sh           │
-│  - Downloads new binaries if version changed       │
-│  - Restarts systemd services with new binaries     │
+│  - Downloads new binary if version changed         │
+│  - Restarts systemd service with new binary        │
 │  - No build tools installed (just curl + systemd)  │
 └────────────────────────────────────────────────────┘
 ```
@@ -94,8 +94,8 @@ The deployment system is designed to be:
 - Manually when you want to deploy the latest release: `/opt/english-learning-bot/deploy.sh`
 - No sudo needed - sudoers is configured for passwordless systemctl access
 
-### 3. `systemd/english-learning-api.service`
-**Purpose**: Systemd service definition for the API server.
+### 3. `systemd/english-learning-bot.service`
+**Purpose**: Systemd service definition for the application (runs both the Telegram bot and API server in a single process).
 
 **Key features**:
 - Automatic restart on crash
@@ -104,17 +104,12 @@ The deployment system is designed to be:
 - Logs to journald
 - Memory limit: 256MB, CPU limit: 50%
 
-### 4. `systemd/english-learning-bot.service`
-**Purpose**: Systemd service definition for the Telegram bot.
-
-**Key features**: Same as API service (restart, user, env, logs, limits).
-
 ### 5. Sudoers Configuration
 The setup script creates `/etc/sudoers.d/english-learning-bot` to allow `ec2-user` to manage services without a password.
 
 **Allowed commands** (passwordless):
-- `systemctl start/stop/restart/status` for both services
-- `systemctl is-active` for both services
+- `systemctl start/stop/restart/status` for the service
+- `systemctl is-active` for the service
 
 This enables the deploy script to run without sudo while still managing systemd services.
 
@@ -154,29 +149,27 @@ sudo nano /opt/english-learning-bot/.env
 
 Required values:
 ```bash
-BOT_TOKEN=your_telegram_bot_token_here
-BOT_ALLOWED_CHAT_IDS=your_chat_id_here
-API_JWT_SECRET=generate_a_random_secret_here
+BOT_TELEGRAM_TOKEN=your_telegram_bot_token_here
+BOT_TELEGRAM_ALLOWED_CHAT_IDS=your_chat_id_here
+BOT_HTTP_JWT_SECRET=generate_a_random_secret_here
 ```
 
 Optional values (adjust as needed):
-- `SCHEDULE_INTERVAL` - how often to send word checks (default: 4h)
-- `SCHEDULE_START_HOUR` / `SCHEDULE_END_HOUR` - active hours (default: 9-22)
-- `SCHEDULE_TIMEZONE` - your timezone (default: America/New_York)
+- `BOT_SCHEDULE_PUBLISH_INTERVAL` - how often to send word checks (default: 15m)
+- `BOT_SCHEDULE_HOUR_FROM` / `BOT_SCHEDULE_HOUR_TO` - active hours (default: 9-22)
+- `BOT_SCHEDULE_LOCATION` - your timezone (default: America/New_York)
 
-#### 4. Restart services with new configuration
+#### 4. Restart the service with new configuration
 ```bash
-sudo systemctl restart english-learning-api.service
 sudo systemctl restart english-learning-bot.service
 ```
 
 #### 5. Verify everything is running
 ```bash
-sudo systemctl status english-learning-api.service
 sudo systemctl status english-learning-bot.service
 ```
 
-Both should show `active (running)` in green.
+It should show `active (running)` in green.
 
 ### Done! 🎉
 From now on, whenever you push to `main` branch:
@@ -189,30 +182,28 @@ From now on, whenever you push to `main` branch:
 ### Service Management
 ```bash
 # Check service status
-sudo systemctl status english-learning-api.service
 sudo systemctl status english-learning-bot.service
 
-# Start/stop/restart services
-sudo systemctl start english-learning-api.service
-sudo systemctl stop english-learning-api.service
-sudo systemctl restart english-learning-api.service
+# Start/stop/restart service
+sudo systemctl start english-learning-bot.service
+sudo systemctl stop english-learning-bot.service
+sudo systemctl restart english-learning-bot.service
 
 # Enable/disable auto-start on boot
-sudo systemctl enable english-learning-api.service
-sudo systemctl disable english-learning-api.service
+sudo systemctl enable english-learning-bot.service
+sudo systemctl disable english-learning-bot.service
 ```
 
 ### Viewing Logs
 ```bash
 # Follow live logs
-sudo journalctl -u english-learning-api.service -f
 sudo journalctl -u english-learning-bot.service -f
 
 # View last 100 lines
-sudo journalctl -u english-learning-api.service -n 100
+sudo journalctl -u english-learning-bot.service -n 100
 
 # View logs from last hour
-sudo journalctl -u english-learning-api.service --since "1 hour ago"
+sudo journalctl -u english-learning-bot.service --since "1 hour ago"
 
 # View deployment logs
 tail -f /opt/english-learning-bot/deployment.log
@@ -250,9 +241,9 @@ Located at `.github/workflows/release.yml`:
 - **Steps**:
   1. Runs tests (`go test ./...`)
   2. Runs `go vet`
-  3. Builds both binaries with optimizations (CGO_ENABLED=0, stripped symbols)
+  3. Builds the binary with optimizations (CGO_ENABLED=0, stripped symbols)
   4. Creates release with tag format: `vYYYYMMDD-HHMMSS-<commit-sha>`
-  5. Uploads binaries as release assets
+  5. Uploads binary as release asset
 
 ### 2. Manual Deployment
 When you're ready to deploy, SSH into EC2 and run:
@@ -269,11 +260,11 @@ Check GitHub for latest release tag
 Compare with current_version file
   ↓
 If different:
-  - Download binaries (curl, no auth needed for public repo)
-  - Stop systemd services (via sudo, configured for passwordless access)
-  - Backup old binaries
-  - Install new binaries
-  - Start systemd services
+  - Download binary (curl, no auth needed for public repo)
+  - Stop systemd service (via sudo, configured for passwordless access)
+  - Backup old binary
+  - Install new binary
+  - Start systemd service
   - Update current_version file
 Else:
   - Exit (no action needed)
@@ -300,9 +291,8 @@ Services only restart if there's a new version. This means:
 - ✅ cron (built into Amazon Linux 2)
 
 ### Estimated Resource Usage:
-- **API service**: ~30-50MB RAM (idle), up to 100MB under load
-- **Bot service**: ~30-50MB RAM (idle), up to 80MB under load
-- **Total**: ~60-100MB RAM, easily fits in 1GB free tier
+- **Service**: ~50-80MB RAM (idle), up to 150MB under load
+- Easily fits in 1GB free tier
 - **No build overhead**: Saves 200-400MB during deployments
 
 ## Rollback Procedure
@@ -314,15 +304,13 @@ If a deployment breaks something:
    ls -lh /opt/english-learning-bot/backups/
    ```
 
-2. **Stop services**:
+2. **Stop service**:
    ```bash
-   sudo systemctl stop english-learning-api.service
    sudo systemctl stop english-learning-bot.service
    ```
 
-3. **Restore previous binaries**:
+3. **Restore previous binary**:
    ```bash
-   sudo cp /opt/english-learning-bot/backups/backup-<timestamp>/english-learning-api /opt/english-learning-bot/bin/
    sudo cp /opt/english-learning-bot/backups/backup-<timestamp>/english-learning-bot /opt/english-learning-bot/bin/
    ```
 
@@ -331,9 +319,8 @@ If a deployment breaks something:
    sudo cp /opt/english-learning-bot/backups/backup-<timestamp>/current_version /opt/english-learning-bot/
    ```
 
-5. **Start services**:
+5. **Start service**:
    ```bash
-   sudo systemctl start english-learning-api.service
    sudo systemctl start english-learning-bot.service
    ```
 
@@ -444,15 +431,15 @@ aws s3 ls s3://your-bucket/english-learning-bot/db_dumps/
 # Download specific backup
 aws s3 cp s3://your-bucket/path/backup.sqlite /tmp/restore.sqlite
 
-# Stop services
-sudo systemctl stop english-learning-api.service english-learning-bot.service
+# Stop service
+sudo systemctl stop english-learning-bot.service
 
 # Restore database
 sudo cp /tmp/restore.sqlite /opt/english-learning-bot/data/english_learning.db
 sudo chown ec2-user:ec2-user /opt/english-learning-bot/data/english_learning.db
 
-# Start services
-sudo systemctl start english-learning-api.service english-learning-bot.service
+# Start service
+sudo systemctl start english-learning-bot.service
 ```
 
 ### Troubleshooting Backups
@@ -485,7 +472,7 @@ sudo systemctl start english-learning-api.service english-learning-bot.service
    ```
 2. **JWT secret**: Use a strong random string (32+ characters)
 3. **Telegram bot token**: Keep it secret, never commit to git
-4. **EC2 security groups**: Only allow necessary ports (22 for SSH, 8080 for API)
+4. **EC2 security groups**: Only allow necessary ports (22 for SSH, 8080 for HTTP)
 
 ## Monitoring and Alerts
 
@@ -504,11 +491,10 @@ grep "WARNING" /opt/english-learning-bot/deployment.log
 ### Monitor Service Health
 ```bash
 # Quick status check
-sudo systemctl is-active english-learning-api.service
 sudo systemctl is-active english-learning-bot.service
 
 # Detailed status
-sudo systemctl status english-learning-api.service english-learning-bot.service
+sudo systemctl status english-learning-bot.service
 ```
 
 ### Optional: Set Up CloudWatch
@@ -540,8 +526,7 @@ A: The scripts are version-controlled in GitHub. To update on EC2:
 sudo curl -sfL https://raw.githubusercontent.com/Roma7-7-7/english-learning-bot/main/deployment/deploy.sh -o /opt/english-learning-bot/deploy.sh
 sudo chmod +x /opt/english-learning-bot/deploy.sh
 
-# Re-download systemd service files
-sudo curl -sfL https://raw.githubusercontent.com/Roma7-7-7/english-learning-bot/main/deployment/systemd/english-learning-api.service -o /etc/systemd/system/english-learning-api.service
+# Re-download systemd service file
 sudo curl -sfL https://raw.githubusercontent.com/Roma7-7-7/english-learning-bot/main/deployment/systemd/english-learning-bot.service -o /etc/systemd/system/english-learning-bot.service
 sudo systemctl daemon-reload
 ```

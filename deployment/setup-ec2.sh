@@ -74,25 +74,21 @@ curl -sfL "${REPO_URL}/deployment/deploy.sh" -o "${INSTALL_DIR}/deploy.sh"
 chmod +x "${INSTALL_DIR}/deploy.sh"
 print_success "Deployment script installed"
 
-# Step 3: Install systemd service files
-print_step "Installing systemd services"
-curl -sfL "${REPO_URL}/deployment/systemd/english-learning-api.service" -o /etc/systemd/system/english-learning-api.service
+# Step 3: Install systemd service file
+print_step "Installing systemd service"
 curl -sfL "${REPO_URL}/deployment/systemd/english-learning-bot.service" -o /etc/systemd/system/english-learning-bot.service
 systemctl daemon-reload
-print_success "Systemd services installed"
+print_success "Systemd service installed"
 
 # Step 4: Create .env file template
 print_step "Creating .env file template"
 if [[ ! -f "${INSTALL_DIR}/.env" ]]; then
     cat > "${INSTALL_DIR}/.env" << 'ENVEOF'
-# Bot Configuration
+# Configuration (single BOT_ prefix for all settings)
 BOT_DB_PATH=file:/opt/english-learning-bot/data/english_learning.db?cache=shared&mode=rwc
-
-# API Configuration
-API_DB_PATH=file:/opt/english-learning-bot/data/english_learning.db?cache=shared&mode=rwc
-API_HTTP_CORS_ALLOW_ORIGINS=https://bot.domain
-API_HTTP_JWT_AUDIENCE=https://api.bot.domain
-API_HTTP_COOKIE_DOMAIN=bot.domain
+BOT_HTTP_CORS_ALLOW_ORIGINS=https://bot.domain
+BOT_HTTP_JWT_AUDIENCE=https://api.bot.domain
+BOT_HTTP_COOKIE_DOMAIN=bot.domain
 
 # AWS
 AWS_REGION=eu-central-1
@@ -108,30 +104,24 @@ fi
 print_step "Running initial deployment"
 "${INSTALL_DIR}/deploy.sh"
 
-# Step 6: Enable services to start on boot
-print_step "Enabling services to start on boot"
-systemctl enable english-learning-api.service
+# Step 6: Enable service to start on boot
+print_step "Enabling service to start on boot"
 systemctl enable english-learning-bot.service
-print_success "Services enabled"
+print_success "Service enabled"
 
 # Step 6.5: Configure sudoers for passwordless systemctl
 print_step "Configuring passwordless systemctl access for ec2-user"
 SUDOERS_FILE="/etc/sudoers.d/english-learning-bot"
 cat > "$SUDOERS_FILE" << 'SUDOEOF'
-# Allow ec2-user to manage english-learning-bot services without password
-ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl start english-learning-api.service
-ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop english-learning-api.service
-ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart english-learning-api.service
+# Allow ec2-user to manage english-learning-bot service without password
 ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl start english-learning-bot.service
 ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop english-learning-bot.service
 ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart english-learning-bot.service
-ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl status english-learning-api.service
 ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl status english-learning-bot.service
-ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl is-active english-learning-api.service
 ec2-user ALL=(ALL) NOPASSWD: /usr/bin/systemctl is-active english-learning-bot.service
 SUDOEOF
 chmod 0440 "$SUDOERS_FILE"
-print_success "Sudoers configured - ec2-user can now manage services without password"
+print_success "Sudoers configured - ec2-user can now manage service without password"
 
 # Step 7: Set up database backup to S3
 print_step "Setting up database backup to S3"
@@ -180,7 +170,7 @@ EOF
 echo -e "${NC}"
 
 print_success "Installation directory: $INSTALL_DIR"
-print_success "Services: english-learning-api, english-learning-bot"
+print_success "Service: english-learning-bot"
 if [[ -f "${INSTALL_DIR}/.backup_config" ]]; then
     print_success "Database backup: Daily at 20:00 UTC to S3"
 fi
@@ -189,14 +179,13 @@ echo -e "\n${YELLOW}NEXT STEPS:${NC}"
 echo "1. Edit the .env file with your credentials:"
 echo "   sudo nano ${INSTALL_DIR}/.env"
 echo ""
-echo "2. After editing .env, restart the services:"
-echo "   sudo systemctl restart english-learning-api.service"
+echo "2. After editing .env, restart the service:"
 echo "   sudo systemctl restart english-learning-bot.service"
 echo ""
 echo "${BLUE}USEFUL COMMANDS:${NC}"
-echo "  Check service status:     systemctl status english-learning-api.service"
-echo "  View logs:                journalctl -u english-learning-api.service -f"
-echo "  Restart services:         systemctl restart english-learning-api.service"
+echo "  Check service status:     systemctl status english-learning-bot.service"
+echo "  View logs:                journalctl -u english-learning-bot.service -f"
+echo "  Restart service:          systemctl restart english-learning-bot.service"
 echo "  Manual deployment:        ${INSTALL_DIR}/deploy.sh"
 echo "  View deployment log:      tail -f ${INSTALL_DIR}/deployment.log"
 if [[ -f "${INSTALL_DIR}/.backup_config" ]]; then

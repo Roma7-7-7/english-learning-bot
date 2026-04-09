@@ -1,5 +1,5 @@
 [Unit]
-Description=English Learning Telegram Bot
+Description=English Learning Bot (API + Telegram)
 After=network.target
 Wants=network-online.target
 
@@ -28,8 +28,8 @@ StandardError=journal
 SyslogIdentifier=english-learning-bot
 
 # Resource limits
-MemoryMax=256M
-CPUQuota=50%
+MemoryMax=512M
+CPUQuota=100%
 
 [Install]
 WantedBy=multi-user.target

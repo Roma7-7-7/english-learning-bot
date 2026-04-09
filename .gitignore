@@ -27,6 +27,7 @@ go.work.sum
 
 # Goland
 .idea/
+.zed/
 
 # VSCode/Cursor
 .vscode/

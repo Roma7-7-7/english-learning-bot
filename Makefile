@@ -1,7 +1,7 @@
 .PHONY: help deps lint fix-nolint test vet clean
-.PHONY: build build-local build-release build-api build-bot build-backend build-web
-.PHONY: build-api-local build-bot-local build-api-release build-bot-release
-.PHONY: version-file docker-build docker-run docker-compose run-web
+.PHONY: build build-local build-release build-bot build-backend build-web
+.PHONY: build-bot-local build-bot-release
+.PHONY: version-file run-web
 
 # ==========================================
 # Configuration
@@ -17,7 +17,6 @@ GOARCH ?= $(shell go env GOARCH)
 
 # Build settings
 BIN_DIR := ./bin
-API_BIN := $(BIN_DIR)/english-learning-api
 BOT_BIN := $(BIN_DIR)/english-learning-bot
 
 # CGO was required for go-sqlite3 but we switched to modernc.org/sqlite
@@ -71,35 +70,17 @@ fix-nolint: ## Fix nolint comments (remove space after //)
 # Local Development Builds
 # ==========================================
 
-build-api-local: deps ## Build API for local development (native OS/arch)
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
-	$(GOBUILD) -ldflags="$(LDFLAGS)" -o $(API_BIN) ./cmd/api
-
 build-bot-local: deps ## Build bot for local development (native OS/arch)
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
 	$(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BOT_BIN) ./cmd/bot
 
-build-backend-local: build-api-local build-bot-local ## Build both API and bot for local development
-
 # Aliases for convenience
-build-api: build-api-local
 build-bot: build-bot-local
-build-backend: build-backend-local
+build-backend: build-bot-local
 
 # ==========================================
 # Release Builds (Multi-Architecture)
 # ==========================================
-
-build-api-release: deps ## Build API for production (AMD64 and ARM64)
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=amd64 \
-	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(API_BIN)-amd64 ./cmd/api
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=arm64 \
-	$(GOBUILD) -ldflags="$(LDFLAGS_RELEASE)" -o $(API_BIN)-arm64 ./cmd/api
-	@echo "Built API binaries:"
-	@echo "  $(API_BIN)-amd64 (linux/amd64)"
-	@echo "  $(API_BIN)-arm64 (linux/arm64)"
-	@echo "  Version: $(VERSION)"
-	@echo "  Build Time: $(BUILD_TIME)"
 
 build-bot-release: deps ## Build bot for production (AMD64 and ARM64)
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=amd64 \
@@ -112,7 +93,7 @@ build-bot-release: deps ## Build bot for production (AMD64 and ARM64)
 	@echo "  Version: $(VERSION)"
 	@echo "  Build Time: $(BUILD_TIME)"
 
-build-release: build-api-release build-bot-release version-file ## Build all binaries for production
+build-release: build-bot-release version-file ## Build all binaries for production
 	@chmod +x $(BIN_DIR)/*
 	@ls -lh $(BIN_DIR)
 
@@ -140,7 +121,7 @@ build-web: ## Build web frontend
 
 build: build-backend build-web ## Build everything (backend + frontend)
 
-build-local: build-backend-local build-web ## Build everything for local development
+build-local: build-backend build-web ## Build everything for local development
 
 # ==========================================
 # Clean

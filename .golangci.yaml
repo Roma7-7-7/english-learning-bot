@@ -41,7 +41,6 @@ linters:
     - loggercheck
     - makezero
     - mirror
-    - mnd
     - musttag
     - nakedret
     - nestif
@@ -146,20 +145,6 @@ linters:
       skip-single-param: true
     lll:
       line-length: 175
-    mnd:
-      ignored-functions:
-        - args.Error
-        - flag.Arg
-        - flag.Duration.*
-        - flag.Float.*
-        - flag.Int.*
-        - flag.Uint.*
-        - os.Chmod
-        - os.Mkdir.*
-        - os.OpenFile
-        - os.WriteFile
-        - prometheus.ExponentialBuckets.*
-        - prometheus.LinearBuckets
     nakedret:
       max-func-lines: 0
     nolintlint:

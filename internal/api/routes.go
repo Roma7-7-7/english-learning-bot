@@ -21,7 +21,7 @@ type (
 	}
 )
 
-func NewRouter(ctx context.Context, conf *config.API, deps Dependencies) http.Handler {
+func NewRouter(ctx context.Context, conf *config.Bot, deps Dependencies) http.Handler {
 	e := echo.New()
 	e.Validator = NewCustomValidator()
 
