@@ -1,0 +1,41 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+    restart: unless-stopped
+    ports:
+      - "${BOT_SERVER_ADDR_PORT:-8080}:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      # Required - no defaults
+      BOT_TELEGRAM_TOKEN: ${BOT_TELEGRAM_TOKEN}
+      BOT_TELEGRAM_ALLOWED_CHAT_IDS: ${BOT_TELEGRAM_ALLOWED_CHAT_IDS}
+      # Required with sensible defaults for local dev
+      BOT_HTTP_JWT_SECRET: ${BOT_HTTP_JWT_SECRET:-local-dev-secret}
+      BOT_HTTP_CORS_ALLOW_ORIGINS: ${BOT_HTTP_CORS_ALLOW_ORIGINS:-http://localhost:3000}
+      BOT_HTTP_COOKIE_DOMAIN: ${BOT_HTTP_COOKIE_DOMAIN:-localhost}
+      BOT_HTTP_JWT_AUDIENCE: ${BOT_HTTP_JWT_AUDIENCE:-http://localhost:3000}
+      # Optional - app has defaults
+      BOT_DB_PATH: ${BOT_DB_PATH:-./data/english_learning.db?cache=shared&mode=rwc}
+      BOT_SERVER_ADDR: ${BOT_SERVER_ADDR:-:8080}
+      BOT_SCHEDULE_PUBLISH_INTERVAL: ${BOT_SCHEDULE_PUBLISH_INTERVAL:-15m}
+      BOT_SCHEDULE_HOUR_FROM: ${BOT_SCHEDULE_HOUR_FROM:-9}
+      BOT_SCHEDULE_HOUR_TO: ${BOT_SCHEDULE_HOUR_TO:-22}
+      BOT_SCHEDULE_LOCATION: ${BOT_SCHEDULE_LOCATION:-Europe/Kyiv}
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      - bot
