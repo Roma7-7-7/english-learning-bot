@@ -29,7 +29,7 @@ var (
 )
 
 const (
-	batchSize         = 50
+	batchSize          = 50
 	guessedStreakLimit = 15
 
 	exitCodeOK int = iota
@@ -115,7 +115,7 @@ func run(ctx context.Context) int {
 
 	go func() {
 		<-ctx.Done()
-		cCtx, cCancel := context.WithTimeout(context.Background(), 15*time.Second) //nolint:mnd // ignore mnd
+		cCtx, cCancel := context.WithTimeout(context.Background(), 15*time.Second) //nolint:gosec // context.Background is intentional - ctx is already cancelled here
 		defer cCancel()
 
 		if sErr := server.Shutdown(cCtx); sErr != nil {
