@@ -2,6 +2,7 @@
 .PHONY: build build-local build-release build-bot build-backend build-web
 .PHONY: build-bot-local build-bot-release
 .PHONY: version-file run-web
+.PHONY: docker-build docker-up docker-down
 
 # ==========================================
 # Configuration
@@ -137,6 +138,24 @@ clean: ## Remove build artifacts
 
 run-web: ## Run web development server
 	cd web && npm run dev
+
+# ==========================================
+# Docker
+# ==========================================
+
+docker-build: ## Build Docker images
+	VERSION=$(VERSION) BUILD_TIME=$(BUILD_TIME) docker-compose build
+
+# Usage: BOT_TELEGRAM_TOKEN=<token> BOT_TELEGRAM_ALLOWED_CHAT_IDS=<ids> make docker-up
+# Web UI: http://localhost:3000 (nginx proxies API requests to bot)
+# Bot API: http://localhost:8080 (direct access for debugging)
+docker-up: ## Build and run with Docker Compose
+	BOT_TELEGRAM_TOKEN=$(BOT_TELEGRAM_TOKEN) BOT_TELEGRAM_ALLOWED_CHAT_IDS=$(BOT_TELEGRAM_ALLOWED_CHAT_IDS) \
+	VERSION=$(VERSION) BUILD_TIME=$(BUILD_TIME) \
+	docker-compose up --build -d
+
+docker-down: ## Stop Docker Compose services
+	docker-compose down
 
 # ==========================================
 # CI/CD Targets
