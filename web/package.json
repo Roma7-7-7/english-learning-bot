@@ -19,7 +19,7 @@
     "react-bootstrap-icons": "^1.11.6",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^7.14.0"
+    "react-router-dom": "^7.14.1"
   },
   "overrides": {
     "minimatch": "^10.2.1"
@@ -32,9 +32,9 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
+    "globals": "^17.5.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.58.1",
+    "typescript-eslint": "^8.58.2",
     "vite": "^8.0.8"
   }
 }
