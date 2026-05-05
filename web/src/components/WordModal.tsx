@@ -30,6 +30,20 @@ export function WordModal({
     const [error, setError] = useState<string>("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 576);
+    const [wasShown, setWasShown] = useState(show);
+
+    // Reset form on open transition by adjusting state during render — see
+    // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+    if (show !== wasShown) {
+        setWasShown(show);
+        if (show) {
+            setWordInput(word);
+            setNewWordInput(word);
+            setTranslationInput(translation);
+            setDescriptionInput(description);
+            setError("");
+        }
+    }
 
     // Handle window resize for responsive design
     useEffect(() => {
@@ -41,21 +55,17 @@ export function WordModal({
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Reset form when modal opens with new props
+    // Focus the appropriate input after the modal is shown
     useEffect(() => {
-        if (show) {
-            setWordInput(word);
-            setNewWordInput(word);
-            setTranslationInput(translation);
-            setDescriptionInput(description);
-            setError("");
-            const focusElement = action === 'add' ? "word-input" : "new-word-input";
-            const element = document.getElementById(focusElement);
-            if (element) {
-                (element as HTMLInputElement).focus();
-            }
+        if (!show) {
+            return;
         }
-    }, [show, word, translation, description, action]);
+        const focusElement = action === 'add' ? "word-input" : "new-word-input";
+        const element = document.getElementById(focusElement);
+        if (element) {
+            (element as HTMLInputElement).focus();
+        }
+    }, [show, action]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

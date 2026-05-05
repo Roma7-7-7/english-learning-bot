@@ -50,10 +50,6 @@ export function Home() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (error !== "") {
-      setError("");
-    }
-
     client
       .findWords(qp)
       .then((r) => {
@@ -75,6 +71,7 @@ export function Home() {
           return;
         }
 
+        setError("");
         setWords(w);
       })
       .catch((e) => {
@@ -82,7 +79,6 @@ export function Home() {
         setError("Failed to fetch words");
         setWords(null);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qp, refetchTrigger]);
 
   useEffect(() => {

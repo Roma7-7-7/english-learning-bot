@@ -17,14 +17,14 @@ export function AuthenticationGuard({children}: AuthenticationGuardProps) {
     const navigate = useNavigate();
     const location = useLocation();
 
-    useEffect(() => {
-        let authCheckInterval: number;
+    const isPublicRoute = PUBLIC_ROUTES.includes(location.pathname as typeof PUBLIC_ROUTES[number]);
 
-        const isPublicRoute = PUBLIC_ROUTES.includes(location.pathname as typeof PUBLIC_ROUTES[number]);
+    useEffect(() => {
         if (isPublicRoute) {
-            setIsLoading(false);
             return;
         }
+
+        let authCheckInterval: number;
 
         async function checkAuthentication() {
             try {
@@ -85,9 +85,9 @@ export function AuthenticationGuard({children}: AuthenticationGuardProps) {
                 window.clearInterval(authCheckInterval);
             }
         };
-    }, [dispatch, navigate, location.pathname]);
+    }, [dispatch, navigate, location.pathname, isPublicRoute]);
 
-    if (isLoading) {
+    if (isLoading && !isPublicRoute) {
         return <div className="loading-spinner">Loading...</div>;
     }
 
