@@ -1,6 +1,6 @@
 import { useAppState } from "../context.tsx";
 import client from "../api/client.tsx";
-import {Link, useNavigate} from "react-router-dom";
+import {Link, useNavigate} from "react-router";
 import {Navbar as BSNavbar, Container, Nav, Button} from 'react-bootstrap';
 
 export function Navbar() {
