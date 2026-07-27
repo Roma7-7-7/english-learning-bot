@@ -1,6 +1,6 @@
 // src/components/AuthenticationGuard.tsx
 import {useEffect, useState} from 'react';
-import {useLocation, useNavigate} from 'react-router-dom';
+import {useLocation, useNavigate} from 'react-router';
 import {useAppState} from "../context.tsx";
 import client, {type Auth} from "../api/client.tsx";
 

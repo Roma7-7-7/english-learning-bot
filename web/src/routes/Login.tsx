@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import client, { type Status } from "../api/client.tsx";
 import { Row, Col, Form, Button, Alert, Container, Spinner } from 'react-bootstrap';
 
