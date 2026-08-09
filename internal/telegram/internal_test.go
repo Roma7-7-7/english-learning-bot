@@ -1,3 +1,6 @@
+// This file stays in package telegram: totalStatsMessage is unexported, and the alternative —
+// exercising it through HandleStats — would need a real telebot context for no extra coverage.
+
 package telegram
 
 import (
