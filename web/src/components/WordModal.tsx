@@ -150,10 +150,10 @@ export function WordModal({
                 existing={conflict.existing}
                 incoming={conflict.incoming}
                 streakLimit={streakLimit}
-                onHide={() => {
-                    setConflict(null);
-                    onHide();
-                }}
+                // Backing out of the question returns to the form: closing the dialog would drop
+                // everything the user typed, and re-opening it starts from blank inputs.
+                onBack={() => setConflict(null)}
+                onHide={onHide}
                 onSuccess={onSuccess}
             />
         );

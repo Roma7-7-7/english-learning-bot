@@ -9,6 +9,9 @@ interface WordConflictModalProps {
   /** What the user just tried to add. */
   incoming: Word;
   streakLimit: number;
+  /** Dismiss the question and go back to the form the user filled in, keeping what they typed. */
+  onBack: () => void;
+  /** Close the whole dialog. Only used once the conflict has actually been resolved. */
   onHide: () => void;
   onSuccess: () => void;
 }
@@ -20,6 +23,7 @@ export function WordConflictModal({
   existing,
   incoming,
   streakLimit,
+  onBack,
   onHide,
   onSuccess,
 }: WordConflictModalProps) {
@@ -77,7 +81,7 @@ export function WordConflictModal({
   const isLearned = streak >= streakLimit;
 
   return (
-    <Modal show={show} onHide={onHide} centered backdrop="static" fullscreen="sm-down">
+    <Modal show={show} onHide={onBack} centered backdrop="static" fullscreen="sm-down">
       <Modal.Header closeButton>
         <Modal.Title>Word already exists</Modal.Title>
       </Modal.Header>
@@ -171,8 +175,8 @@ export function WordConflictModal({
         >
           Update translation only (keep streak)
         </Button>
-        <Button variant="secondary" onClick={onHide} disabled={isSubmitting} className="w-100">
-          Cancel
+        <Button variant="secondary" onClick={onBack} disabled={isSubmitting} className="w-100">
+          Back
         </Button>
       </Modal.Footer>
     </Modal>
