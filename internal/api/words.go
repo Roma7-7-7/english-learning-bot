@@ -18,6 +18,10 @@ type (
 		Description   string `json:"description"`
 		ToReview      bool   `json:"to_review"`
 		GuessedStreak int    `json:"guessed_streak,omitempty"`
+		// InBatch is read-only: it says whether the word is currently in the learning batch, which
+		// is what tells a caller resolving a conflict whether "add to the batch" would change
+		// anything.
+		InBatch bool `json:"in_batch"`
 		// OnConflict is only meaningful on create. Left empty, adding a word that already exists is
 		// refused with 409 and the existing entry, so the caller can ask the user what to do; set,
 		// it applies that answer.
@@ -93,6 +97,7 @@ func (h *WordsHandler) FindWords(c echo.Context) error {
 			Description:   word.Description,
 			ToReview:      word.ToReview,
 			GuessedStreak: word.GuessedStreak,
+			InBatch:       word.InBatch,
 		}
 	}
 
@@ -156,7 +161,7 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 		}
 
 		// Report what is already stored so the caller can show the translation and the streak that
-		// an overwrite would discard.
+		// an overwrite would discard, and work out which resolutions would actually change anything.
 		return c.JSON(http.StatusConflict, echo.Map{
 			"error": "word already exists",
 			"existing": WordTranslation{
@@ -165,6 +170,7 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 				Description:   existing.Description,
 				ToReview:      existing.ToReview,
 				GuessedStreak: existing.GuessedStreak,
+				InBatch:       existing.InBatch,
 			},
 		})
 	}

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Modal, Button, Form, Alert } from "react-bootstrap";
 import client, { type Word, type WordConflictResponse } from "../api/client.tsx";
 import { WordConflictModal } from "./WordConflictModal.tsx";
+import { isTrivialConflict } from "./wordConflict.ts";
 
 export type WordModalAction = 'add' | 'edit';
 
@@ -119,14 +120,30 @@ export function WordModal({
             // rather than silently overwriting it.
             if (response.status === 409) {
                 const body: WordConflictResponse = await response.json();
-                setConflict({
-                    existing: body.existing,
-                    incoming: {
-                        word: wordInput,
-                        translation: translationInput,
-                        description: descriptionInput,
-                    },
-                });
+                const incoming: Word = {
+                    word: wordInput,
+                    translation: translationInput,
+                    description: descriptionInput,
+                };
+
+                // ...unless there is no progress to overwrite and nothing about the entry would
+                // change. Asking would offer only buttons that all do the same thing.
+                if (isTrivialConflict(body.existing, incoming)) {
+                    const resolved = await client.createWord({
+                        ...incoming,
+                        on_conflict: "update_only",
+                    });
+                    if (resolved.ok) {
+                        onSuccess();
+                        onHide();
+                        return;
+                    }
+                    const resolveError = await resolved.json().catch(() => ({}));
+                    setError(resolveError.error ?? "Failed to add word");
+                    return;
+                }
+
+                setConflict({ existing: body.existing, incoming });
                 return;
             }
 

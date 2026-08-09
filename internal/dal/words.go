@@ -65,37 +65,37 @@ func upsertWordTranslation(ctx context.Context, e execer, chatID int64, word, tr
 // inside inTx: *sql.Tx is not safe for concurrent use and the two queries would deadlock.
 func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error) {
 	baseQuery := qb.Select().
-		From("word_translations").
-		Where(squirrel.Eq{"chat_id": chatID})
+		From("word_translations wt").
+		Where(squirrel.Eq{"wt.chat_id": chatID})
 
 	if filter.Word != "" {
 		// Search in both word and translation fields for SQLite compatibility
 		searchTerm := fmt.Sprintf("%%%s%%", strings.ToLower(filter.Word))
 		baseQuery = baseQuery.Where(
 			squirrel.Or{
-				squirrel.Expr("LOWER(word) LIKE ?", searchTerm),
-				squirrel.Expr("LOWER(translation) LIKE ?", searchTerm),
+				squirrel.Expr("LOWER(wt.word) LIKE ?", searchTerm),
+				squirrel.Expr("LOWER(wt.translation) LIKE ?", searchTerm),
 			},
 		)
 	}
 
 	if filter.ToReview {
-		baseQuery = baseQuery.Where(squirrel.Eq{"to_review": filter.ToReview})
+		baseQuery = baseQuery.Where(squirrel.Eq{"wt.to_review": filter.ToReview})
 	}
 
 	switch filter.Guessed {
 	case "", GuessedAll:
 	case GuessedLearned:
-		baseQuery = baseQuery.Where(squirrel.Expr("guessed_streak >= ?", r.streakLimit))
+		baseQuery = baseQuery.Where(squirrel.Expr("wt.guessed_streak >= ?", r.streakLimit))
 	case GuessedBatched:
-		baseQuery = baseQuery.Where("EXISTS (SELECT 1 FROM learning_batches lb WHERE lb.chat_id = word_translations.chat_id AND lb.word = word_translations.word)")
+		baseQuery = baseQuery.Where("EXISTS (SELECT 1 FROM learning_batches lb WHERE lb.chat_id = wt.chat_id AND lb.word = wt.word)")
 	case GuessedToLearn:
-		baseQuery = baseQuery.Where("guessed_streak = 0")
+		baseQuery = baseQuery.Where("wt.guessed_streak = 0")
 	}
 
 	selectQuery2 := baseQuery.
-		Columns("chat_id", "word", "translation", "COALESCE(description, '')", "guessed_streak", "to_review", "created_at", "updated_at").
-		OrderBy("word").
+		Columns(wordTranslationColumns()...).
+		OrderBy("wt.word").
 		Offset(filter.Offset).
 		Limit(filter.Limit)
 
@@ -277,11 +277,7 @@ func batchedWordTranslationsCount(ctx context.Context, e execer, chatID int64) (
 }
 
 func (r *SQLiteRepository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error) {
-	query := qb.Select(
-		"wt.chat_id", "wt.word", "wt.translation",
-		"COALESCE(wt.description, '')", "wt.guessed_streak",
-		"wt.to_review", "wt.created_at", "wt.updated_at",
-	).
+	query := qb.Select(wordTranslationColumns()...).
 		From("word_translations wt").
 		Where(squirrel.Eq{"wt.chat_id": chatID, "wt.word": word})
 
@@ -305,11 +301,7 @@ func (r *SQLiteRepository) FindRandomWordTranslation(ctx context.Context, chatID
 	var query2 squirrel.SelectBuilder
 
 	if filter.Batched {
-		query2 = qb.Select(
-			"wt.chat_id", "wt.word", "wt.translation",
-			"COALESCE(wt.description, '')", "wt.guessed_streak",
-			"wt.to_review", "wt.created_at", "wt.updated_at",
-		).
+		query2 = qb.Select(wordTranslationColumns()...).
 			From("word_translations wt").
 			Join("learning_batches lb ON wt.chat_id = lb.chat_id AND wt.word = lb.word").
 			Where(squirrel.Eq{"wt.chat_id": chatID}).
@@ -323,11 +315,7 @@ func (r *SQLiteRepository) FindRandomWordTranslation(ctx context.Context, chatID
 			orderBy = "wt.last_reviewed_seq ASC"
 		}
 
-		query2 = qb.Select(
-			"wt.chat_id", "wt.word", "wt.translation",
-			"COALESCE(wt.description, '')", "wt.guessed_streak",
-			"wt.to_review", "wt.created_at", "wt.updated_at",
-		).
+		query2 = qb.Select(wordTranslationColumns()...).
 			From("word_translations wt").
 			Where(squirrel.Eq{"wt.chat_id": chatID}).
 			Where(squirrel.Expr("wt.guessed_streak "+filter.StreakLimitDirection.String()+" ?", filter.StreakLimit)).
@@ -378,6 +366,21 @@ func deleteFromLearningBatchGeGuessedStreak(ctx context.Context, e execer, chatI
 	return int(affected), nil
 }
 
+// wordTranslationColumns returns the column list hydrateWordTranslation scans, in order. Every query
+// that uses it must select from `word_translations wt`, since the columns are alias-qualified.
+//
+// Keep the two in sync: a query that hand-rolls its own column list will scan into the wrong fields
+// the next time one is added here. It is built per call rather than kept in a package variable so
+// that no caller can mutate the list every query shares.
+func wordTranslationColumns() []string {
+	return []string{
+		"wt.chat_id", "wt.word", "wt.translation",
+		"COALESCE(wt.description, '')", "wt.guessed_streak",
+		"wt.to_review", "wt.created_at", "wt.updated_at",
+		"EXISTS (SELECT 1 FROM learning_batches blb WHERE blb.chat_id = wt.chat_id AND blb.word = wt.word)",
+	}
+}
+
 func hydrateWordTranslation(row interface {
 	Scan(dest ...interface{}) error
 }) (*WordTranslation, error) {
@@ -391,6 +394,7 @@ func hydrateWordTranslation(row interface {
 		&wt.ToReview,
 		&wt.CreatedAt,
 		&wt.UpdatedAt,
+		&wt.InBatch,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan word translation: %w", err)

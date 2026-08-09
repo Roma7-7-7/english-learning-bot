@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, Badge, Button, Form, Modal } from "react-bootstrap";
 import client, { type ConflictResolution, type Word } from "../api/client.tsx";
+import { conflictChoices, conflictExplanation, resolutionActions } from "./wordConflict.ts";
 
 interface WordConflictModalProps {
   show: boolean;
@@ -42,16 +43,15 @@ export function WordConflictModal({
     }
   }
 
-  const differs =
-    existing.translation !== incoming.translation ||
-    (existing.description || "") !== (incoming.description || "");
+  const choices = conflictChoices(existing, incoming);
+  const { textDiffers } = choices;
 
   const submit = async (onConflict: ConflictResolution) => {
     setError("");
     setIsSubmitting(true);
 
     // Whichever text the user picked is simply what we send; the server writes it verbatim.
-    const chosen = !differs || choice === "incoming" ? incoming : existing;
+    const chosen = !textDiffers || choice === "incoming" ? incoming : existing;
 
     try {
       const response = await client.createWord({
@@ -96,9 +96,15 @@ export function WordConflictModal({
               {streak}/{streakLimit}
             </Badge>
           )}
+          {existing.in_batch && (
+            <>
+              {" "}
+              <Badge bg="info">In learning batch</Badge>
+            </>
+          )}
         </p>
 
-        {differs ? (
+        {textDiffers ? (
           <Form.Group className="mb-3">
             <Form.Label className="fw-semibold">Which translation should be kept?</Form.Label>
             <Form.Check
@@ -138,11 +144,7 @@ export function WordConflictModal({
           </p>
         )}
 
-        <p className="text-muted small mb-0">
-          If you were adding this word again because you had forgotten it, reset the streak. A reset
-          word is no longer picked for reviews, so add it to the learning batch as well to be asked
-          about it again soon; otherwise it waits until a batch refill picks it up.
-        </p>
+        <p className="text-muted small mb-0">{conflictExplanation(choices)}</p>
 
         {error && (
           <Alert variant="danger" className="mt-3 mb-0">
@@ -151,30 +153,17 @@ export function WordConflictModal({
         )}
       </Modal.Body>
       <Modal.Footer className="d-flex flex-column gap-2">
-        <Button
-          variant="warning"
-          onClick={() => submit("reset_and_batch")}
-          disabled={isSubmitting}
-          className="w-100"
-        >
-          Reset and add to learning batch
-        </Button>
-        <Button
-          variant="outline-warning"
-          onClick={() => submit("reset_only")}
-          disabled={isSubmitting}
-          className="w-100"
-        >
-          Reset only
-        </Button>
-        <Button
-          variant="outline-primary"
-          onClick={() => submit("update_only")}
-          disabled={isSubmitting}
-          className="w-100"
-        >
-          Update translation only (keep streak)
-        </Button>
+        {resolutionActions(choices).map((action) => (
+          <Button
+            key={action.resolution}
+            variant={action.variant}
+            onClick={() => submit(action.resolution)}
+            disabled={isSubmitting}
+            className="w-100"
+          >
+            {action.label}
+          </Button>
+        ))}
         <Button variant="secondary" onClick={onBack} disabled={isSubmitting} className="w-100">
           Back
         </Button>

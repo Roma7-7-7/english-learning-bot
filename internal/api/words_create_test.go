@@ -75,6 +75,42 @@ func TestCreateWordDuplicateReportsConflict(t *testing.T) {
 	}
 }
 
+// The dialog only offers resolutions that would change something, and whether "add to the learning
+// batch" is one of them is not derivable from the streak: a word can sit in the batch at any streak.
+func TestCreateWordConflictReportsBatchMembership(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		inBatch bool
+	}{
+		{name: "batched", inBatch: true},
+		{name: "not batched", inBatch: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &stubWordsRepo{findWord: existingWord(dal.WordTranslation{
+				Word: "apple", Translation: "яблуко", GuessedStreak: 0, InBatch: tt.inBatch,
+			})}
+			h := api.NewWordsHandler(repo, testLogger())
+
+			c, rec := newRequest(t, "/words", `{"word":"apple","translation":"різновид яблука"}`)
+			if err := h.CreateWord(c); err != nil {
+				t.Fatalf("CreateWord: %v", err)
+			}
+
+			assertStatus(t, rec, http.StatusConflict)
+
+			var body struct {
+				Existing api.WordTranslation `json:"existing"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if body.Existing.InBatch != tt.inBatch {
+				t.Errorf("existing in_batch = %v, want %v", body.Existing.InBatch, tt.inBatch)
+			}
+		})
+	}
+}
+
 func TestCreateWordAppliesConflictResolution(t *testing.T) {
 	tests := []struct {
 		name       string
