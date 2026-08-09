@@ -253,3 +253,58 @@ func TestCreateWordTranslationRefusesExistingWord(t *testing.T) {
 		t.Errorf("streak = %d, want the untouched 12", got.GuessedStreak)
 	}
 }
+
+// The conflict dialog decides whether "add to the learning batch" is worth offering, so a read has
+// to say where the word currently is, not just what its streak is.
+func TestFindWordTranslationReportsBatchMembership(t *testing.T) {
+	ctx := context.Background()
+	r := dal.NewTestRepo(t)
+
+	r.AddWord("batched", 3)
+	r.AddWord("loose", 3)
+	r.SeedBatch("batched")
+
+	for _, tt := range []struct {
+		word string
+		want bool
+	}{
+		{word: "batched", want: true},
+		{word: "loose", want: false},
+	} {
+		got, err := r.FindWordTranslation(ctx, dal.TestChatID, tt.word)
+		if err != nil {
+			t.Fatalf("FindWordTranslation(%q): %v", tt.word, err)
+		}
+		if got.InBatch != tt.want {
+			t.Errorf("%q InBatch = %v, want %v", tt.word, got.InBatch, tt.want)
+		}
+	}
+}
+
+func TestFindWordTranslationsReportBatchMembership(t *testing.T) {
+	ctx := context.Background()
+	r := dal.NewTestRepo(t)
+
+	r.AddWord("batched", 3)
+	r.AddWord("loose", 3)
+	r.SeedBatch("batched")
+
+	got, _, err := r.FindWordTranslations(ctx, dal.TestChatID, dal.WordTranslationsFilter{Limit: 10})
+	if err != nil {
+		t.Fatalf("FindWordTranslations: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d words, want 2", len(got))
+	}
+
+	inBatch := make(map[string]bool, len(got))
+	for _, wt := range got {
+		inBatch[wt.Word] = wt.InBatch
+	}
+	if !inBatch["batched"] {
+		t.Error("batched word reported as outside the batch")
+	}
+	if inBatch["loose"] {
+		t.Error("unbatched word reported as batched")
+	}
+}

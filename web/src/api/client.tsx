@@ -59,6 +59,8 @@ export interface Word {
     description?: string;
     to_review?: boolean;
     guessed_streak?: number;
+    /** Read only: whether the word is currently in the active learning batch. */
+    in_batch?: boolean;
     /** Create only. Omitted, a duplicate is refused with 409 instead of overwritten. */
     on_conflict?: ConflictResolution;
 }

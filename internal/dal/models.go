@@ -19,8 +19,11 @@ type (
 		Description   string
 		GuessedStreak int
 		ToReview      bool
-		CreatedAt     time.Time
-		UpdatedAt     time.Time
+		// InBatch reports whether the word is currently in the active learning batch, i.e. whether
+		// it is one of the words being asked about right now.
+		InBatch   bool
+		CreatedAt time.Time
+		UpdatedAt time.Time
 	}
 
 	Stats struct {

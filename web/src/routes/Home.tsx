@@ -449,7 +449,8 @@ export function Home() {
                             <Button
                               variant="link"
                               size="sm"
-                              className="p-1"
+                              className="p-1 text-primary"
+                              title="Edit word"
                               onClick={() => {
                                 setModalState({
                                   show: true,
@@ -485,7 +486,8 @@ export function Home() {
                             <Button
                               variant="link"
                               size="sm"
-                              className="p-1"
+                              className="p-1 text-danger"
+                              title="Delete word"
                               onClick={() => handleDeleteWord(item.word)}
                             >
                               <Trash />

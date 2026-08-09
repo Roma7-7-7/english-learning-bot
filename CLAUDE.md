@@ -254,6 +254,13 @@ Word endpoints beyond the CRUD set:
   `update_only`) applies the answer. Which translation to keep needs no flag — the caller just
   sends whichever text the user chose
 
+The conflict question is only asked about things that would actually change, which is why the 409's
+`existing` carries `in_batch` alongside `guessed_streak`: a zero streak makes reset a no-op, and an
+already-batched word makes the batch half of `reset_and_batch` a no-op. `web/src/components/wordConflict.ts`
+turns those two facts into the set of buttons, so the three resolutions collapse to two (or to none —
+same text, zero streak, already batched, which the UI resolves silently with `update_only` instead of
+opening a dialog). Keep that logic in one place; it is shared by the dialog and the silent path.
+
 `GET /health` is registered **before** the auth middleware and is deliberately public. It returns
 `conf.BuildInfo` (`{"status", "version", "build_time"}`), which `main.go` fills from the
 `-ldflags`-stamped `Version`/`BuildTime` globals. The web navbar reads it to show the running
