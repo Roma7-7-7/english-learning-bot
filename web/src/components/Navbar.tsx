@@ -1,11 +1,36 @@
+import {useEffect, useState} from "react";
 import { useAppState } from "../context.tsx";
-import client from "../api/client.tsx";
+import client, { type Health } from "../api/client.tsx";
 import {Link, useNavigate} from "react-router";
 import {Navbar as BSNavbar, Container, Nav, Button} from 'react-bootstrap';
 
 export function Navbar() {
     const { state, dispatch } = useAppState();
     const navigate = useNavigate();
+    const [health, setHealth] = useState<Health | null>(null);
+
+    // Build info of the backend actually serving us, so the running version is
+    // identifiable from the UI. A failure here must never break the navbar.
+    useEffect(() => {
+        let cancelled = false;
+
+        client.getHealth().then((r) => {
+            if (r.status >= 300) {
+                throw new Error("Unexpected status code: " + r.status);
+            }
+            return r.json();
+        }).then((h: Health) => {
+            if (!cancelled) {
+                setHealth(h);
+            }
+        }).catch((e) => {
+            console.error("Error fetching health:", e);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     function handleLogout() {
         client.logout().then((r) => {
@@ -27,7 +52,13 @@ export function Navbar() {
     return (
         <BSNavbar bg="dark" variant="dark" expand="lg" className="mb-3" style={{borderRadius: "0 0 10px 10px"}}>
             <Container fluid>
-                <Link to="/" className="navbar-brand">Home</Link>
+                <Link
+                    to="/"
+                    className="navbar-brand"
+                    title={health ? `${health.version} (${health.build_time})` : undefined}
+                >
+                    Home
+                </Link>
                 <BSNavbar.Toggle aria-controls="navbarScroll" />
                 <BSNavbar.Collapse id="navbarScroll">
                     <Nav className="me-auto my-2 my-lg-0">
