@@ -71,6 +71,43 @@ func (r *SQLiteRepository) ResetStreak(ctx context.Context, chatID int64, word s
 	})
 }
 
+// ResolveWordConflict applies the user's decision about a word they tried to add that already
+// exists: the given translation and description always win, and resolution decides what happens to
+// the existing learning progress.
+//
+// Which translation to keep is not encoded here — the caller passes whichever text the user chose.
+func (r *SQLiteRepository) ResolveWordConflict(
+	ctx context.Context, chatID int64, word, translation, description string, resolution ConflictResolution,
+) error {
+	switch resolution {
+	case ResolveResetAndBatch, ResolveResetOnly, ResolveUpdateOnly:
+	default:
+		return fmt.Errorf("unknown conflict resolution: %q", resolution)
+	}
+
+	return r.inTx(ctx, func(e execer) error {
+		if err := upsertWordTranslation(ctx, e, chatID, word, translation, description); err != nil {
+			return fmt.Errorf("upsert word translation: %w", err)
+		}
+
+		if resolution != ResolveUpdateOnly {
+			if err := resetGuessedStreak(ctx, e, chatID, word); err != nil {
+				return fmt.Errorf("reset guessed streak: %w", err)
+			}
+		}
+		if resolution == ResolveResetAndBatch {
+			if err := addToLearningBatch(ctx, e, chatID, word); err != nil {
+				return fmt.Errorf("add to learning batch: %w", err)
+			}
+		}
+
+		if err := updateTotalWordsLearned(ctx, e, chatID, r.streakLimit); err != nil {
+			return fmt.Errorf("update total words learned: %w", err)
+		}
+		return nil
+	})
+}
+
 // MarkWordReviewed records that a word has just been offered for review.
 //
 // It is called when the review is sent, not when it is answered, so that an ignored message still

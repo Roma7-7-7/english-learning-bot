@@ -18,6 +18,10 @@ type (
 		Description   string `json:"description"`
 		ToReview      bool   `json:"to_review"`
 		GuessedStreak int    `json:"guessed_streak,omitempty"`
+		// OnConflict is only meaningful on create. Left empty, adding a word that already exists is
+		// refused with 409 and the existing entry, so the caller can ask the user what to do; set,
+		// it applies that answer.
+		OnConflict string `json:"on_conflict,omitempty" validate:"omitempty,oneof=reset_and_batch reset_only update_only"`
 	}
 
 	Guessed string
@@ -108,12 +112,43 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 		return err
 	}
 
-	if err := h.repo.AddWordTranslation(c.Request().Context(), chatID, wt.Word, wt.Translation, wt.Description); err != nil {
-		h.log.ErrorContext(c.Request().Context(), "failed to create word translation", "error", err)
+	existing, err := h.repo.FindWordTranslation(c.Request().Context(), chatID, wt.Word)
+	switch {
+	case errors.Is(err, dal.ErrNotFound):
+		if err = h.repo.AddWordTranslation(c.Request().Context(), chatID, wt.Word, wt.Translation, wt.Description); err != nil {
+			h.log.ErrorContext(c.Request().Context(), "failed to create word translation", "error", err)
+			return c.JSON(http.StatusInternalServerError, InternalServerError)
+		}
+		return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word created"})
+
+	case err != nil:
+		h.log.ErrorContext(c.Request().Context(), "failed to find word translation", "error", err)
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word created"})
+	// The word is already known. Without an explicit decision, report the conflict along with what
+	// is already stored rather than silently overwriting it and discarding the streak.
+	if wt.OnConflict == "" {
+		return c.JSON(http.StatusConflict, echo.Map{
+			"error": "word already exists",
+			"existing": WordTranslation{
+				Word:          existing.Word,
+				Translation:   existing.Translation,
+				Description:   existing.Description,
+				ToReview:      existing.ToReview,
+				GuessedStreak: existing.GuessedStreak,
+			},
+		})
+	}
+
+	err = h.repo.ResolveWordConflict(c.Request().Context(), chatID,
+		wt.Word, wt.Translation, wt.Description, dal.ConflictResolution(wt.OnConflict))
+	if err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to resolve word conflict", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word resolved"})
 }
 
 func (h *WordsHandler) UpdateWord(c echo.Context) error {

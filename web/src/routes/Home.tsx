@@ -521,6 +521,7 @@ export function Home() {
         word={modalState.word}
         translation={modalState.translation}
         description={modalState.description}
+        streakLimit={streakLimit}
         onHide={handleCloseModal}
         onSuccess={handleWordSuccess}
       />

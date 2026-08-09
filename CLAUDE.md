@@ -248,6 +248,11 @@ The application uses environment-based configuration with a unified `BOT_` prefi
 Word endpoints beyond the CRUD set:
 - `POST /words/reset` — `{"word", "add_to_batch"}`; resets a streak deliberately. Unlike a wrong
   answer it does not touch the daily guessed/missed counters
+- `POST /words` is **not** an upsert. An existing word returns
+  `409 {"error": ..., "existing": {...}}` so the caller can show the stored translation and streak
+  and ask what to do. Resending with `on_conflict` (`reset_and_batch` / `reset_only` /
+  `update_only`) applies the answer. Which translation to keep needs no flag — the caller just
+  sends whichever text the user chose
 
 ### Database Changes
 

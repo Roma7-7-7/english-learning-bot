@@ -227,7 +227,9 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ### Words Management
 - `GET /words` - List words with filtering and pagination
-- `POST /words` - Create new word translation
+- `POST /words` - Create new word translation. If the word already exists, responds `409` with the
+  stored entry instead of overwriting it; resend with `"on_conflict"` set to `reset_and_batch`,
+  `reset_only` or `update_only` to apply a decision
 - `PUT /words` - Update existing word translation
 - `PUT /words/review` - Mark word for review
 - `POST /words/reset` - Reset a word's streak to 0, optionally putting it back into the learning

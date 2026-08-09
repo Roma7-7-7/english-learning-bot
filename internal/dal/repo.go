@@ -26,10 +26,24 @@ const (
 	GuessedToLearn Guessed = "to_learn"
 )
 
+const (
+	// ResolveResetAndBatch treats the word as forgotten: streak back to 0 and straight into the
+	// active learning batch.
+	ResolveResetAndBatch ConflictResolution = "reset_and_batch"
+	// ResolveResetOnly zeroes the streak but leaves the word out of the batch, so it only comes
+	// back around during reviews.
+	ResolveResetOnly ConflictResolution = "reset_only"
+	// ResolveUpdateOnly corrects the translation without disturbing learning progress.
+	ResolveUpdateOnly ConflictResolution = "update_only"
+)
+
 type (
 	Guessed              string
 	StreakLimitDirection int
 	RandomOrder          int
+	// ConflictResolution says what to do about learning progress when a word that already exists is
+	// added again.
+	ConflictResolution string
 
 	WordTranslationsFilter struct {
 		Word     string
@@ -79,6 +93,7 @@ type (
 		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
 		MarkWordReviewed(ctx context.Context, chatID int64, word string) error
 		ResetStreak(ctx context.Context, chatID int64, word string, addToBatch bool) error
+		ResolveWordConflict(ctx context.Context, chatID int64, word, translation, description string, resolution ConflictResolution) error
 		RefillLearningBatch(ctx context.Context, chatID int64, batchSize, guessedStreakLimit int) (evicted, added int, err error)
 	}
 

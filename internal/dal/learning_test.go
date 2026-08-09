@@ -206,6 +206,68 @@ func TestResetStreakDoesNotCountAsMiss(t *testing.T) {
 	}
 }
 
+func TestResolveWordConflict(t *testing.T) {
+	tests := []struct {
+		name       string
+		resolution ConflictResolution
+		wantStreak int
+		wantBatch  bool
+	}{
+		{name: "reset and batch", resolution: ResolveResetAndBatch, wantStreak: 0, wantBatch: true},
+		{name: "reset only", resolution: ResolveResetOnly, wantStreak: 0, wantBatch: false},
+		{name: "update only keeps progress", resolution: ResolveUpdateOnly, wantStreak: 18, wantBatch: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			r := newTestRepo(t)
+			addWord(t, r, "apple", 18)
+
+			err := r.ResolveWordConflict(ctx, testChatID, "apple", "new-translation", "new-description", tt.resolution)
+			if err != nil {
+				t.Fatalf("ResolveWordConflict: %v", err)
+			}
+
+			// The chosen text always wins, whatever happens to the streak.
+			got, err := r.FindWordTranslation(ctx, testChatID, "apple")
+			if err != nil {
+				t.Fatalf("FindWordTranslation: %v", err)
+			}
+			if got.Translation != "new-translation" {
+				t.Errorf("translation = %q, want new-translation", got.Translation)
+			}
+			if got.Description != "new-description" {
+				t.Errorf("description = %q, want new-description", got.Description)
+			}
+			if got.GuessedStreak != tt.wantStreak {
+				t.Errorf("streak = %d, want %d", got.GuessedStreak, tt.wantStreak)
+			}
+			if batched := isBatched(t, r, "apple"); batched != tt.wantBatch {
+				t.Errorf("batched = %v, want %v", batched, tt.wantBatch)
+			}
+		})
+	}
+}
+
+func TestResolveWordConflictRejectsUnknownResolution(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+	addWord(t, r, "apple", 18)
+
+	if err := r.ResolveWordConflict(ctx, testChatID, "apple", "x", "", ConflictResolution("nonsense")); err == nil {
+		t.Fatal("ResolveWordConflict accepted an unknown resolution")
+	}
+	// Nothing may have been written.
+	got, err := r.FindWordTranslation(ctx, testChatID, "apple")
+	if err != nil {
+		t.Fatalf("FindWordTranslation: %v", err)
+	}
+	if got.Translation != "apple-translation" || got.GuessedStreak != 18 {
+		t.Errorf("word was modified by a rejected resolution: %+v", got)
+	}
+}
+
 func TestRefillLearningBatchEvictsAndFills(t *testing.T) {
 	ctx := context.Background()
 	r := newTestRepo(t)

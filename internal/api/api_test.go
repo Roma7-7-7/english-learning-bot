@@ -41,11 +41,13 @@ func newRequest(t *testing.T, method, path, body string) (echo.Context, *httptes
 // stubWordsRepo implements dal.WordTranslationsRepository, recording the calls each test cares about
 // and returning canned results. Only the methods a test exercises need to be configured.
 type stubWordsRepo struct {
-	findWord   func(word string) (*dal.WordTranslation, error)
-	resetCalls []resetCall
-	resetErr   error
-	addCalls   []addCall
-	addErr     error
+	findWord     func(word string) (*dal.WordTranslation, error)
+	resetCalls   []resetCall
+	resetErr     error
+	addCalls     []addCall
+	addErr       error
+	resolveCalls []resolveCall
+	resolveErr   error
 }
 
 type resetCall struct {
@@ -55,6 +57,11 @@ type resetCall struct {
 
 type addCall struct {
 	word, translation, description string
+}
+
+type resolveCall struct {
+	word, translation, description string
+	resolution                     dal.ConflictResolution
 }
 
 func (s *stubWordsRepo) FindWordTranslation(_ context.Context, _ int64, word string) (*dal.WordTranslation, error) {
@@ -72,6 +79,13 @@ func (s *stubWordsRepo) AddWordTranslation(_ context.Context, _ int64, word, tra
 func (s *stubWordsRepo) ResetStreak(_ context.Context, _ int64, word string, addToBatch bool) error {
 	s.resetCalls = append(s.resetCalls, resetCall{word, addToBatch})
 	return s.resetErr
+}
+
+func (s *stubWordsRepo) ResolveWordConflict(
+	_ context.Context, _ int64, word, translation, description string, resolution dal.ConflictResolution,
+) error {
+	s.resolveCalls = append(s.resolveCalls, resolveCall{word, translation, description, resolution})
+	return s.resolveErr
 }
 
 func (s *stubWordsRepo) FindWordTranslations(

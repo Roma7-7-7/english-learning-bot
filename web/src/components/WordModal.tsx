@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Form, Alert } from "react-bootstrap";
-import client from "../api/client.tsx";
+import client, { type Word, type WordConflictResponse } from "../api/client.tsx";
+import { WordConflictModal } from "./WordConflictModal.tsx";
 
 export type WordModalAction = 'add' | 'edit';
 
@@ -10,8 +11,14 @@ interface WordModalProps {
     word?: string;
     translation: string;
     description?: string;
+    streakLimit: number;
     onHide: () => void;
     onSuccess: () => void;
+}
+
+interface ConflictState {
+    existing: Word;
+    incoming: Word;
 }
 
 export function WordModal({
@@ -20,6 +27,7 @@ export function WordModal({
                               word = "",
                               translation = "",
                               description = "",
+                              streakLimit,
                               onHide,
                               onSuccess
                           }: WordModalProps) {
@@ -31,6 +39,7 @@ export function WordModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 576);
     const [wasShown, setWasShown] = useState(show);
+    const [conflict, setConflict] = useState<ConflictState | null>(null);
 
     // Reset form on open transition by adjusting state during render — see
     // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
@@ -42,6 +51,7 @@ export function WordModal({
             setTranslationInput(translation);
             setDescriptionInput(description);
             setError("");
+            setConflict(null);
         }
     }
 
@@ -102,10 +112,26 @@ export function WordModal({
                 }
                 onSuccess();
                 onHide();
-            } else {
-                const errorData = await response.json();
-                setError(errorData.message || `Failed to ${action} word`);
+                return;
             }
+
+            // The word is already in the vocabulary: ask what to do with its existing progress
+            // rather than silently overwriting it.
+            if (response.status === 409) {
+                const body: WordConflictResponse = await response.json();
+                setConflict({
+                    existing: body.existing,
+                    incoming: {
+                        word: wordInput,
+                        translation: translationInput,
+                        description: descriptionInput,
+                    },
+                });
+                return;
+            }
+
+            const errorData = await response.json().catch(() => ({}));
+            setError(errorData.error ?? `Failed to ${action} word`);
         } catch (err) {
             console.error(`Error ${action === 'add' ? 'adding' : 'updating'} word:`, err);
             setError(`Failed to ${action} word. Please try again.`);
@@ -117,11 +143,27 @@ export function WordModal({
     const title = action === 'add' ? 'Add New Word' : 'Edit Word';
     const submitButtonText = action === 'add' ? 'Add Word' : 'Save Changes';
 
+    if (conflict) {
+        return (
+            <WordConflictModal
+                show={show}
+                existing={conflict.existing}
+                incoming={conflict.incoming}
+                streakLimit={streakLimit}
+                onHide={() => {
+                    setConflict(null);
+                    onHide();
+                }}
+                onSuccess={onSuccess}
+            />
+        );
+    }
+
     return (
-        <Modal 
-            show={show} 
-            onHide={onHide} 
-            centered 
+        <Modal
+            show={show}
+            onHide={onHide}
+            centered
             backdrop="static"
             fullscreen="sm-down"
         >
