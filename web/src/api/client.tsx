@@ -8,6 +8,14 @@ export interface Status {
     authenticated: boolean;
 }
 
+/** Build info of the backend that is actually serving this session. */
+export interface Health {
+    status: string;
+    /** Short git SHA in CI builds, "dev" locally. */
+    version: string;
+    build_time: string;
+}
+
 export interface TotalStats {
     total: number;
     learned: number;
@@ -173,6 +181,10 @@ class ApiClient {
         return this.request('/auth/logout', {
             method: 'POST',
         });
+    }
+
+    async getHealth(): Promise<Response> {
+        return this.request('/health');
     }
 
     async getTotalStats(): Promise<Response> {

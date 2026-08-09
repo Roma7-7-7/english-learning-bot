@@ -254,6 +254,12 @@ Word endpoints beyond the CRUD set:
   `update_only`) applies the answer. Which translation to keep needs no flag — the caller just
   sends whichever text the user chose
 
+`GET /health` is registered **before** the auth middleware and is deliberately public. It returns
+`conf.BuildInfo` (`{"status", "version", "build_time"}`), which `main.go` fills from the
+`-ldflags`-stamped `Version`/`BuildTime` globals. The web navbar reads it to show the running
+version — so the backend's build info has one source of truth and the web bundle is not stamped
+separately. `web/nginx.conf` must keep `health` in its proxy regex for this to work in Docker.
+
 ### Database Changes
 
 There is no migration runner — the schema is applied by hand (see README). So every schema change is

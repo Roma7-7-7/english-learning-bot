@@ -243,6 +243,31 @@ VITE_API_BASE_URL=http://localhost:8080
 - `GET /stats` - Get daily statistics
 - `GET /stats/range` - Get statistics for date range
 
+### Health
+- `GET /health` - Unauthenticated. Returns `{"status", "version", "build_time"}` of the running
+  backend. See [Build version](#build-version)
+
+## Build version
+
+The running build is identifiable three ways: the `starting` log line, `GET /health`, and a
+tooltip on the "Home" brand link in the web UI navbar (which reads it from `/health`, so it
+always reports the backend that is actually serving the session).
+
+`Version` and `BuildTime` are stamped into `cmd/bot/main.go` via `-ldflags` at compile time:
+
+- **Local builds** (`make build-bot`) stamp `dev` — `VERSION ?= dev` in the `Makefile`.
+- **CI builds** stamp the short commit SHA, which `.github/workflows/docker.yml` passes as the
+  `VERSION` Docker build-arg. The bot image is tagged with the same SHA.
+
+To stamp a local build explicitly:
+
+```bash
+VERSION=$(git rev-parse --short HEAD) make build-bot
+```
+
+Note the web image is versioned by its GHCR tag only; it carries no build-time version of its
+own, since the navbar reports the backend's.
+
 ## Development
 
 ### Running Tests
