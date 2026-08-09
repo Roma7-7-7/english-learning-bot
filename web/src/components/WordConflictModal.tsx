@@ -135,9 +135,9 @@ export function WordConflictModal({
         )}
 
         <p className="text-muted small mb-0">
-          If you were adding this word again because you had forgotten it, reset the streak. Add it
-          to the learning batch as well to be asked about it regularly rather than only during
-          occasional reviews.
+          If you were adding this word again because you had forgotten it, reset the streak. A reset
+          word is no longer picked for reviews, so add it to the learning batch as well to be asked
+          about it again soon; otherwise it waits until a batch refill picks it up.
         </p>
 
         {error && (

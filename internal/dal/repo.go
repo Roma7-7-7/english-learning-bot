@@ -30,8 +30,8 @@ const (
 	// ResolveResetAndBatch treats the word as forgotten: streak back to 0 and straight into the
 	// active learning batch.
 	ResolveResetAndBatch ConflictResolution = "reset_and_batch"
-	// ResolveResetOnly zeroes the streak but leaves the word out of the batch, so it only comes
-	// back around during reviews.
+	// ResolveResetOnly zeroes the streak but leaves the word out of the batch. Reviews only cover
+	// learned words, so it comes back only once a refill draws it into the batch again.
 	ResolveResetOnly ConflictResolution = "reset_only"
 	// ResolveUpdateOnly corrects the translation without disturbing learning progress.
 	ResolveUpdateOnly ConflictResolution = "update_only"

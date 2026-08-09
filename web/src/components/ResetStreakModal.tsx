@@ -83,9 +83,9 @@ export function ResetStreakModal({
           )}
         </p>
         <p className="text-muted small mb-0">
-          Resetting sets the streak back to 0. Adding it to the learning batch also brings it back
-          into the regular rotation, so you will be asked about it often rather than only during
-          occasional reviews.
+          Resetting sets the streak back to 0, which also takes the word out of the reviews that
+          only cover learned words. Add it to the learning batch to be asked about it again soon;
+          otherwise it waits among the words still to be learned until a batch refill picks it up.
         </p>
 
         {error && (

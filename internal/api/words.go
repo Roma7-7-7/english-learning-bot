@@ -251,7 +251,8 @@ func (h *WordsHandler) MarkToReview(c echo.Context) error {
 type ResetStreakRequest struct {
 	Word string `json:"word" validate:"required,min=1"`
 	// AddToBatch also puts the word back into the active learning batch, so it starts coming up in
-	// word checks again rather than only in occasional reviews.
+	// word checks again. Without it the reset word is neither batched nor eligible for review — only
+	// learned words are reviewed — so it waits for a refill to pick it out of the whole vocabulary.
 	AddToBatch bool `json:"add_to_batch"`
 }
 

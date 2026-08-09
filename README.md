@@ -135,7 +135,9 @@ Create a `.env` file with the following variables:
 # Bot Configuration
 BOT_TELEGRAM_TOKEN=your_telegram_bot_token
 BOT_ALLOWED_CHAT_IDS=123456789,987654321
-BOT_DB_PATH=./data/db.sqlite
+# Keep the busy_timeout pragma: without it a write that overlaps the hourly batch refill fails
+# straight away with "database is locked" instead of waiting for it.
+BOT_DB_PATH=file:data/db.sqlite?cache=shared&mode=rwc&_pragma=busy_timeout(5000)
 BOT_DEV=false
 
 # Schedule Configuration  
