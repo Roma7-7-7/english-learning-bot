@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -188,6 +189,43 @@ func (h *WordsHandler) MarkToReview(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word marked"})
+}
+
+type ResetStreakRequest struct {
+	Word string `json:"word" validate:"required,min=1"`
+	// AddToBatch also puts the word back into the active learning batch, so it starts coming up in
+	// word checks again rather than only in occasional reviews.
+	AddToBatch bool `json:"add_to_batch"`
+}
+
+func (h *WordsHandler) ResetStreak(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	var req ResetStreakRequest
+	if err := c.Bind(&req); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := c.Validate(&req); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to validate request", "error", err)
+		return err
+	}
+
+	if _, err := h.repo.FindWordTranslation(c.Request().Context(), chatID, req.Word); err != nil {
+		if errors.Is(err, dal.ErrNotFound) {
+			return c.JSON(http.StatusNotFound, NotFoundError)
+		}
+		h.log.ErrorContext(c.Request().Context(), "failed to find word translation", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	if err := h.repo.ResetStreak(c.Request().Context(), chatID, req.Word, req.AddToBatch); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to reset streak", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "streak reset"})
 }
 
 func toDALGuessed(g Guessed) dal.Guessed {

@@ -230,6 +230,8 @@ VITE_API_BASE_URL=http://localhost:8080
 - `POST /words` - Create new word translation
 - `PUT /words` - Update existing word translation
 - `PUT /words/review` - Mark word for review
+- `POST /words/reset` - Reset a word's streak to 0, optionally putting it back into the learning
+  batch (`{"word": "...", "add_to_batch": true}`)
 - `DELETE /words` - Delete word translation
 
 ### Statistics

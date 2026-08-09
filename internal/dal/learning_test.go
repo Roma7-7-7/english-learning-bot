@@ -151,6 +151,61 @@ func TestRegisterMissMayPushBatchOverItsLimit(t *testing.T) {
 	}
 }
 
+func TestResetStreak(t *testing.T) {
+	tests := []struct {
+		name       string
+		addToBatch bool
+		wantBatch  bool
+	}{
+		{name: "reset only", addToBatch: false, wantBatch: false},
+		{name: "reset and add to batch", addToBatch: true, wantBatch: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			r := newTestRepo(t)
+			addWord(t, r, "word", 20)
+
+			if err := r.ResetStreak(ctx, testChatID, "word", tt.addToBatch); err != nil {
+				t.Fatalf("ResetStreak: %v", err)
+			}
+
+			if got := streakOf(t, r, "word"); got != 0 {
+				t.Errorf("streak = %d, want 0", got)
+			}
+			if got := isBatched(t, r, "word"); got != tt.wantBatch {
+				t.Errorf("batched = %v, want %v", got, tt.wantBatch)
+			}
+		})
+	}
+}
+
+// A deliberate reset is a correction, not a wrong answer, so it must not pollute the daily
+// guessed/missed counters the way RegisterMiss does.
+func TestResetStreakDoesNotCountAsMiss(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+	addWord(t, r, "word", 20)
+	addWord(t, r, "other", 20)
+	// Create today's statistics row via a real answer.
+	if err := r.RegisterGuess(ctx, testChatID, "other"); err != nil {
+		t.Fatalf("RegisterGuess: %v", err)
+	}
+
+	if err := r.ResetStreak(ctx, testChatID, "word", true); err != nil {
+		t.Fatalf("ResetStreak: %v", err)
+	}
+
+	guessed, missed, totalLearned := todayStats(t, r)
+	if guessed != 1 || missed != 0 {
+		t.Errorf("guessed/missed = %d/%d, want 1/0", guessed, missed)
+	}
+	if totalLearned != 1 {
+		t.Errorf("total_words_learned = %d, want 1 (only 'other' is still learned)", totalLearned)
+	}
+}
+
 func TestRefillLearningBatchEvictsAndFills(t *testing.T) {
 	ctx := context.Background()
 	r := newTestRepo(t)

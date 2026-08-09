@@ -19,8 +19,14 @@ import {
   InputGroup,
 } from "react-bootstrap";
 import { WordModal } from "../components/WordModal.tsx";
+import { ResetStreakModal } from "../components/ResetStreakModal.tsx";
 
-import { PencilSquare, Trash, X } from "react-bootstrap-icons";
+import {
+  ArrowCounterclockwise,
+  PencilSquare,
+  Trash,
+  X,
+} from "react-bootstrap-icons";
 
 interface ModalState {
   show: boolean;
@@ -28,6 +34,13 @@ interface ModalState {
   word: string;
   translation: string;
   description?: string;
+}
+
+interface ResetModalState {
+  show: boolean;
+  word: string;
+  translation: string;
+  guessedStreak: number;
 }
 
 export function Home() {
@@ -50,6 +63,13 @@ export function Home() {
     word: "",
     translation: "",
     description: undefined,
+  });
+
+  const [resetModalState, setResetModalState] = useState<ResetModalState>({
+    show: false,
+    word: "",
+    translation: "",
+    guessedStreak: 0,
   });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -88,8 +108,8 @@ export function Home() {
 
   useEffect(() => {
     function handleKeyPress(event: KeyboardEvent) {
-      // Only handle shortcuts if modal is not open
-      if (!modalState.show) {
+      // Only handle shortcuts if no modal is open
+      if (!modalState.show && !resetModalState.show) {
         if (
           event.key === "q" &&
           document.activeElement !== searchInputRef.current
@@ -124,7 +144,7 @@ export function Home() {
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [modalState.show]);
+  }, [modalState.show, resetModalState.show]);
 
   function handleDeleteWord(word: string) {
     if (confirm(`Are you sure you want to delete the word "${word}"?`)) {
@@ -350,6 +370,10 @@ export function Home() {
                           Edit
                         </th>
                         <th className="text-center">
+                          <span className="d-none d-sm-inline">Reset</span>
+                          <span className="d-sm-none">↺</span>
+                        </th>
+                        <th className="text-center">
                           <span className="d-none d-sm-inline">Delete</span>
                           <span className="d-sm-none">D</span>
                         </th>
@@ -442,6 +466,24 @@ export function Home() {
                             <Button
                               variant="link"
                               size="sm"
+                              className="p-1 text-warning"
+                              title="Reset streak"
+                              onClick={() => {
+                                setResetModalState({
+                                  show: true,
+                                  word: item.word,
+                                  translation: item.translation,
+                                  guessedStreak: item.guessed_streak || 0,
+                                });
+                              }}
+                            >
+                              <ArrowCounterclockwise />
+                            </Button>
+                          </td>
+                          <td className="text-center">
+                            <Button
+                              variant="link"
+                              size="sm"
                               className="p-1"
                               onClick={() => handleDeleteWord(item.word)}
                             >
@@ -480,6 +522,15 @@ export function Home() {
         translation={modalState.translation}
         description={modalState.description}
         onHide={handleCloseModal}
+        onSuccess={handleWordSuccess}
+      />
+      <ResetStreakModal
+        show={resetModalState.show}
+        word={resetModalState.word}
+        translation={resetModalState.translation}
+        guessedStreak={resetModalState.guessedStreak}
+        streakLimit={streakLimit}
+        onHide={() => setResetModalState((prev) => ({ ...prev, show: false }))}
         onSuccess={handleWordSuccess}
       />
     </>

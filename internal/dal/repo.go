@@ -78,6 +78,7 @@ type (
 		RegisterMiss(ctx context.Context, chatID int64, word string) error
 		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
 		MarkWordReviewed(ctx context.Context, chatID int64, word string) error
+		ResetStreak(ctx context.Context, chatID int64, word string, addToBatch bool) error
 		RefillLearningBatch(ctx context.Context, chatID int64, batchSize, guessedStreakLimit int) (evicted, added int, err error)
 	}
 

@@ -242,6 +242,12 @@ The application uses environment-based configuration with a unified `BOT_` prefi
 2. Register route in `internal/api/routes.go`
 3. Add corresponding client method in `web/src/api/client.tsx`
 4. Update TypeScript interfaces if needed
+5. Cover the handler in `internal/api/*_test.go` — use `newRequest` from `api_test.go` and a
+   `stubWordsRepo`; booting `NewRouter` needs a full config for no extra coverage
+
+Word endpoints beyond the CRUD set:
+- `POST /words/reset` — `{"word", "add_to_batch"}`; resets a streak deliberately. Unlike a wrong
+  answer it does not touch the daily guessed/missed counters
 
 ### Database Changes
 

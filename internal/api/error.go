@@ -16,6 +16,7 @@ type ErrorResponse struct {
 var (
 	InternalServerError = ErrorResponse{"Internal server error"} //nolint:gochecknoglobals // this is a constant response for internal server error
 	BadRequestError     = ErrorResponse{"Bad request"}           //nolint:gochecknoglobals // this is a constant response for bad request
+	NotFoundError       = ErrorResponse{"Not found"}             //nolint:gochecknoglobals // this is a constant response for not found
 )
 
 func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {

@@ -60,6 +60,12 @@ export interface MarkToReview {
     to_review: boolean;
 }
 
+export interface ResetStreakRequest {
+    word: string;
+    /** Also put the word back into the active learning batch, not just reset its streak. */
+    add_to_batch: boolean;
+}
+
 export interface APIError {
     message: string;
     code?: string;
@@ -127,6 +133,13 @@ class ApiClient {
         return this.request('/words/review', {
             method: 'PUT',
             body: JSON.stringify(word),
+        });
+    }
+
+    async resetStreak(req: ResetStreakRequest): Promise<Response> {
+        return this.request('/words/reset', {
+            method: 'POST',
+            body: JSON.stringify(req),
         });
     }
 

@@ -48,6 +48,29 @@ func (r *SQLiteRepository) RegisterMiss(ctx context.Context, chatID int64, word 
 	})
 }
 
+// ResetStreak drops a word's streak back to zero on purpose, optionally putting it back into the
+// learning batch so that it is asked again soon.
+//
+// Unlike RegisterMiss this is a deliberate correction rather than a wrong answer, so it does not
+// touch the daily guessed/missed counters. Adding to the batch may push it past its configured size;
+// RefillLearningBatch simply stops adding until there is room again.
+func (r *SQLiteRepository) ResetStreak(ctx context.Context, chatID int64, word string, addToBatch bool) error {
+	return r.inTx(ctx, func(e execer) error {
+		if err := resetGuessedStreak(ctx, e, chatID, word); err != nil {
+			return fmt.Errorf("reset guessed streak: %w", err)
+		}
+		if addToBatch {
+			if err := addToLearningBatch(ctx, e, chatID, word); err != nil {
+				return fmt.Errorf("add to learning batch: %w", err)
+			}
+		}
+		if err := updateTotalWordsLearned(ctx, e, chatID, r.streakLimit); err != nil {
+			return fmt.Errorf("update total words learned: %w", err)
+		}
+		return nil
+	})
+}
+
 // MarkWordReviewed records that a word has just been offered for review.
 //
 // It is called when the review is sent, not when it is answered, so that an ignored message still
