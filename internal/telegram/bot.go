@@ -213,8 +213,15 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
 	}
 
+	// A failed send has to reach the caller: on the scheduled path the replier is a no-op, so
+	// returning its nil would hide every delivery failure — including the blocked-user case the
+	// scheduler reports separately.
 	if err = b.sendWord(ctx, chatID, wt, ""); err != nil {
-		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
+		b.log.ErrorContext(ctx, "failed to send word check", "error", err, "chat_id", chatID)
+		if replyErr := replier.Reply(somethingWentWrongMsg); replyErr != nil {
+			b.log.ErrorContext(ctx, "failed to reply", "error", replyErr, "chat_id", chatID)
+		}
+		return err
 	}
 	return nil
 }

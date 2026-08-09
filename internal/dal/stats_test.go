@@ -79,6 +79,7 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 
 func TestGetTotalStatsNoWords(t *testing.T) {
 	r := dal.NewTestRepo(t)
+	r.SetStreakLimit(8)
 
 	got, err := r.GetTotalStats(context.Background(), dal.TestChatID)
 	if err != nil {
@@ -86,6 +87,14 @@ func TestGetTotalStatsNoWords(t *testing.T) {
 	}
 	if got.Total != 0 || got.Learned != 0 {
 		t.Errorf("got %+v, want zeroed stats", got)
+	}
+	// The counts are empty but the thresholds are not: a streak limit of 0 would make every caller
+	// treat every word as learned.
+	if got.StreakLimit != 8 {
+		t.Errorf("StreakLimit = %d, want 8", got.StreakLimit)
+	}
+	if got.NearlyFrom != 3 {
+		t.Errorf("NearlyFrom = %d, want 3", got.NearlyFrom)
 	}
 }
 

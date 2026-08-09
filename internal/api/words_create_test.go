@@ -20,11 +20,11 @@ func TestCreateWordNew(t *testing.T) {
 	}
 
 	assertStatus(t, rec, http.StatusOK)
-	if len(repo.addCalls) != 1 {
-		t.Fatalf("add calls = %d, want 1", len(repo.addCalls))
+	if len(repo.createCalls) != 1 {
+		t.Fatalf("create calls = %d, want 1", len(repo.createCalls))
 	}
-	if got := repo.addCalls[0]; got.word != "apple" || got.translation != "яблуко" || got.description != "a fruit" {
-		t.Errorf("added %+v, want apple/яблуко/a fruit", got)
+	if got := repo.createCalls[0]; got.word != "apple" || got.translation != "яблуко" || got.description != "a fruit" {
+		t.Errorf("created %+v, want apple/яблуко/a fruit", got)
 	}
 	if len(repo.resolveCalls) != 0 {
 		t.Errorf("conflict resolution ran for a brand new word: %+v", repo.resolveCalls)
@@ -46,8 +46,8 @@ func TestCreateWordDuplicateReportsConflict(t *testing.T) {
 	}
 
 	assertStatus(t, rec, http.StatusConflict)
-	if len(repo.addCalls) != 0 {
-		t.Errorf("existing word was overwritten: %+v", repo.addCalls)
+	if len(repo.createCalls) != 0 {
+		t.Errorf("existing word was overwritten: %+v", repo.createCalls)
 	}
 	if len(repo.resolveCalls) != 0 {
 		t.Errorf("resolution ran without the caller asking for one: %+v", repo.resolveCalls)
@@ -150,5 +150,29 @@ func TestCreateWordRejectsUnknownConflictResolution(t *testing.T) {
 	}
 	if len(repo.resolveCalls) != 0 {
 		t.Errorf("resolution ran despite validation failing: %+v", repo.resolveCalls)
+	}
+}
+
+// The user's answer to the 409 has to be applied even if the word disappeared in the meantime:
+// creating it plainly would quietly drop the "put it back into the batch" half of the decision.
+func TestCreateWordAppliesResolutionAfterWordDisappeared(t *testing.T) {
+	repo := &stubWordsRepo{} // the conflicting word is gone by now
+	h := api.NewWordsHandler(repo, testLogger())
+
+	c, rec := newRequest(t, "/words",
+		`{"word":"apple","translation":"яблуко","on_conflict":"reset_and_batch"}`)
+	if err := h.CreateWord(c); err != nil {
+		t.Fatalf("CreateWord: %v", err)
+	}
+
+	assertStatus(t, rec, http.StatusOK)
+	if len(repo.resolveCalls) != 1 {
+		t.Fatalf("resolve calls = %d, want 1", len(repo.resolveCalls))
+	}
+	if got := repo.resolveCalls[0].resolution; got != dal.ResolveResetAndBatch {
+		t.Errorf("resolution = %q, want %q", got, dal.ResolveResetAndBatch)
+	}
+	if len(repo.createCalls) != 0 {
+		t.Errorf("plain create bypassed the resolution: %+v", repo.createCalls)
 	}
 }

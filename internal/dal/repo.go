@@ -79,7 +79,7 @@ type (
 		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
 		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error)
 		FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error)
-		AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
+		CreateWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
 		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
 		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
 	}

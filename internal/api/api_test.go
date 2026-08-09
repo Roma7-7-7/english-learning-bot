@@ -45,8 +45,8 @@ type stubWordsRepo struct {
 	findWord     func(word string) (*dal.WordTranslation, error)
 	resetCalls   []resetCall
 	resetErr     error
-	addCalls     []addCall
-	addErr       error
+	createCalls  []createCall
+	createErr    error
 	resolveCalls []resolveCall
 	resolveErr   error
 }
@@ -56,7 +56,7 @@ type resetCall struct {
 	addToBatch bool
 }
 
-type addCall struct {
+type createCall struct {
 	word, translation, description string
 }
 
@@ -72,9 +72,14 @@ func (s *stubWordsRepo) FindWordTranslation(_ context.Context, _ int64, word str
 	return s.findWord(word)
 }
 
-func (s *stubWordsRepo) AddWordTranslation(_ context.Context, _ int64, word, translation, description string) error {
-	s.addCalls = append(s.addCalls, addCall{word, translation, description})
-	return s.addErr
+// CreateWordTranslation mirrors the real insert-only semantics: a word findWord already serves is
+// refused rather than overwritten.
+func (s *stubWordsRepo) CreateWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
+	if _, err := s.FindWordTranslation(ctx, chatID, word); err == nil {
+		return dal.ErrAlreadyExists
+	}
+	s.createCalls = append(s.createCalls, createCall{word, translation, description})
+	return s.createErr
 }
 
 func (s *stubWordsRepo) ResetStreak(_ context.Context, _ int64, word string, addToBatch bool) error {

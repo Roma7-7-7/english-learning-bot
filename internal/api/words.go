@@ -47,6 +47,10 @@ const (
 	GuessedToLearn Guessed = "to_learn"
 )
 
+// createAttempts bounds the create/read-the-conflict loop in CreateWord. One retry is enough for a
+// word that is deleted concurrently; more than that is a client fighting itself.
+const createAttempts = 2
+
 func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *WordsHandler {
 	return &WordsHandler{
 		repo: repo,
@@ -112,23 +116,47 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 		return err
 	}
 
-	existing, err := h.repo.FindWordTranslation(c.Request().Context(), chatID, wt.Word)
-	switch {
-	case errors.Is(err, dal.ErrNotFound):
-		if err = h.repo.AddWordTranslation(c.Request().Context(), chatID, wt.Word, wt.Translation, wt.Description); err != nil {
-			h.log.ErrorContext(c.Request().Context(), "failed to create word translation", "error", err)
+	ctx := c.Request().Context()
+
+	// The caller has already been told about the existing entry and said what to do about it.
+	// ResolveWordConflict writes the word either way, so the decision still stands if the word was
+	// deleted between the 409 and this request.
+	if wt.OnConflict != "" {
+		err := h.repo.ResolveWordConflict(ctx, chatID,
+			wt.Word, wt.Translation, wt.Description, dal.ConflictResolution(wt.OnConflict))
+		if err != nil {
+			h.log.ErrorContext(ctx, "failed to resolve word conflict", "error", err)
 			return c.JSON(http.StatusInternalServerError, InternalServerError)
 		}
-		return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word created"})
-
-	case err != nil:
-		h.log.ErrorContext(c.Request().Context(), "failed to find word translation", "error", err)
-		return c.JSON(http.StatusInternalServerError, InternalServerError)
+		return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word resolved"})
 	}
 
-	// The word is already known. Without an explicit decision, report the conflict along with what
-	// is already stored rather than silently overwriting it and discarding the streak.
-	if wt.OnConflict == "" {
+	// Without a decision the create must not overwrite anything, so the repository refuses the
+	// insert instead of the handler checking first — a lookup here would let two concurrent creates
+	// both see nothing and have the second discard the first. Reading the existing entry afterwards
+	// can lose the race the other way round, hence the retry: the word was deleted in between and
+	// there is nothing to report a conflict about anymore.
+	for range createAttempts {
+		err := h.repo.CreateWordTranslation(ctx, chatID, wt.Word, wt.Translation, wt.Description)
+		switch {
+		case err == nil:
+			return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word created"})
+		case !errors.Is(err, dal.ErrAlreadyExists):
+			h.log.ErrorContext(ctx, "failed to create word translation", "error", err)
+			return c.JSON(http.StatusInternalServerError, InternalServerError)
+		}
+
+		existing, err := h.repo.FindWordTranslation(ctx, chatID, wt.Word)
+		if err != nil {
+			if errors.Is(err, dal.ErrNotFound) {
+				continue
+			}
+			h.log.ErrorContext(ctx, "failed to find word translation", "error", err)
+			return c.JSON(http.StatusInternalServerError, InternalServerError)
+		}
+
+		// Report what is already stored so the caller can show the translation and the streak that
+		// an overwrite would discard.
 		return c.JSON(http.StatusConflict, echo.Map{
 			"error": "word already exists",
 			"existing": WordTranslation{
@@ -141,14 +169,8 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 		})
 	}
 
-	err = h.repo.ResolveWordConflict(c.Request().Context(), chatID,
-		wt.Word, wt.Translation, wt.Description, dal.ConflictResolution(wt.OnConflict))
-	if err != nil {
-		h.log.ErrorContext(c.Request().Context(), "failed to resolve word conflict", "error", err)
-		return c.JSON(http.StatusInternalServerError, InternalServerError)
-	}
-
-	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word resolved"})
+	h.log.ErrorContext(ctx, "gave up creating word translation", "word", wt.Word)
+	return c.JSON(http.StatusInternalServerError, InternalServerError)
 }
 
 func (h *WordsHandler) UpdateWord(c echo.Context) error {

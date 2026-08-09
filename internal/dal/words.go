@@ -11,8 +11,36 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (r *SQLiteRepository) AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
-	return upsertWordTranslation(ctx, r.db, chatID, word, translation, description)
+// CreateWordTranslation stores a word that is not supposed to exist yet, reporting ErrAlreadyExists
+// instead of overwriting one that does.
+//
+// The check is the insert itself rather than a preceding lookup: two concurrent creates would both
+// find nothing and the second would silently discard the first, along with its learning progress.
+// Overwriting on purpose goes through ResolveWordConflict.
+func (r *SQLiteRepository) CreateWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
+	query := qb.Insert("word_translations").
+		Columns("chat_id", "word", "translation", "description").
+		Values(chatID, word, translation, description).
+		Suffix("ON CONFLICT (chat_id, word) DO NOTHING")
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build insert query: %w", err)
+	}
+
+	res, err := r.db.ExecContext(ctx, sql, args...)
+	if err != nil {
+		return fmt.Errorf("create translation: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrAlreadyExists
+	}
+	return nil
 }
 
 func upsertWordTranslation(ctx context.Context, e execer, chatID int64, word, translation, description string) error {

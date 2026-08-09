@@ -45,7 +45,8 @@ interface ResetModalState {
 
 export function Home() {
   const { state, refreshStats } = useAppState();
-  const streakLimit = state.stats?.streak_limit ?? DEFAULT_STREAK_LIMIT;
+  // Falls back on 0 as well as on a missing value: a zero limit would badge every word as learned.
+  const streakLimit = state.stats?.streak_limit || DEFAULT_STREAK_LIMIT;
   const [words, setWords] = useState<Words | null>(null);
   const [qp, setQP] = useState({
     search: "",

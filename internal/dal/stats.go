@@ -44,8 +44,12 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*To
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			// An empty vocabulary still has to report the thresholds: they label the buckets, and a
+			// zero would tell every caller that all words are learned.
 			return &TotalStats{
-				ChatID: chatID,
+				ChatID:      chatID,
+				StreakLimit: r.streakLimit,
+				NearlyFrom:  nearlyFrom,
 			}, nil
 		}
 		return nil, fmt.Errorf("get stats: %w", err)

@@ -228,3 +228,28 @@ func TestFindRandomWordTranslationBatchedIgnoresOrder(t *testing.T) {
 		t.Errorf("picked %q, want batched", got.Word)
 	}
 }
+
+// Creating is what guards the 409 in the API: it has to refuse an existing word rather than upsert
+// over it, or a create that races another one silently discards a translation and its streak.
+func TestCreateWordTranslationRefusesExistingWord(t *testing.T) {
+	ctx := context.Background()
+	r := dal.NewTestRepo(t)
+
+	r.AddWord("apple", 12)
+
+	err := r.CreateWordTranslation(ctx, dal.TestChatID, "apple", "other translation", "other description")
+	if !errors.Is(err, dal.ErrAlreadyExists) {
+		t.Fatalf("CreateWordTranslation error = %v, want ErrAlreadyExists", err)
+	}
+
+	got, err := r.FindWordTranslation(ctx, dal.TestChatID, "apple")
+	if err != nil {
+		t.Fatalf("FindWordTranslation: %v", err)
+	}
+	if got.Translation != "apple-translation" {
+		t.Errorf("translation = %q, want the stored apple-translation", got.Translation)
+	}
+	if got.GuessedStreak != 12 {
+		t.Errorf("streak = %d, want the untouched 12", got.GuessedStreak)
+	}
+}

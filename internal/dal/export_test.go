@@ -65,7 +65,7 @@ func (r *TestRepo) AddWord(word string, streak int) {
 	r.t.Helper()
 
 	ctx := context.Background()
-	if err := r.AddWordTranslation(ctx, TestChatID, word, word+"-translation", ""); err != nil {
+	if err := r.CreateWordTranslation(ctx, TestChatID, word, word+"-translation", ""); err != nil {
 		r.t.Fatalf("add word %q: %v", word, err)
 	}
 	if streak == 0 {
