@@ -50,6 +50,21 @@ This is a personal English learning platform with two main components:
 - **Error Handling**: Structured logging with slog
 - **Middleware**: Rate limiting, CORS, security headers, request logging
 
+#### Data access layer
+
+`dal.Repository` is **task-shaped, not CRUD-shaped**: anything that touches more than one table is a
+single named method (`RegisterGuess`, `RegisterMiss`, `RefillLearningBatch`, …) rather than a set of
+primitives the caller composes. There is deliberately **no `Transact` on the interface** — the
+implementation opens its own transaction via the private `inTx` helper, so a composite write cannot be
+left half-applied and no `*sql.Tx` ever escapes the package.
+
+When you need a new multi-statement operation, add a method to `LearningRepository` and build it from
+the package-private statement helpers in `words.go` / `stats.go` (they take an `execer`, satisfied by
+both `*sql.DB` and `*sql.Tx`). Do not expose the primitives.
+
+Note `FindWordTranslations` runs its page and count queries concurrently, so it must never be called
+from inside `inTx` — `*sql.Tx` is not safe for concurrent use.
+
 ### Frontend (React/TypeScript)
 - **Framework**: React 19.1.1 with TypeScript
 - **Build Tool**: Vite
@@ -70,8 +85,19 @@ This is a personal English learning platform with two main components:
 - Words start with `guessed_streak = 0`
 - Correct answers: increment streak
 - Wrong answers: reset streak to 0
-- Words with 15+ streaks considered "learned"
-- Batch system rotates active learning words
+- Words reaching `BOT_LEARNING_STREAK_LIMIT` (default 15) are considered "learned"
+- Batch system rotates active learning words, topping the batch back up to
+  `BOT_LEARNING_BATCH_SIZE` (default 50) hourly
+- `BOT_LEARNING_REVIEW_RATE_PERCENT` (default 20) of scheduled checks re-test an already learned word
+  instead of a batch word, so learned words do not silently rot. Reviews rotate least-recently-first
+  via the `last_reviewed_seq` cursor, stamped when the message is **sent** so an ignored review still
+  advances the rotation
+- A wrong answer resets the streak **and** puts the word back into the learning batch. The batch is
+  therefore allowed to exceed its configured size; the refill just adds nothing until there is room
+
+The streak limit has **one** source of truth on each side: `SQLiteRepository.streakLimit` in Go (set
+from config; every "is this learned?" query reads it) and the `streak_limit` field of
+`GET /stats/total` in the web UI. Do not reintroduce a hardcoded threshold.
 
 ### Authentication Flow
 1. User enters Telegram chat ID in web UI
@@ -205,8 +231,9 @@ The application uses environment-based configuration with a unified `BOT_` prefi
 1. **Database**: Connection strings, timeouts
 2. **Telegram**: Bot token, allowed chat IDs
 3. **Scheduling**: Intervals, time windows, timezone
-4. **HTTP**: CORS, rate limiting, timeouts
-5. **Security**: JWT secrets, cookie settings
+4. **Learning** (`BOT_LEARNING_*`): Batch size, streak limit
+5. **HTTP**: CORS, rate limiting, timeouts
+6. **Security**: JWT secrets, cookie settings
 
 ## Common Development Tasks
 
@@ -215,12 +242,30 @@ The application uses environment-based configuration with a unified `BOT_` prefi
 2. Register route in `internal/api/routes.go`
 3. Add corresponding client method in `web/src/api/client.tsx`
 4. Update TypeScript interfaces if needed
+5. Cover the handler in `internal/api/*_test.go` — use `newRequest` from `api_test.go` and a
+   `stubWordsRepo`; booting `NewRouter` needs a full config for no extra coverage
+
+Word endpoints beyond the CRUD set:
+- `POST /words/reset` — `{"word", "add_to_batch"}`; resets a streak deliberately. Unlike a wrong
+  answer it does not touch the daily guessed/missed counters
+- `POST /words` is **not** an upsert. An existing word returns
+  `409 {"error": ..., "existing": {...}}` so the caller can show the stored translation and streak
+  and ask what to do. Resending with `on_conflict` (`reset_and_batch` / `reset_only` /
+  `update_only`) applies the answer. Which translation to keep needs no flag — the caller just
+  sends whichever text the user chose
 
 ### Database Changes
-1. Update schema files in `schema/`
-2. Add corresponding Go structs in `internal/dal/models.go`
-3. Update repository interfaces and implementations
-4. Test with SQLite if applicable
+
+There is no migration runner — the schema is applied by hand (see README). So every schema change is
+**two** edits that must agree:
+
+1. Update `schema/schema_sqlite.sql` (what a fresh database gets)
+2. Add a numbered file under `schema/migrations/` (what an existing database gets), and mention it in
+   the README's setup section
+3. Add corresponding Go structs in `internal/dal/models.go` if the column is read back
+4. Update repository interfaces and implementations
+5. Cover it in `internal/dal/*_test.go` — those tests apply `schema_sqlite.sql`, so a column missing
+   from it fails loudly
 
 ### Frontend Components
 - Follow existing patterns in `web/src/components/`

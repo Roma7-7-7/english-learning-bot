@@ -11,7 +11,12 @@ export interface Status {
 export interface TotalStats {
     total: number;
     learned: number;
+    /** Streak at which a word counts as learned. Configured server-side. */
+    streak_limit: number;
 }
+
+/** Used only until the first /stats/total response lands. */
+export const DEFAULT_STREAK_LIMIT = 15;
 
 export interface Stats {
     words_guessed: number;
@@ -36,6 +41,9 @@ export interface WordsQueryParams {
     limit: number;
 }
 
+/** What to do with existing learning progress when re-adding a word that already exists. */
+export type ConflictResolution = 'reset_and_batch' | 'reset_only' | 'update_only';
+
 export interface Word {
     word: string;
     new_word?: string;
@@ -43,6 +51,14 @@ export interface Word {
     description?: string;
     to_review?: boolean;
     guessed_streak?: number;
+    /** Create only. Omitted, a duplicate is refused with 409 instead of overwritten. */
+    on_conflict?: ConflictResolution;
+}
+
+/** Body of the 409 returned by POST /words when the word already exists. */
+export interface WordConflictResponse {
+    error: string;
+    existing: Word;
 }
 
 export interface Words{
@@ -55,9 +71,15 @@ export interface MarkToReview {
     to_review: boolean;
 }
 
+export interface ResetStreakRequest {
+    word: string;
+    /** Also put the word back into the active learning batch, not just reset its streak. */
+    add_to_batch: boolean;
+}
+
+/** Error envelope used by every non-2xx response. Note the JSON key is `error`, not `message`. */
 export interface APIError {
-    message: string;
-    code?: string;
+    error: string;
 }
 
 class ApiClient {
@@ -122,6 +144,13 @@ class ApiClient {
         return this.request('/words/review', {
             method: 'PUT',
             body: JSON.stringify(word),
+        });
+    }
+
+    async resetStreak(req: ResetStreakRequest): Promise<Response> {
+        return this.request('/words/reset', {
+            method: 'POST',
+            body: JSON.stringify(req),
         });
     }
 

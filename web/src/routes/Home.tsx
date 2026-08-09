@@ -1,5 +1,9 @@
 import { type JSX, useEffect, useState, useRef } from "react";
-import client, { type Words, type WordsQueryParams } from "../api/client.tsx";
+import client, {
+  DEFAULT_STREAK_LIMIT,
+  type Words,
+  type WordsQueryParams,
+} from "../api/client.tsx";
 import { useAppState } from "../context.tsx";
 import {
   Container,
@@ -15,8 +19,14 @@ import {
   InputGroup,
 } from "react-bootstrap";
 import { WordModal } from "../components/WordModal.tsx";
+import { ResetStreakModal } from "../components/ResetStreakModal.tsx";
 
-import { PencilSquare, Trash, X } from "react-bootstrap-icons";
+import {
+  ArrowCounterclockwise,
+  PencilSquare,
+  Trash,
+  X,
+} from "react-bootstrap-icons";
 
 interface ModalState {
   show: boolean;
@@ -26,8 +36,17 @@ interface ModalState {
   description?: string;
 }
 
+interface ResetModalState {
+  show: boolean;
+  word: string;
+  translation: string;
+  guessedStreak: number;
+}
+
 export function Home() {
-  const { refreshStats } = useAppState();
+  const { state, refreshStats } = useAppState();
+  // Falls back on 0 as well as on a missing value: a zero limit would badge every word as learned.
+  const streakLimit = state.stats?.streak_limit || DEFAULT_STREAK_LIMIT;
   const [words, setWords] = useState<Words | null>(null);
   const [qp, setQP] = useState({
     search: "",
@@ -45,6 +64,13 @@ export function Home() {
     word: "",
     translation: "",
     description: undefined,
+  });
+
+  const [resetModalState, setResetModalState] = useState<ResetModalState>({
+    show: false,
+    word: "",
+    translation: "",
+    guessedStreak: 0,
   });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -83,8 +109,8 @@ export function Home() {
 
   useEffect(() => {
     function handleKeyPress(event: KeyboardEvent) {
-      // Only handle shortcuts if modal is not open
-      if (!modalState.show) {
+      // Only handle shortcuts if no modal is open
+      if (!modalState.show && !resetModalState.show) {
         if (
           event.key === "q" &&
           document.activeElement !== searchInputRef.current
@@ -119,7 +145,7 @@ export function Home() {
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [modalState.show]);
+  }, [modalState.show, resetModalState.show]);
 
   function handleDeleteWord(word: string) {
     if (confirm(`Are you sure you want to delete the word "${word}"?`)) {
@@ -188,7 +214,7 @@ export function Home() {
   };
 
   const isWordLearned = (guessedStreak: number) => {
-    return guessedStreak >= 15;
+    return guessedStreak >= streakLimit;
   };
 
   return (
@@ -345,6 +371,10 @@ export function Home() {
                           Edit
                         </th>
                         <th className="text-center">
+                          <span className="d-none d-sm-inline">Reset</span>
+                          <span className="d-sm-none">↺</span>
+                        </th>
+                        <th className="text-center">
                           <span className="d-none d-sm-inline">Delete</span>
                           <span className="d-sm-none">D</span>
                         </th>
@@ -391,10 +421,10 @@ export function Home() {
                             ) : (
                               <Badge
                                 bg="secondary"
-                                title={`Streak: ${item.guessed_streak || 0}/15`}
+                                title={`Streak: ${item.guessed_streak || 0}/${streakLimit}`}
                               >
                                 <span className="d-none d-sm-inline">
-                                  {item.guessed_streak || 0}/15
+                                  {item.guessed_streak || 0}/{streakLimit}
                                 </span>
                                 <span className="d-sm-none">
                                   {item.guessed_streak || 0}
@@ -431,6 +461,24 @@ export function Home() {
                               }}
                             >
                               <PencilSquare />
+                            </Button>
+                          </td>
+                          <td className="text-center">
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="p-1 text-warning"
+                              title="Reset streak"
+                              onClick={() => {
+                                setResetModalState({
+                                  show: true,
+                                  word: item.word,
+                                  translation: item.translation,
+                                  guessedStreak: item.guessed_streak || 0,
+                                });
+                              }}
+                            >
+                              <ArrowCounterclockwise />
                             </Button>
                           </td>
                           <td className="text-center">
@@ -474,7 +522,17 @@ export function Home() {
         word={modalState.word}
         translation={modalState.translation}
         description={modalState.description}
+        streakLimit={streakLimit}
         onHide={handleCloseModal}
+        onSuccess={handleWordSuccess}
+      />
+      <ResetStreakModal
+        show={resetModalState.show}
+        word={resetModalState.word}
+        translation={resetModalState.translation}
+        guessedStreak={resetModalState.guessedStreak}
+        streakLimit={streakLimit}
+        onHide={() => setResetModalState((prev) => ({ ...prev, show: false }))}
         onSuccess={handleWordSuccess}
       />
     </>

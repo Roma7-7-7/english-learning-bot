@@ -21,12 +21,15 @@ services:
       BOT_HTTP_COOKIE_DOMAIN: ${BOT_HTTP_COOKIE_DOMAIN:-localhost}
       BOT_HTTP_JWT_AUDIENCE: ${BOT_HTTP_JWT_AUDIENCE:-http://localhost:3000}
       # Optional - app has defaults
-      BOT_DB_PATH: ${BOT_DB_PATH:-./data/english_learning.db?cache=shared&mode=rwc}
+      BOT_DB_PATH: ${BOT_DB_PATH:-./data/english_learning.db?cache=shared&mode=rwc&_pragma=busy_timeout(5000)}
       BOT_SERVER_ADDR: ${BOT_SERVER_ADDR:-:8080}
       BOT_SCHEDULE_PUBLISH_INTERVAL: ${BOT_SCHEDULE_PUBLISH_INTERVAL:-15m}
       BOT_SCHEDULE_HOUR_FROM: ${BOT_SCHEDULE_HOUR_FROM:-9}
       BOT_SCHEDULE_HOUR_TO: ${BOT_SCHEDULE_HOUR_TO:-22}
       BOT_SCHEDULE_LOCATION: ${BOT_SCHEDULE_LOCATION:-Europe/Kyiv}
+      BOT_LEARNING_BATCH_SIZE: ${BOT_LEARNING_BATCH_SIZE:-50}
+      BOT_LEARNING_STREAK_LIMIT: ${BOT_LEARNING_STREAK_LIMIT:-15}
+      BOT_LEARNING_REVIEW_RATE_PERCENT: ${BOT_LEARNING_REVIEW_RATE_PERCENT:-20}
 
   web:
     build:

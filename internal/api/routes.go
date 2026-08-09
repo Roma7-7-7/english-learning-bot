@@ -113,6 +113,7 @@ func NewRouter(ctx context.Context, conf *config.Bot, deps Dependencies) http.Ha
 	securedGroup.POST("/words", words.CreateWord)
 	securedGroup.PUT("/words", words.UpdateWord)
 	securedGroup.PUT("/words/review", words.MarkToReview)
+	securedGroup.POST("/words/reset", words.ResetStreak)
 	securedGroup.DELETE("/words", words.DeleteWord)
 
 	stats := NewStatsHandler(deps.Repo, deps.Logger)

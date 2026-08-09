@@ -8,16 +8,42 @@ import (
 const (
 	LimitDirectionLessThan StreakLimitDirection = iota
 	LimitDirectionGreaterThanOrEqual
+)
 
+const (
+	// OrderRandom picks any matching word with equal probability. It is the zero value, so an
+	// unset Order keeps the previous behaviour.
+	OrderRandom RandomOrder = iota
+	// OrderLeastRecentlyReviewed picks the word whose last review is furthest in the past, so that
+	// repeated picks rotate through the whole set before revisiting anything.
+	OrderLeastRecentlyReviewed
+)
+
+const (
 	GuessedAll     Guessed = "all"
 	GuessedLearned Guessed = "learned"
 	GuessedBatched Guessed = "batched"
 	GuessedToLearn Guessed = "to_learn"
 )
 
+const (
+	// ResolveResetAndBatch treats the word as forgotten: streak back to 0 and straight into the
+	// active learning batch.
+	ResolveResetAndBatch ConflictResolution = "reset_and_batch"
+	// ResolveResetOnly zeroes the streak but leaves the word out of the batch. Reviews only cover
+	// learned words, so it comes back only once a refill draws it into the batch again.
+	ResolveResetOnly ConflictResolution = "reset_only"
+	// ResolveUpdateOnly corrects the translation without disturbing learning progress.
+	ResolveUpdateOnly ConflictResolution = "update_only"
+)
+
 type (
 	Guessed              string
 	StreakLimitDirection int
+	RandomOrder          int
+	// ConflictResolution says what to do about learning progress when a word that already exists is
+	// added again.
+	ConflictResolution string
 
 	WordTranslationsFilter struct {
 		Word     string
@@ -31,42 +57,50 @@ type (
 		Batched              bool
 		StreakLimitDirection StreakLimitDirection // ignored if Batched = true
 		StreakLimit          int                  // ignored if Batched = true
+		Order                RandomOrder          // ignored if Batched = true
 	}
 
 	TotalStats struct {
-		ChatID               int64
-		GreaterThanOrEqual15 int
-		Between10And14       int
-		Between1And9         int
-		Total                int
+		ChatID int64
+		// Learned counts words at or above StreakLimit, Nearly those in [NearlyFrom, StreakLimit),
+		// Early those in [1, NearlyFrom).
+		Learned int
+		Nearly  int
+		Early   int
+		Total   int
+		// StreakLimit and NearlyFrom are echoed back so that callers can label the buckets without
+		// hardcoding the configured threshold.
+		StreakLimit int
+		NearlyFrom  int
 	}
 
 	WordTranslationsRepository interface {
-		WordTransactionsOperationsRepository
+		LearningRepository
 		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
 		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error)
 		FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error)
-		AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
+		CreateWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error
 		UpdateWordTranslation(ctx context.Context, chatID int64, word, updatedWord, translation, description string) error
 		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
 	}
 
-	WordTransactionsOperationsRepository interface {
-		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
-		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
-		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
-		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
+	// LearningRepository exposes learning progress as whole operations rather than as the individual
+	// statements they are made of. Anything that has to touch more than one table runs in a single
+	// transaction owned by the implementation, so callers cannot compose a half-applied update.
+	LearningRepository interface {
+		RegisterGuess(ctx context.Context, chatID int64, word string) error
+		RegisterMiss(ctx context.Context, chatID int64, word string) error
 		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
-		DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error)
+		MarkWordReviewed(ctx context.Context, chatID int64, word string) error
+		ResetStreak(ctx context.Context, chatID int64, word string, addToBatch bool) error
+		ResolveWordConflict(ctx context.Context, chatID int64, word, translation, description string, resolution ConflictResolution) error
+		RefillLearningBatch(ctx context.Context, chatID int64, batchSize, guessedStreakLimit int) (evicted, added int, err error)
 	}
 
 	StatsRepository interface {
 		GetTotalStats(ctx context.Context, chatID int64) (*TotalStats, error)
 		GetStats(ctx context.Context, chatID int64, date time.Time) (*Stats, error)
 		GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]Stats, error)
-		IncrementWordGuessed(ctx context.Context, chatID int64) error
-		IncrementWordMissed(ctx context.Context, chatID int64) error
-		UpdateTotalWordsLearned(ctx context.Context, chatID int64) error
 	}
 
 	AuthConfirmationRepository interface {
@@ -82,7 +116,6 @@ type (
 	}
 
 	Repository interface {
-		Transact(ctx context.Context, txFunc func(r Repository) error) error
 		WordTranslationsRepository
 		CallbacksRepository
 		AuthConfirmationRepository

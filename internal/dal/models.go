@@ -7,6 +7,8 @@ import (
 
 var (
 	ErrNotFound = errors.New("not found")
+	// ErrAlreadyExists is returned by inserts that refuse to overwrite what is already stored.
+	ErrAlreadyExists = errors.New("already exists")
 )
 
 type (

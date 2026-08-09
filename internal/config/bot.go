@@ -17,8 +17,20 @@ type (
 		Location        string        `envconfig:"LOCATION" default:"Europe/Kyiv"`
 	}
 
+	// Learning holds the knobs of the spaced-repetition loop.
+	Learning struct {
+		// BatchSize is how many words the learning batch is topped up to.
+		BatchSize int `envconfig:"BATCH_SIZE" default:"50"`
+		// StreakLimit is the number of consecutive correct answers after which a word counts as
+		// learned and leaves the batch.
+		StreakLimit int `envconfig:"STREAK_LIMIT" default:"15"`
+		// ReviewRatePercent is the share of scheduled word checks that re-test an already learned
+		// word instead of one from the active batch. 0 disables reviews entirely.
+		ReviewRatePercent int `envconfig:"REVIEW_RATE_PERCENT" default:"20"`
+	}
+
 	DB struct {
-		Path string `required:"false" default:"./data/english_learning.db?cache=shared&mode=rwc"`
+		Path string `required:"false" default:"./data/english_learning.db?cache=shared&mode=rwc&_pragma=busy_timeout(5000)"`
 	}
 
 	CORS struct {
@@ -66,6 +78,7 @@ type (
 		DB        DB                `envconfig:"DB"`
 		Telegram  Telegram          `envconfig:"TELEGRAM"`
 		Schedule  WordCheckSchedule `envconfig:"SCHEDULE"`
+		Learning  Learning          `envconfig:"LEARNING"`
 		HTTP      HTTP              `envconfig:"HTTP"`
 		Server    Server            `envconfig:"SERVER"`
 		BuildInfo BuildInfo
@@ -126,6 +139,15 @@ func validateBot(conf *Bot) (*Bot, error) {
 	}
 	if _, err := conf.Schedule.TimeLocation(); err != nil {
 		errs = append(errs, fmt.Sprintf("invalid timezone: %s", err))
+	}
+	if conf.Learning.BatchSize <= 0 {
+		errs = append(errs, fmt.Sprintf("learning batch size %d must be greater than 0", conf.Learning.BatchSize))
+	}
+	if conf.Learning.StreakLimit <= 0 {
+		errs = append(errs, fmt.Sprintf("learning streak limit %d must be greater than 0", conf.Learning.StreakLimit))
+	}
+	if conf.Learning.ReviewRatePercent < 0 || conf.Learning.ReviewRatePercent > 100 {
+		errs = append(errs, fmt.Sprintf("learning review rate %d must be in range 0-100", conf.Learning.ReviewRatePercent))
 	}
 
 	if len(errs) > 0 {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -17,6 +18,10 @@ type (
 		Description   string `json:"description"`
 		ToReview      bool   `json:"to_review"`
 		GuessedStreak int    `json:"guessed_streak,omitempty"`
+		// OnConflict is only meaningful on create. Left empty, adding a word that already exists is
+		// refused with 409 and the existing entry, so the caller can ask the user what to do; set,
+		// it applies that answer.
+		OnConflict string `json:"on_conflict,omitempty" validate:"omitempty,oneof=reset_and_batch reset_only update_only"`
 	}
 
 	Guessed string
@@ -41,6 +46,10 @@ const (
 	GuessedBatched Guessed = "batched"
 	GuessedToLearn Guessed = "to_learn"
 )
+
+// createAttempts bounds the create/read-the-conflict loop in CreateWord. One retry is enough for a
+// word that is deleted concurrently; more than that is a client fighting itself.
+const createAttempts = 2
 
 func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *WordsHandler {
 	return &WordsHandler{
@@ -107,12 +116,61 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 		return err
 	}
 
-	if err := h.repo.AddWordTranslation(c.Request().Context(), chatID, wt.Word, wt.Translation, wt.Description); err != nil {
-		h.log.ErrorContext(c.Request().Context(), "failed to create word translation", "error", err)
-		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	ctx := c.Request().Context()
+
+	// The caller has already been told about the existing entry and said what to do about it.
+	// ResolveWordConflict writes the word either way, so the decision still stands if the word was
+	// deleted between the 409 and this request.
+	if wt.OnConflict != "" {
+		err := h.repo.ResolveWordConflict(ctx, chatID,
+			wt.Word, wt.Translation, wt.Description, dal.ConflictResolution(wt.OnConflict))
+		if err != nil {
+			h.log.ErrorContext(ctx, "failed to resolve word conflict", "error", err)
+			return c.JSON(http.StatusInternalServerError, InternalServerError)
+		}
+		return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word resolved"})
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word created"})
+	// Without a decision the create must not overwrite anything, so the repository refuses the
+	// insert instead of the handler checking first — a lookup here would let two concurrent creates
+	// both see nothing and have the second discard the first. Reading the existing entry afterwards
+	// can lose the race the other way round, hence the retry: the word was deleted in between and
+	// there is nothing to report a conflict about anymore.
+	for range createAttempts {
+		err := h.repo.CreateWordTranslation(ctx, chatID, wt.Word, wt.Translation, wt.Description)
+		switch {
+		case err == nil:
+			return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word created"})
+		case !errors.Is(err, dal.ErrAlreadyExists):
+			h.log.ErrorContext(ctx, "failed to create word translation", "error", err)
+			return c.JSON(http.StatusInternalServerError, InternalServerError)
+		}
+
+		existing, err := h.repo.FindWordTranslation(ctx, chatID, wt.Word)
+		if err != nil {
+			if errors.Is(err, dal.ErrNotFound) {
+				continue
+			}
+			h.log.ErrorContext(ctx, "failed to find word translation", "error", err)
+			return c.JSON(http.StatusInternalServerError, InternalServerError)
+		}
+
+		// Report what is already stored so the caller can show the translation and the streak that
+		// an overwrite would discard.
+		return c.JSON(http.StatusConflict, echo.Map{
+			"error": "word already exists",
+			"existing": WordTranslation{
+				Word:          existing.Word,
+				Translation:   existing.Translation,
+				Description:   existing.Description,
+				ToReview:      existing.ToReview,
+				GuessedStreak: existing.GuessedStreak,
+			},
+		})
+	}
+
+	h.log.ErrorContext(ctx, "gave up creating word translation", "word", wt.Word)
+	return c.JSON(http.StatusInternalServerError, InternalServerError)
 }
 
 func (h *WordsHandler) UpdateWord(c echo.Context) error {
@@ -188,6 +246,44 @@ func (h *WordsHandler) MarkToReview(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word marked"})
+}
+
+type ResetStreakRequest struct {
+	Word string `json:"word" validate:"required,min=1"`
+	// AddToBatch also puts the word back into the active learning batch, so it starts coming up in
+	// word checks again. Without it the reset word is neither batched nor eligible for review — only
+	// learned words are reviewed — so it waits for a refill to pick it out of the whole vocabulary.
+	AddToBatch bool `json:"add_to_batch"`
+}
+
+func (h *WordsHandler) ResetStreak(c echo.Context) error {
+	chatID := context.MustChatIDFromContext(c.Request().Context())
+
+	var req ResetStreakRequest
+	if err := c.Bind(&req); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
+		return c.JSON(http.StatusBadRequest, BadRequestError)
+	}
+
+	if err := c.Validate(&req); err != nil {
+		h.log.DebugContext(c.Request().Context(), "failed to validate request", "error", err)
+		return err
+	}
+
+	if _, err := h.repo.FindWordTranslation(c.Request().Context(), chatID, req.Word); err != nil {
+		if errors.Is(err, dal.ErrNotFound) {
+			return c.JSON(http.StatusNotFound, NotFoundError)
+		}
+		h.log.ErrorContext(c.Request().Context(), "failed to find word translation", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	if err := h.repo.ResetStreak(c.Request().Context(), chatID, req.Word, req.AddToBatch); err != nil {
+		h.log.ErrorContext(c.Request().Context(), "failed to reset streak", "error", err)
+		return c.JSON(http.StatusInternalServerError, InternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "streak reset"})
 }
 
 func toDALGuessed(g Guessed) dal.Guessed {

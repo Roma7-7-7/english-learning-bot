@@ -95,42 +95,24 @@ func (b *Bot) handleSeeTranslationCallback(ctx context.Context, c tb.Context, da
 }
 
 func (b *Bot) handleWordGuessedCallback(ctx context.Context, c tb.Context, data *dal.CallbackData) error {
-	return b.repo.Transact(ctx, func(r dal.Repository) error {
-		if err := r.IncreaseGuessedStreak(ctx, c.Chat().ID, data.Word); err != nil {
-			return fmt.Errorf("increase guessed streak: %w", err)
-		}
-		if err := r.IncrementWordGuessed(ctx, c.Chat().ID); err != nil {
-			return fmt.Errorf("increment word guessed: %w", err)
-		}
-		if err := r.UpdateTotalWordsLearned(ctx, c.Chat().ID); err != nil {
-			return fmt.Errorf("update total words learned: %w", err)
-		}
-		return nil
-	})
+	if err := b.repo.RegisterGuess(ctx, c.Chat().ID, data.Word); err != nil {
+		return fmt.Errorf("register guess: %w", err)
+	}
+	return nil
 }
 
 func (b *Bot) handleWordMissedCallback(ctx context.Context, c tb.Context, cData *dal.CallbackData) error {
-	return b.repo.Transact(ctx, func(r dal.Repository) error {
-		if err := r.ResetGuessedStreak(ctx, c.Chat().ID, cData.Word); err != nil {
-			return fmt.Errorf("reset guessed streak: %w", err)
-		}
-		if err := r.IncrementWordMissed(ctx, c.Chat().ID); err != nil {
-			return fmt.Errorf("increment word missed: %w", err)
-		}
-		if err := r.UpdateTotalWordsLearned(ctx, c.Chat().ID); err != nil {
-			return fmt.Errorf("update total words learned: %w", err)
-		}
-		return nil
-	})
+	if err := b.repo.RegisterMiss(ctx, c.Chat().ID, cData.Word); err != nil {
+		return fmt.Errorf("register miss: %w", err)
+	}
+	return nil
 }
 
 func (b *Bot) handleWordToReviewCallback(ctx context.Context, c tb.Context, cData *dal.CallbackData) error {
-	return b.repo.Transact(ctx, func(r dal.Repository) error {
-		if err := r.MarkToReview(ctx, c.Chat().ID, cData.Word, true); err != nil {
-			return fmt.Errorf("mark to review: %w", err)
-		}
-		return nil
-	})
+	if err := b.repo.MarkToReview(ctx, c.Chat().ID, cData.Word, true); err != nil {
+		return fmt.Errorf("mark to review: %w", err)
+	}
+	return nil
 }
 
 func parseCallbackData(val string) (callbackData, error) {

@@ -2,8 +2,6 @@ package schedule
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -35,48 +33,15 @@ func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, batchSize, g
 			for _, chatID := range chatIDs {
 				ctx, cancel := context.WithTimeout(ctx, processTimeout)
 
-				err := repo.Transact(ctx, func(repo dal.Repository) error {
-					return updateLearningBatch(ctx, chatID, guessedStreakLimit, repo, log, batchSize)
-				})
+				evicted, added, err := repo.RefillLearningBatch(ctx, chatID, batchSize, guessedStreakLimit)
 				if err != nil {
-					log.ErrorContext(ctx, "failed to delete from learning batch", "error", err, "chat_id", chatID)
+					log.ErrorContext(ctx, "failed to refill learning batch", "error", err, "chat_id", chatID)
+				} else {
+					log.DebugContext(ctx, "learning batch refilled", "chat_id", chatID, "evicted", evicted, "added", added)
 				}
 				cancel()
 			}
 			log.DebugContext(ctx, "update learning batch execution finished")
 		}
 	}
-}
-
-func updateLearningBatch(ctx context.Context, chatID int64, guessedStreakLimit int, repo dal.Repository, log *slog.Logger, batchSize int) error {
-	deleted, err := repo.DeleteFromLearningBatchGtGuessedStreak(ctx, chatID, guessedStreakLimit)
-	if err != nil {
-		return fmt.Errorf("delete from learning batch: %w", err)
-	}
-	log.DebugContext(ctx, "deleted from learning batch", "chat_id", chatID, "deleted", deleted)
-
-	batched, err := repo.GetBatchedWordTranslationsCount(ctx, chatID)
-	if err != nil {
-		return fmt.Errorf("get batched word translations count: %w", err)
-	}
-
-	for range batchSize - batched {
-		word, err := repo.FindRandomWordTranslation(ctx, chatID, dal.FindRandomWordFilter{
-			StreakLimitDirection: dal.LimitDirectionLessThan,
-			StreakLimit:          guessedStreakLimit,
-		})
-		if err != nil {
-			if errors.Is(err, dal.ErrNotFound) {
-				log.DebugContext(ctx, "no words to add to learning batch", "chat_id", chatID)
-				return nil
-			}
-			return fmt.Errorf("get random not batched word translation: %w", err)
-		}
-		if err = repo.AddToLearningBatch(ctx, chatID, word.Word); err != nil {
-			return fmt.Errorf("add to learning batch: %w", err)
-		}
-	}
-	log.DebugContext(ctx, "added to learning batch", "chat_id", chatID, "added", batchSize-batched)
-
-	return nil
 }

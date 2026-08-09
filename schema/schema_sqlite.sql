@@ -6,6 +6,14 @@ CREATE TABLE word_translations
     description    TEXT,
     guessed_streak INTEGER     NOT NULL DEFAULT 0,
     to_review      INTEGER     NOT NULL DEFAULT 0,
+    -- Monotonic per-chat cursor, bumped whenever a learned word is sent out for review. Reviews are
+    -- served in ascending order, so they rotate through the whole learned vocabulary before
+    -- repeating. NULL means never reviewed, which sorts first.
+    --
+    -- A counter rather than a timestamp on purpose: it cannot tie, so the rotation does not depend
+    -- on the clock advancing between two reviews. Deliberately separate from updated_at, which the
+    -- trigger below bumps on every edit.
+    last_reviewed_seq INTEGER,
     created_at     TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -21,6 +29,10 @@ CREATE TRIGGER update_word_translations_updated_at
 
 CREATE INDEX idx_word_translations_chat_id
     ON word_translations (chat_id);
+
+-- Serves the review picker: learned words for a chat, least recently reviewed first.
+CREATE INDEX idx_word_translations_review
+    ON word_translations (chat_id, guessed_streak, last_reviewed_seq);
 
 CREATE TABLE learning_batches
 (

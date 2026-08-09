@@ -10,14 +10,19 @@ import (
 	"github.com/Masterminds/squirrel"
 )
 
+// nearlyLearnedWidth is how many streaks below the learned threshold count as "nearly there" in the
+// overall progress breakdown.
+const nearlyLearnedWidth = 5
+
 func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*TotalStats, error) {
-	query := qb.Select(
-		"chat_id",
-		"SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus",
-		"SUM(CASE WHEN guessed_streak BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS streak_10_to_14",
-		"SUM(CASE WHEN guessed_streak BETWEEN 1 AND 9 THEN 1 ELSE 0 END) AS streak_1_to_9",
-		"COUNT(*) AS total_words",
-	).
+	// Buckets are derived from the streak limit so that they keep meaning something when it is
+	// retuned: [limit, ∞) is learned, the five below it are nearly there, the rest are early.
+	nearlyFrom := max(1, r.streakLimit-nearlyLearnedWidth)
+	query := qb.Select("chat_id").
+		Column("SUM(CASE WHEN guessed_streak >= ? THEN 1 ELSE 0 END) AS learned", r.streakLimit).
+		Column("SUM(CASE WHEN guessed_streak BETWEEN ? AND ? THEN 1 ELSE 0 END) AS nearly", nearlyFrom, r.streakLimit-1).
+		Column("SUM(CASE WHEN guessed_streak BETWEEN 1 AND ? THEN 1 ELSE 0 END) AS early", nearlyFrom-1).
+		Column("COUNT(*) AS total_words").
 		From("word_translations").
 		Where(squirrel.Eq{"chat_id": chatID}).
 		GroupBy("chat_id")
@@ -32,19 +37,25 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*To
 	var stats TotalStats
 	err = row.Scan(
 		&stats.ChatID,
-		&stats.GreaterThanOrEqual15,
-		&stats.Between10And14,
-		&stats.Between1And9,
+		&stats.Learned,
+		&stats.Nearly,
+		&stats.Early,
 		&stats.Total,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			// An empty vocabulary still has to report the thresholds: they label the buckets, and a
+			// zero would tell every caller that all words are learned.
 			return &TotalStats{
-				ChatID: chatID,
+				ChatID:      chatID,
+				StreakLimit: r.streakLimit,
+				NearlyFrom:  nearlyFrom,
 			}, nil
 		}
 		return nil, fmt.Errorf("get stats: %w", err)
 	}
+	stats.StreakLimit = r.streakLimit
+	stats.NearlyFrom = nearlyFrom
 	return &stats, nil
 }
 
@@ -140,7 +151,7 @@ func (r *SQLiteRepository) GetStatsRange(ctx context.Context, chatID int64, from
 	return stats, nil
 }
 
-func (r *SQLiteRepository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
+func incrementWordGuessed(ctx context.Context, e execer, chatID int64) error {
 	query := qb.Insert("statistics").
 		Columns("chat_id", "date", "words_guessed").
 		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
@@ -151,14 +162,14 @@ func (r *SQLiteRepository) IncrementWordGuessed(ctx context.Context, chatID int6
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increment word guessed: %w", err)
 	}
 	return nil
 }
 
-func (r *SQLiteRepository) IncrementWordMissed(ctx context.Context, chatID int64) error {
+func incrementWordMissed(ctx context.Context, e execer, chatID int64) error {
 	query := qb.Insert("statistics").
 		Columns("chat_id", "date", "words_missed").
 		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
@@ -169,32 +180,36 @@ func (r *SQLiteRepository) IncrementWordMissed(ctx context.Context, chatID int64
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increment word missed: %w", err)
 	}
 	return nil
 }
 
-func (r *SQLiteRepository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
-	query := qb.Update("statistics").
-		Set("total_words_learned", squirrel.Select("COUNT(*)").
-			From("word_translations").
-			Where(squirrel.Eq{"chat_id": chatID}).
-			Where("guessed_streak >= 15")).
-		Where(squirrel.And{
-			squirrel.Eq{
-				"chat_id": chatID,
-			},
-			squirrel.Expr(fmt.Sprintf("date = %s", "date('now', 'localtime')")),
-		})
+// updateTotalWordsLearned recomputes today's learned count from the vocabulary itself.
+//
+// It inserts today's row as well as updating it: a streak reset from the UI can be the first thing
+// that happens on a given day, and a plain UPDATE would match nothing and leave the dashboard
+// showing yesterday's number until an answer in Telegram created the row.
+func updateTotalWordsLearned(ctx context.Context, e execer, chatID int64, streakLimit int) error {
+	// The subquery is inlined with "?" placeholders so that the outer builder's Dollar format is
+	// applied exactly once, over the whole statement.
+	learned := squirrel.Expr(
+		"(SELECT COUNT(*) FROM word_translations WHERE chat_id = ? AND guessed_streak >= ?)",
+		chatID, streakLimit)
+
+	query := qb.Insert("statistics").
+		Columns("chat_id", "date", "total_words_learned").
+		Values(chatID, squirrel.Expr("date('now', 'localtime')"), learned).
+		Suffix("ON CONFLICT (chat_id, date) DO UPDATE SET total_words_learned = EXCLUDED.total_words_learned")
 
 	sql, args, err := query.ToSql()
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("update total words learned: %w", err)
 	}

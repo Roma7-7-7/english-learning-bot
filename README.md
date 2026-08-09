@@ -23,7 +23,7 @@ The project consists of three main components:
 
 ### Web Interface
 - **Word Management**: Create, edit, and delete word translations
-- **Learning Progress**: Visual indicators for learned words (15+ streak)
+- **Learning Progress**: Visual indicators for learned words (streak at or above the configured limit)
 - **Filtering**: Filter by learning status (all, learned, batched, to_learn)
 - **Search**: Find specific words and translations
 - **Statistics Dashboard**: Charts and metrics showing learning progress
@@ -60,8 +60,25 @@ The bot uses a spaced repetition system:
 - Words start with a `guessed_streak` of 0
 - Correct answers increment the streak
 - Wrong answers reset the streak to 0
-- Words with 15+ streaks are considered "learned"
-- Learning batches automatically update based on performance
+- Words reaching `BOT_LEARNING_STREAK_LIMIT` (default 15) are considered "learned" and leave the
+  active batch
+- The learning batch is topped back up to `BOT_LEARNING_BATCH_SIZE` (default 50) every hour
+
+### Reviewing learned words
+
+Learning a word once is not the same as remembering it. `BOT_LEARNING_REVIEW_RATE_PERCENT` of
+scheduled checks (default 20%) re-test an already learned word instead of one from the active batch.
+Review messages are prefixed with 🔁.
+
+Reviews rotate: the least recently reviewed learned word is always picked next, so every learned word
+comes up once before any of them comes up twice. The rotation advances when the message is **sent**,
+so ignoring one does not stall it.
+
+Answering ❌ on any word — review or not — resets its streak **and** puts it straight back into the
+learning batch. That can push the batch above `BOT_LEARNING_BATCH_SIZE`; the hourly refill simply adds
+nothing until words graduate out again.
+
+Set `BOT_LEARNING_REVIEW_RATE_PERCENT=0` to disable reviews.
 
 ## Project Structure
 
@@ -118,7 +135,9 @@ Create a `.env` file with the following variables:
 # Bot Configuration
 BOT_TELEGRAM_TOKEN=your_telegram_bot_token
 BOT_ALLOWED_CHAT_IDS=123456789,987654321
-BOT_DB_PATH=./data/db.sqlite
+# Keep the busy_timeout pragma: without it a write that overlaps the hourly batch refill fails
+# straight away with "database is locked" instead of waiting for it.
+BOT_DB_PATH=file:data/db.sqlite?cache=shared&mode=rwc&_pragma=busy_timeout(5000)
 BOT_DEV=false
 
 # Schedule Configuration  
@@ -126,6 +145,11 @@ BOT_SCHEDULE_PUBLISH_INTERVAL=30m
 BOT_SCHEDULE_HOUR_FROM=9
 BOT_SCHEDULE_HOUR_TO=22
 BOT_SCHEDULE_TIMEZONE=Europe/London
+
+# Learning Configuration
+BOT_LEARNING_BATCH_SIZE=50
+BOT_LEARNING_STREAK_LIMIT=15
+BOT_LEARNING_REVIEW_RATE_PERCENT=20
 
 # API Configuration
 API_TELEGRAM_TOKEN=your_telegram_bot_token
@@ -153,6 +177,12 @@ VITE_API_BASE_URL=http://localhost:8080
 1. **Initialize database**:
    ```bash
    sqlite3 data/db.sqlite < schema/schema_sqlite.sql
+   ```
+
+   For an **existing** database, apply any migrations it has not seen yet — they are additive and
+   safe to run against live data, but each one only once:
+   ```bash
+   sqlite3 data/db.sqlite < schema/migrations/001_last_reviewed_seq.sql
    ```
 
 2. **Build the applications**:
@@ -199,9 +229,13 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ### Words Management
 - `GET /words` - List words with filtering and pagination
-- `POST /words` - Create new word translation
+- `POST /words` - Create new word translation. If the word already exists, responds `409` with the
+  stored entry instead of overwriting it; resend with `"on_conflict"` set to `reset_and_batch`,
+  `reset_only` or `update_only` to apply a decision
 - `PUT /words` - Update existing word translation
 - `PUT /words/review` - Mark word for review
+- `POST /words/reset` - Reset a word's streak to 0, optionally putting it back into the learning
+  batch (`{"word": "...", "add_to_batch": true}`)
 - `DELETE /words` - Delete word translation
 
 ### Statistics
