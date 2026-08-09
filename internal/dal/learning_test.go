@@ -325,3 +325,25 @@ func TestRefillLearningBatchWithNothingToLearn(t *testing.T) {
 		t.Errorf("evicted/added = %d/%d, want 0/0", evicted, added)
 	}
 }
+
+// Resetting a streak can be the first thing that happens on a given day, before any answer has
+// created today's statistics row. The learned count still has to be recorded, or the dashboard keeps
+// reporting the word as learned.
+func TestResetStreakRecordsLearnedCountOnAQuietDay(t *testing.T) {
+	ctx := context.Background()
+	r := dal.NewTestRepo(t)
+	r.AddWord("word", 20)
+	r.AddWord("other", 20)
+
+	if err := r.ResetStreak(ctx, dal.TestChatID, "word", true); err != nil {
+		t.Fatalf("ResetStreak: %v", err)
+	}
+
+	guessed, missed, totalLearned := r.TodayStats()
+	if guessed != 0 || missed != 0 {
+		t.Errorf("guessed/missed = %d/%d, want 0/0", guessed, missed)
+	}
+	if totalLearned != 1 {
+		t.Errorf("total_words_learned = %d, want 1 (only 'other' is still learned)", totalLearned)
+	}
+}

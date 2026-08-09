@@ -120,11 +120,7 @@ func (b *Bot) HandleStats(m tb.Context) error {
 		return m.Reply("failed to get stats")
 	}
 
-	msg := fmt.Sprintf("Overall Progress:\n%d+: %d\n%d-%d: %d\n1-%d: %d\nTotal: %d",
-		totalStats.StreakLimit, totalStats.Learned,
-		totalStats.NearlyFrom, totalStats.StreakLimit-1, totalStats.Nearly,
-		totalStats.NearlyFrom-1, totalStats.Early,
-		totalStats.Total)
+	msg := totalStatsMessage(totalStats)
 
 	if stats != nil {
 		msg += fmt.Sprintf("\n\nToday's Progress:\nGuessed: %d\nMissed: %d",
@@ -132,6 +128,25 @@ func (b *Bot) HandleStats(m tb.Context) error {
 	}
 
 	return m.Reply(msg)
+}
+
+// totalStatsMessage renders the overall progress breakdown, skipping the buckets that a small
+// streak limit squeezes out of existence: with a limit of 6 or less the early band has no room left
+// and would be labelled with the inverted range "1-0".
+func totalStatsMessage(s *dal.TotalStats) string {
+	lines := []string{
+		"Overall Progress:",
+		fmt.Sprintf("%d+: %d", s.StreakLimit, s.Learned),
+	}
+	if s.StreakLimit-1 >= s.NearlyFrom {
+		lines = append(lines, fmt.Sprintf("%d-%d: %d", s.NearlyFrom, s.StreakLimit-1, s.Nearly))
+	}
+	if s.NearlyFrom > 1 {
+		lines = append(lines, fmt.Sprintf("1-%d: %d", s.NearlyFrom-1, s.Early))
+	}
+	lines = append(lines, fmt.Sprintf("Total: %d", s.Total))
+
+	return strings.Join(lines, "\n")
 }
 
 func (b *Bot) HandleRandom(m tb.Context) error {
@@ -147,12 +162,12 @@ func (b *Bot) HandleRandom(m tb.Context) error {
 // has already been learned. Without that, a word never comes back once its streak crosses the limit,
 // so the "learned" count drifts away from what is actually remembered.
 func (b *Bot) SendWordCheck(ctx context.Context, chatID int64) error {
+	// Any failure to pick a review falls back to the batch, same as a check that was never going to
+	// be a review: pickReview has already logged whatever went wrong, and losing the review is
+	// better than losing the whole check.
 	review, err := b.pickReview(ctx, chatID)
-	switch {
-	case errors.Is(err, errNoReviewDue):
+	if err != nil {
 		return b.sendWordCheck(ctx, chatID, dal.FindRandomWordFilter{Batched: true}, &noOpReplier{})
-	case err != nil:
-		return err
 	}
 
 	if err = b.sendWord(ctx, chatID, review, reviewPrefix); err != nil {

@@ -187,18 +187,22 @@ func incrementWordMissed(ctx context.Context, e execer, chatID int64) error {
 	return nil
 }
 
+// updateTotalWordsLearned recomputes today's learned count from the vocabulary itself.
+//
+// It inserts today's row as well as updating it: a streak reset from the UI can be the first thing
+// that happens on a given day, and a plain UPDATE would match nothing and leave the dashboard
+// showing yesterday's number until an answer in Telegram created the row.
 func updateTotalWordsLearned(ctx context.Context, e execer, chatID int64, streakLimit int) error {
-	query := qb.Update("statistics").
-		Set("total_words_learned", squirrel.Select("COUNT(*)").
-			From("word_translations").
-			Where(squirrel.Eq{"chat_id": chatID}).
-			Where("guessed_streak >= ?", streakLimit)).
-		Where(squirrel.And{
-			squirrel.Eq{
-				"chat_id": chatID,
-			},
-			squirrel.Expr(fmt.Sprintf("date = %s", "date('now', 'localtime')")),
-		})
+	// The subquery is inlined with "?" placeholders so that the outer builder's Dollar format is
+	// applied exactly once, over the whole statement.
+	learned := squirrel.Expr(
+		"(SELECT COUNT(*) FROM word_translations WHERE chat_id = ? AND guessed_streak >= ?)",
+		chatID, streakLimit)
+
+	query := qb.Insert("statistics").
+		Columns("chat_id", "date", "total_words_learned").
+		Values(chatID, squirrel.Expr("date('now', 'localtime')"), learned).
+		Suffix("ON CONFLICT (chat_id, date) DO UPDATE SET total_words_learned = EXCLUDED.total_words_learned")
 
 	sql, args, err := query.ToSql()
 	if err != nil {
