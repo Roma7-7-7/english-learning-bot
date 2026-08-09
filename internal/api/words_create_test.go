@@ -13,7 +13,7 @@ func TestCreateWordNew(t *testing.T) {
 	repo := &stubWordsRepo{} // nothing exists
 	h := api.NewWordsHandler(repo, testLogger())
 
-	c, rec := newRequest(t, http.MethodPost, "/words",
+	c, rec := newRequest(t, "/words",
 		`{"word":"apple","translation":"яблуко","description":"a fruit"}`)
 	if err := h.CreateWord(c); err != nil {
 		t.Fatalf("CreateWord: %v", err)
@@ -34,10 +34,12 @@ func TestCreateWordNew(t *testing.T) {
 // Adding an existing word used to silently overwrite it and return 200, quietly discarding whatever
 // the user might have wanted to know about the existing entry.
 func TestCreateWordDuplicateReportsConflict(t *testing.T) {
-	repo := &stubWordsRepo{findWord: existingWord("apple", "яблуко", "a fruit", 18)}
+	repo := &stubWordsRepo{findWord: existingWord(dal.WordTranslation{
+		Word: "apple", Translation: "яблуко", Description: "a fruit", GuessedStreak: 18,
+	})}
 	h := api.NewWordsHandler(repo, testLogger())
 
-	c, rec := newRequest(t, http.MethodPost, "/words",
+	c, rec := newRequest(t, "/words",
 		`{"word":"apple","translation":"різновид яблука"}`)
 	if err := h.CreateWord(c); err != nil {
 		t.Fatalf("CreateWord: %v", err)
@@ -86,10 +88,12 @@ func TestCreateWordAppliesConflictResolution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &stubWordsRepo{findWord: existingWord("apple", "яблуко", "a fruit", 18)}
+			repo := &stubWordsRepo{findWord: existingWord(dal.WordTranslation{
+				Word: "apple", Translation: "яблуко", Description: "a fruit", GuessedStreak: 18,
+			})}
 			h := api.NewWordsHandler(repo, testLogger())
 
-			c, rec := newRequest(t, http.MethodPost, "/words",
+			c, rec := newRequest(t, "/words",
 				`{"word":"apple","translation":"нове","description":"new desc","on_conflict":"`+tt.onConflict+`"}`)
 			if err := h.CreateWord(c); err != nil {
 				t.Fatalf("CreateWord: %v", err)
@@ -113,10 +117,12 @@ func TestCreateWordAppliesConflictResolution(t *testing.T) {
 
 // Sending back the existing translation is how the UI says "keep what is already there".
 func TestCreateWordConflictCanKeepExistingTranslation(t *testing.T) {
-	repo := &stubWordsRepo{findWord: existingWord("apple", "яблуко", "a fruit", 18)}
+	repo := &stubWordsRepo{findWord: existingWord(dal.WordTranslation{
+		Word: "apple", Translation: "яблуко", Description: "a fruit", GuessedStreak: 18,
+	})}
 	h := api.NewWordsHandler(repo, testLogger())
 
-	c, rec := newRequest(t, http.MethodPost, "/words",
+	c, rec := newRequest(t, "/words",
 		`{"word":"apple","translation":"яблуко","description":"a fruit","on_conflict":"reset_only"}`)
 	if err := h.CreateWord(c); err != nil {
 		t.Fatalf("CreateWord: %v", err)
@@ -132,10 +138,12 @@ func TestCreateWordConflictCanKeepExistingTranslation(t *testing.T) {
 }
 
 func TestCreateWordRejectsUnknownConflictResolution(t *testing.T) {
-	repo := &stubWordsRepo{findWord: existingWord("apple", "яблуко", "", 18)}
+	repo := &stubWordsRepo{findWord: existingWord(dal.WordTranslation{
+		Word: "apple", Translation: "яблуко", GuessedStreak: 18,
+	})}
 	h := api.NewWordsHandler(repo, testLogger())
 
-	c, _ := newRequest(t, http.MethodPost, "/words",
+	c, _ := newRequest(t, "/words",
 		`{"word":"apple","translation":"x","on_conflict":"delete_everything"}`)
 	if err := h.CreateWord(c); err == nil {
 		t.Fatal("CreateWord accepted an unknown on_conflict value, want a validation error")

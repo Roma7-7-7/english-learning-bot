@@ -148,28 +148,32 @@ func (b *Bot) HandleRandom(m tb.Context) error {
 // so the "learned" count drifts away from what is actually remembered.
 func (b *Bot) SendWordCheck(ctx context.Context, chatID int64) error {
 	review, err := b.pickReview(ctx, chatID)
-	if err != nil {
+	switch {
+	case errors.Is(err, errNoReviewDue):
+		return b.sendWordCheck(ctx, chatID, dal.FindRandomWordFilter{Batched: true}, &noOpReplier{})
+	case err != nil:
 		return err
 	}
-	if review != nil {
-		if err = b.sendWord(ctx, chatID, review, reviewPrefix); err != nil {
-			return err
-		}
-		// Stamped on send rather than on answer, so an ignored message still advances the rotation.
-		if err = b.repo.MarkWordReviewed(ctx, chatID, review.Word); err != nil {
-			b.log.ErrorContext(ctx, "failed to mark word reviewed", "error", err, "word", review.Word)
-		}
-		return nil
-	}
 
-	return b.sendWordCheck(ctx, chatID, dal.FindRandomWordFilter{Batched: true}, &noOpReplier{})
+	if err = b.sendWord(ctx, chatID, review, reviewPrefix); err != nil {
+		return err
+	}
+	// Stamped on send rather than on answer, so an ignored message still advances the rotation.
+	if err = b.repo.MarkWordReviewed(ctx, chatID, review.Word); err != nil {
+		b.log.ErrorContext(ctx, "failed to mark word reviewed", "error", err, "word", review.Word)
+	}
+	return nil
 }
 
-// pickReview returns a learned word to re-test, or nil to fall back to the active batch. It returns
-// nil both when this check did not draw a review and when there is nothing learned yet.
+// errNoReviewDue means this check must fall back to the active learning batch: either the draw did
+// not land on a review, or there is nothing learned to review yet.
+var errNoReviewDue = errors.New("no review due")
+
+// pickReview returns a learned word to re-test, or errNoReviewDue when the check belongs to the
+// active batch instead.
 func (b *Bot) pickReview(ctx context.Context, chatID int64) (*dal.WordTranslation, error) {
 	if b.reviewRatePercent <= 0 {
-		return nil, nil
+		return nil, errNoReviewDue
 	}
 
 	rnd, err := rand.Int(rand.Reader, big.NewInt(100)) //nolint:mnd // percentages are out of 100
@@ -178,7 +182,7 @@ func (b *Bot) pickReview(ctx context.Context, chatID int64) (*dal.WordTranslatio
 		return nil, errors.New(somethingWentWrongMsg)
 	}
 	if rnd.Int64() >= int64(b.reviewRatePercent) {
-		return nil, nil
+		return nil, errNoReviewDue
 	}
 
 	wt, err := b.repo.FindRandomWordTranslation(ctx, chatID, dal.FindRandomWordFilter{
@@ -189,7 +193,7 @@ func (b *Bot) pickReview(ctx context.Context, chatID int64) (*dal.WordTranslatio
 	if err != nil {
 		if errors.Is(err, dal.ErrNotFound) {
 			b.log.DebugContext(ctx, "no learned words to review", "chat_id", chatID)
-			return nil, nil
+			return nil, errNoReviewDue
 		}
 		b.log.ErrorContext(ctx, "failed to get word to review", "error", err)
 		return nil, errors.New(somethingWentWrongMsg)

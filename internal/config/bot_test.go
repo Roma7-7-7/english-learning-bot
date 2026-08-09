@@ -1,9 +1,11 @@
-package config
+package config_test
 
 import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/config"
 )
 
 // setRequired fills in everything validateBot insists on, so that each test can focus on one knob.
@@ -21,7 +23,7 @@ func setRequired(t *testing.T) {
 func TestGetBotLearningDefaults(t *testing.T) {
 	setRequired(t)
 
-	conf, err := GetBot(context.Background())
+	conf, err := config.GetBot(context.Background())
 	if err != nil {
 		t.Fatalf("GetBot: %v", err)
 	}
@@ -39,7 +41,7 @@ func TestGetBotLearningFromEnv(t *testing.T) {
 	t.Setenv("BOT_LEARNING_BATCH_SIZE", "80")
 	t.Setenv("BOT_LEARNING_STREAK_LIMIT", "8")
 
-	conf, err := GetBot(context.Background())
+	conf, err := config.GetBot(context.Background())
 	if err != nil {
 		t.Fatalf("GetBot: %v", err)
 	}
@@ -77,7 +79,7 @@ func TestGetBotRejectsInvalidLearningConfig(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			_, err := GetBot(context.Background())
+			_, err := config.GetBot(context.Background())
 			if err == nil {
 				t.Fatal("GetBot succeeded, want validation error")
 			}

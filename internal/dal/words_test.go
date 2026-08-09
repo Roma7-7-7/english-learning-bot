@@ -1,29 +1,31 @@
-package dal
+package dal_test
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
-func reviewFilter(streakLimit int) FindRandomWordFilter {
-	return FindRandomWordFilter{
-		StreakLimitDirection: LimitDirectionGreaterThanOrEqual,
-		StreakLimit:          streakLimit,
-		Order:                OrderLeastRecentlyReviewed,
+func reviewFilter() dal.FindRandomWordFilter {
+	return dal.FindRandomWordFilter{
+		StreakLimitDirection: dal.LimitDirectionGreaterThanOrEqual,
+		StreakLimit:          dal.TestStreakLimit,
+		Order:                dal.OrderLeastRecentlyReviewed,
 	}
 }
 
 func TestFindRandomWordTranslationReviewPicksOnlyLearnedWords(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
+	r := dal.NewTestRepo(t)
 
-	addWord(t, r, "still-learning", 14)
-	addWord(t, r, "learned", 15)
+	r.AddWord("still-learning", 14)
+	r.AddWord("learned", 15)
 
 	for range 5 {
-		wt, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
+		wt, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
 		if err != nil {
 			t.Fatalf("FindRandomWordTranslation: %v", err)
 		}
@@ -35,28 +37,26 @@ func TestFindRandomWordTranslationReviewPicksOnlyLearnedWords(t *testing.T) {
 
 func TestFindRandomWordTranslationReviewSkipsBatchedWords(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
+	r := dal.NewTestRepo(t)
 
 	// A learned word that was demoted back into the batch is being actively learned again and must
 	// not also be offered as a review.
-	addWord(t, r, "demoted", 20)
-	if err := r.inTx(ctx, func(e execer) error { return addToLearningBatch(ctx, e, testChatID, "demoted") }); err != nil {
-		t.Fatalf("seed batch: %v", err)
-	}
+	r.AddWord("demoted", 20)
+	r.SeedBatch("demoted")
 
-	_, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
-	if !errors.Is(err, ErrNotFound) {
+	_, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
+	if !errors.Is(err, dal.ErrNotFound) {
 		t.Fatalf("error = %v, want ErrNotFound", err)
 	}
 }
 
 func TestFindRandomWordTranslationReviewWithoutLearnedWords(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
-	addWord(t, r, "still-learning", 3)
+	r := dal.NewTestRepo(t)
+	r.AddWord("still-learning", 3)
 
-	_, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
-	if !errors.Is(err, ErrNotFound) {
+	_, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
+	if !errors.Is(err, dal.ErrNotFound) {
 		t.Fatalf("error = %v, want ErrNotFound", err)
 	}
 }
@@ -65,22 +65,22 @@ func TestFindRandomWordTranslationReviewWithoutLearnedWords(t *testing.T) {
 // of them comes up twice.
 func TestFindRandomWordTranslationReviewRotatesThroughAllWords(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
+	r := dal.NewTestRepo(t)
 
 	const total = 6
 	for i := range total {
-		addWord(t, r, fmt.Sprintf("learned-%d", i), 20)
+		r.AddWord(fmt.Sprintf("learned-%d", i), 20)
 	}
 
 	seen := make(map[string]int, total)
 	for range total {
-		wt, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
+		wt, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
 		if err != nil {
 			t.Fatalf("FindRandomWordTranslation: %v", err)
 		}
 		seen[wt.Word]++
 		// Stamping the review is what advances the rotation.
-		if err = r.MarkWordReviewed(ctx, testChatID, wt.Word); err != nil {
+		if err = r.MarkWordReviewed(ctx, dal.TestChatID, wt.Word); err != nil {
 			t.Fatalf("MarkWordReviewed: %v", err)
 		}
 	}
@@ -98,12 +98,12 @@ func TestFindRandomWordTranslationReviewRotatesThroughAllWords(t *testing.T) {
 	// being distinct rather than on NULLs sorting first.
 	clear(seen)
 	for range total {
-		wt, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
+		wt, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
 		if err != nil {
 			t.Fatalf("FindRandomWordTranslation: %v", err)
 		}
 		seen[wt.Word]++
-		if err = r.MarkWordReviewed(ctx, testChatID, wt.Word); err != nil {
+		if err = r.MarkWordReviewed(ctx, dal.TestChatID, wt.Word); err != nil {
 			t.Fatalf("MarkWordReviewed: %v", err)
 		}
 	}
@@ -115,20 +115,20 @@ func TestFindRandomWordTranslationReviewRotatesThroughAllWords(t *testing.T) {
 // An unanswered review must not pin the rotation to the same word.
 func TestFindRandomWordTranslationReviewAdvancesOnIgnoredMessage(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
-	addWord(t, r, "first", 20)
-	addWord(t, r, "second", 20)
+	r := dal.NewTestRepo(t)
+	r.AddWord("first", 20)
+	r.AddWord("second", 20)
 
-	first, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
+	first, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
 	if err != nil {
 		t.Fatalf("FindRandomWordTranslation: %v", err)
 	}
 	// Sent but never answered - only MarkWordReviewed runs.
-	if err = r.MarkWordReviewed(ctx, testChatID, first.Word); err != nil {
+	if err = r.MarkWordReviewed(ctx, dal.TestChatID, first.Word); err != nil {
 		t.Fatalf("MarkWordReviewed: %v", err)
 	}
 
-	second, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
+	second, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
 	if err != nil {
 		t.Fatalf("FindRandomWordTranslation: %v", err)
 	}
@@ -141,19 +141,19 @@ func TestFindRandomWordTranslationReviewAdvancesOnIgnoredMessage(t *testing.T) {
 // the trigger-maintained updated_at.
 func TestMarkWordReviewedIsIndependentOfEdits(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
-	addWord(t, r, "reviewed", 20)
-	addWord(t, r, "untouched", 20)
+	r := dal.NewTestRepo(t)
+	r.AddWord("reviewed", 20)
+	r.AddWord("untouched", 20)
 
-	if err := r.MarkWordReviewed(ctx, testChatID, "reviewed"); err != nil {
+	if err := r.MarkWordReviewed(ctx, dal.TestChatID, "reviewed"); err != nil {
 		t.Fatalf("MarkWordReviewed: %v", err)
 	}
 	// Edit the word that has never been reviewed; it must still be picked first.
-	if err := r.UpdateWordTranslation(ctx, testChatID, "untouched", "untouched", "new-translation", ""); err != nil {
+	if err := r.UpdateWordTranslation(ctx, dal.TestChatID, "untouched", "untouched", "new-translation", ""); err != nil {
 		t.Fatalf("UpdateWordTranslation: %v", err)
 	}
 
-	got, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
+	got, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
 	if err != nil {
 		t.Fatalf("FindRandomWordTranslation: %v", err)
 	}
@@ -164,24 +164,19 @@ func TestMarkWordReviewedIsIndependentOfEdits(t *testing.T) {
 
 func TestMarkWordReviewedIsStrictlyMonotonic(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
+	r := dal.NewTestRepo(t)
 	for i := range 4 {
-		addWord(t, r, fmt.Sprintf("learned-%d", i), 20)
+		r.AddWord(fmt.Sprintf("learned-%d", i), 20)
 	}
 
 	seen := map[int]bool{}
 	for i := range 4 {
 		word := fmt.Sprintf("learned-%d", i)
-		if err := r.MarkWordReviewed(ctx, testChatID, word); err != nil {
+		if err := r.MarkWordReviewed(ctx, dal.TestChatID, word); err != nil {
 			t.Fatalf("MarkWordReviewed: %v", err)
 		}
 
-		var seq int
-		err := r.db.QueryRowContext(ctx,
-			"SELECT last_reviewed_seq FROM word_translations WHERE chat_id = ? AND word = ?", testChatID, word).Scan(&seq)
-		if err != nil {
-			t.Fatalf("read cursor: %v", err)
-		}
+		seq := r.ReviewSeq(word)
 		if seq != i+1 {
 			t.Errorf("cursor for %q = %d, want %d", word, seq, i+1)
 		}
@@ -196,23 +191,23 @@ func TestMarkWordReviewedIsStrictlyMonotonic(t *testing.T) {
 // the review rotation rather than being stuck at the front of it.
 func TestReviewRotationAfterDemotionAndRelearning(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
-	addWord(t, r, "forgotten", 20)
-	addWord(t, r, "other", 20)
+	r := dal.NewTestRepo(t)
+	r.AddWord("forgotten", 20)
+	r.AddWord("other", 20)
 
-	first, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit))
+	first, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter())
 	if err != nil {
 		t.Fatalf("FindRandomWordTranslation: %v", err)
 	}
-	if err = r.MarkWordReviewed(ctx, testChatID, first.Word); err != nil {
+	if err = r.MarkWordReviewed(ctx, dal.TestChatID, first.Word); err != nil {
 		t.Fatalf("MarkWordReviewed: %v", err)
 	}
 
 	// Answered wrong: streak resets and the word is demoted into the batch.
-	if err = r.RegisterMiss(ctx, testChatID, first.Word); err != nil {
+	if err = r.RegisterMiss(ctx, dal.TestChatID, first.Word); err != nil {
 		t.Fatalf("RegisterMiss: %v", err)
 	}
-	if got, err := r.FindRandomWordTranslation(ctx, testChatID, reviewFilter(testStreakLimit)); err != nil {
+	if got, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, reviewFilter()); err != nil {
 		t.Fatalf("FindRandomWordTranslation: %v", err)
 	} else if got.Word == first.Word {
 		t.Errorf("demoted word %q is still offered for review", first.Word)
@@ -221,13 +216,11 @@ func TestReviewRotationAfterDemotionAndRelearning(t *testing.T) {
 
 func TestFindRandomWordTranslationBatchedIgnoresOrder(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
-	addWord(t, r, "batched", 2)
-	if err := r.inTx(ctx, func(e execer) error { return addToLearningBatch(ctx, e, testChatID, "batched") }); err != nil {
-		t.Fatalf("seed batch: %v", err)
-	}
+	r := dal.NewTestRepo(t)
+	r.AddWord("batched", 2)
+	r.SeedBatch("batched")
 
-	got, err := r.FindRandomWordTranslation(ctx, testChatID, FindRandomWordFilter{Batched: true})
+	got, err := r.FindRandomWordTranslation(ctx, dal.TestChatID, dal.FindRandomWordFilter{Batched: true})
 	if err != nil {
 		t.Fatalf("FindRandomWordTranslation: %v", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -23,14 +24,14 @@ func testLogger() *slog.Logger {
 
 // newRequest wires up just enough of echo to exercise one handler: the custom validator and the
 // chat ID that AuthMiddleware would normally have injected. Booting NewRouter would need a full
-// config (JWT, CORS, cookies) for no extra coverage.
-func newRequest(t *testing.T, method, path, body string) (echo.Context, *httptest.ResponseRecorder) {
+// config (JWT, CORS, cookies) for no extra coverage. Every handler covered here takes a POST.
+func newRequest(t *testing.T, path, body string) (echo.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 
 	e := echo.New()
 	e.Validator = api.NewCustomValidator()
 
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req = req.WithContext(appctx.WithChatID(req.Context(), testChatID))
 
@@ -113,18 +114,15 @@ func (s *stubWordsRepo) RefillLearningBatch(_ context.Context, _ int64, _, _ int
 	return 0, 0, nil
 }
 
-func existingWord(word, translation, description string, streak int) func(string) (*dal.WordTranslation, error) {
+// existingWord builds a findWord stub that serves wt for its own word and reports every other word
+// as missing.
+func existingWord(wt dal.WordTranslation) func(string) (*dal.WordTranslation, error) {
+	wt.ChatID = testChatID
 	return func(got string) (*dal.WordTranslation, error) {
-		if got != word {
+		if got != wt.Word {
 			return nil, dal.ErrNotFound
 		}
-		return &dal.WordTranslation{
-			ChatID:        testChatID,
-			Word:          word,
-			Translation:   translation,
-			Description:   description,
-			GuessedStreak: streak,
-		}, nil
+		return &wt, nil
 	}
 }
 

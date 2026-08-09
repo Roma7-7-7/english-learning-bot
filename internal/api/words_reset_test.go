@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
 func TestResetStreak(t *testing.T) {
@@ -20,10 +21,12 @@ func TestResetStreak(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &stubWordsRepo{findWord: existingWord("apple", "яблуко", "", 18)}
+			repo := &stubWordsRepo{findWord: existingWord(dal.WordTranslation{
+				Word: "apple", Translation: "яблуко", GuessedStreak: 18,
+			})}
 			h := api.NewWordsHandler(repo, testLogger())
 
-			c, rec := newRequest(t, http.MethodPost, "/words/reset", tt.body)
+			c, rec := newRequest(t, "/words/reset", tt.body)
 			if err := h.ResetStreak(c); err != nil {
 				t.Fatalf("ResetStreak: %v", err)
 			}
@@ -47,7 +50,7 @@ func TestResetStreakUnknownWord(t *testing.T) {
 	repo := &stubWordsRepo{} // findWord nil => always ErrNotFound
 	h := api.NewWordsHandler(repo, testLogger())
 
-	c, rec := newRequest(t, http.MethodPost, "/words/reset", `{"word":"missing"}`)
+	c, rec := newRequest(t, "/words/reset", `{"word":"missing"}`)
 	if err := h.ResetStreak(c); err != nil {
 		t.Fatalf("ResetStreak: %v", err)
 	}
@@ -62,7 +65,7 @@ func TestResetStreakRejectsEmptyWord(t *testing.T) {
 	repo := &stubWordsRepo{}
 	h := api.NewWordsHandler(repo, testLogger())
 
-	c, _ := newRequest(t, http.MethodPost, "/words/reset", `{"word":""}`)
+	c, _ := newRequest(t, "/words/reset", `{"word":""}`)
 	if err := h.ResetStreak(c); err == nil {
 		t.Fatal("ResetStreak accepted an empty word, want a validation error")
 	}

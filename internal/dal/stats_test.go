@@ -1,9 +1,11 @@
-package dal
+package dal_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
 func TestGetTotalStatsBuckets(t *testing.T) {
@@ -42,13 +44,13 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := newTestRepo(t)
-			r.streakLimit = tt.streakLimit
+			r := dal.NewTestRepo(t)
+			r.SetStreakLimit(tt.streakLimit)
 			for i, streak := range tt.streaks {
-				addWord(t, r, fmt.Sprintf("word-%d", i), streak)
+				r.AddWord(fmt.Sprintf("word-%d", i), streak)
 			}
 
-			got, err := r.GetTotalStats(context.Background(), testChatID)
+			got, err := r.GetTotalStats(context.Background(), dal.TestChatID)
 			if err != nil {
 				t.Fatalf("GetTotalStats: %v", err)
 			}
@@ -76,9 +78,9 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 }
 
 func TestGetTotalStatsNoWords(t *testing.T) {
-	r := newTestRepo(t)
+	r := dal.NewTestRepo(t)
 
-	got, err := r.GetTotalStats(context.Background(), testChatID)
+	got, err := r.GetTotalStats(context.Background(), dal.TestChatID)
 	if err != nil {
 		t.Fatalf("GetTotalStats: %v", err)
 	}
@@ -89,15 +91,15 @@ func TestGetTotalStatsNoWords(t *testing.T) {
 
 func TestFindWordTranslationsLearnedFilterUsesStreakLimit(t *testing.T) {
 	ctx := context.Background()
-	r := newTestRepo(t)
-	r.streakLimit = 5
+	r := dal.NewTestRepo(t)
+	r.SetStreakLimit(5)
 
-	addWord(t, r, "below", 4)
-	addWord(t, r, "at", 5)
-	addWord(t, r, "above", 9)
+	r.AddWord("below", 4)
+	r.AddWord("at", 5)
+	r.AddWord("above", 9)
 
-	got, total, err := r.FindWordTranslations(ctx, testChatID, WordTranslationsFilter{
-		Guessed: GuessedLearned,
+	got, total, err := r.FindWordTranslations(ctx, dal.TestChatID, dal.WordTranslationsFilter{
+		Guessed: dal.GuessedLearned,
 		Limit:   10,
 	})
 	if err != nil {
