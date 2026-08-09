@@ -18,7 +18,7 @@ type (
 	}
 
 	DB struct {
-		Path string `required:"false" default:"./data/english_learning.db?cache=shared&mode=rwc"`
+		Path string `required:"false" default:"./data/english_learning.db?cache=shared&mode=rwc&_pragma=busy_timeout(5000)"`
 	}
 
 	CORS struct {

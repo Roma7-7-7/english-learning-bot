@@ -50,6 +50,21 @@ This is a personal English learning platform with two main components:
 - **Error Handling**: Structured logging with slog
 - **Middleware**: Rate limiting, CORS, security headers, request logging
 
+#### Data access layer
+
+`dal.Repository` is **task-shaped, not CRUD-shaped**: anything that touches more than one table is a
+single named method (`RegisterGuess`, `RegisterMiss`, `RefillLearningBatch`, …) rather than a set of
+primitives the caller composes. There is deliberately **no `Transact` on the interface** — the
+implementation opens its own transaction via the private `inTx` helper, so a composite write cannot be
+left half-applied and no `*sql.Tx` ever escapes the package.
+
+When you need a new multi-statement operation, add a method to `LearningRepository` and build it from
+the package-private statement helpers in `words.go` / `stats.go` (they take an `execer`, satisfied by
+both `*sql.DB` and `*sql.Tx`). Do not expose the primitives.
+
+Note `FindWordTranslations` runs its page and count queries concurrently, so it must never be called
+from inside `inTx` — `*sql.Tx` is not safe for concurrent use.
+
 ### Frontend (React/TypeScript)
 - **Framework**: React 19.1.1 with TypeScript
 - **Build Tool**: Vite

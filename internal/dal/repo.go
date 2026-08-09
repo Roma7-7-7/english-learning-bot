@@ -42,7 +42,7 @@ type (
 	}
 
 	WordTranslationsRepository interface {
-		WordTransactionsOperationsRepository
+		LearningRepository
 		FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error)
 		FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error)
 		FindRandomWordTranslation(ctx context.Context, chatID int64, filter FindRandomWordFilter) (*WordTranslation, error)
@@ -51,22 +51,20 @@ type (
 		DeleteWordTranslation(ctx context.Context, chatID int64, word string) error
 	}
 
-	WordTransactionsOperationsRepository interface {
-		GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error)
-		AddToLearningBatch(ctx context.Context, chatID int64, word string) error
-		IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error
-		ResetGuessedStreak(ctx context.Context, chatID int64, word string) error
+	// LearningRepository exposes learning progress as whole operations rather than as the individual
+	// statements they are made of. Anything that has to touch more than one table runs in a single
+	// transaction owned by the implementation, so callers cannot compose a half-applied update.
+	LearningRepository interface {
+		RegisterGuess(ctx context.Context, chatID int64, word string) error
+		RegisterMiss(ctx context.Context, chatID int64, word string) error
 		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
-		DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error)
+		RefillLearningBatch(ctx context.Context, chatID int64, batchSize, guessedStreakLimit int) (evicted, added int, err error)
 	}
 
 	StatsRepository interface {
 		GetTotalStats(ctx context.Context, chatID int64) (*TotalStats, error)
 		GetStats(ctx context.Context, chatID int64, date time.Time) (*Stats, error)
 		GetStatsRange(ctx context.Context, chatID int64, from, to time.Time) ([]Stats, error)
-		IncrementWordGuessed(ctx context.Context, chatID int64) error
-		IncrementWordMissed(ctx context.Context, chatID int64) error
-		UpdateTotalWordsLearned(ctx context.Context, chatID int64) error
 	}
 
 	AuthConfirmationRepository interface {
@@ -82,7 +80,6 @@ type (
 	}
 
 	Repository interface {
-		Transact(ctx context.Context, txFunc func(r Repository) error) error
 		WordTranslationsRepository
 		CallbacksRepository
 		AuthConfirmationRepository

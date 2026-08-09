@@ -12,6 +12,10 @@ import (
 )
 
 func (r *SQLiteRepository) AddWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
+	return upsertWordTranslation(ctx, r.db, chatID, word, translation, description)
+}
+
+func upsertWordTranslation(ctx context.Context, e execer, chatID int64, word, translation, description string) error {
 	query := qb.Insert("word_translations").
 		Columns("chat_id", "word", "translation", "description").
 		Values(chatID, word, translation, description).
@@ -22,13 +26,15 @@ func (r *SQLiteRepository) AddWordTranslation(ctx context.Context, chatID int64,
 		return fmt.Errorf("build insert query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("add translation: %w", err)
 	}
 	return nil
 }
 
+// FindWordTranslations runs its page and count queries concurrently, so it must never be called from
+// inside inTx: *sql.Tx is not safe for concurrent use and the two queries would deadlock.
 func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int64, filter WordTranslationsFilter) ([]WordTranslation, int, error) {
 	baseQuery := qb.Select().
 		From("word_translations").
@@ -135,7 +141,7 @@ func (r *SQLiteRepository) DeleteWordTranslation(ctx context.Context, chatID int
 	return nil
 }
 
-func (r *SQLiteRepository) AddToLearningBatch(ctx context.Context, chatID int64, word string) error {
+func addToLearningBatch(ctx context.Context, e execer, chatID int64, word string) error {
 	query := qb.Insert("learning_batches").
 		Columns("chat_id", "word").
 		Values(chatID, word).
@@ -146,14 +152,14 @@ func (r *SQLiteRepository) AddToLearningBatch(ctx context.Context, chatID int64,
 		return fmt.Errorf("build insert query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("add to learning batch: %w", err)
 	}
 	return nil
 }
 
-func (r *SQLiteRepository) IncreaseGuessedStreak(ctx context.Context, chatID int64, word string) error {
+func increaseGuessedStreak(ctx context.Context, e execer, chatID int64, word string) error {
 	query := qb.Update("word_translations").
 		Set("guessed_streak", squirrel.Expr("guessed_streak + 1")).
 		Where(squirrel.Eq{"chat_id": chatID, "word": word})
@@ -163,14 +169,14 @@ func (r *SQLiteRepository) IncreaseGuessedStreak(ctx context.Context, chatID int
 		return fmt.Errorf("build update query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increase guessed streak: %w", err)
 	}
 	return nil
 }
 
-func (r *SQLiteRepository) ResetGuessedStreak(ctx context.Context, chatID int64, word string) error {
+func resetGuessedStreak(ctx context.Context, e execer, chatID int64, word string) error {
 	query := qb.Update("word_translations").
 		Set("guessed_streak", 0).
 		Where(squirrel.Eq{"chat_id": chatID, "word": word})
@@ -180,7 +186,7 @@ func (r *SQLiteRepository) ResetGuessedStreak(ctx context.Context, chatID int64,
 		return fmt.Errorf("build update query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("reset guessed streak: %w", err)
 	}
@@ -199,7 +205,7 @@ func (r *SQLiteRepository) MarkToReview(ctx context.Context, chatID int64, word 
 
 	_, err = r.db.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return fmt.Errorf("mark review and reset streak: %w", err)
+		return fmt.Errorf("mark to review: %w", err)
 	}
 	return nil
 }
@@ -223,7 +229,7 @@ func (r *SQLiteRepository) UpdateWordTranslation(ctx context.Context, chatID int
 	return nil
 }
 
-func (r *SQLiteRepository) GetBatchedWordTranslationsCount(ctx context.Context, chatID int64) (int, error) {
+func batchedWordTranslationsCount(ctx context.Context, e execer, chatID int64) (int, error) {
 	query := qb.Select("COUNT(*)").
 		From("word_translations wt").
 		Join("learning_batches lb ON wt.chat_id = lb.chat_id AND wt.word = lb.word").
@@ -235,7 +241,7 @@ func (r *SQLiteRepository) GetBatchedWordTranslationsCount(ctx context.Context, 
 	}
 
 	var count int
-	err = r.db.QueryRowContext(ctx, sql, args...).Scan(&count)
+	err = e.QueryRowContext(ctx, sql, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("get batched word translations count: %w", err)
 	}
@@ -314,7 +320,7 @@ func (r *SQLiteRepository) FindRandomWordTranslation(ctx context.Context, chatID
 	return wt, nil
 }
 
-func (r *SQLiteRepository) DeleteFromLearningBatchGtGuessedStreak(ctx context.Context, chatID int64, guessedStreakLimit int) (int, error) {
+func deleteFromLearningBatchGeGuessedStreak(ctx context.Context, e execer, chatID int64, guessedStreakLimit int) (int, error) {
 	query := qb.Delete("learning_batches").
 		Where("chat_id = ? AND word IN (SELECT word FROM word_translations WHERE chat_id = ? AND guessed_streak >= ?)",
 			chatID, chatID, guessedStreakLimit)
@@ -324,7 +330,7 @@ func (r *SQLiteRepository) DeleteFromLearningBatchGtGuessedStreak(ctx context.Co
 		return 0, fmt.Errorf("build delete query: %w", err)
 	}
 
-	res, err := r.db.ExecContext(ctx, sql, args...)
+	res, err := e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return 0, fmt.Errorf("delete from learning batch: %w", err)
 	}

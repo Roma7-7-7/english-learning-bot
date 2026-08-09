@@ -13,11 +13,11 @@ import (
 var qb = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 type (
-	Client interface {
-		BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+	// execer is the subset of database/sql shared by *sql.DB and *sql.Tx. Statement helpers take
+	// one so that they can run either standalone or as part of a transaction opened by inTx.
+	execer interface {
 		ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 		QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-		QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	}
 
 	SQLiteRepository struct {
@@ -33,14 +33,23 @@ func NewSQLiteRepository(ctx context.Context, client *sql.DB, log *slog.Logger) 
 	return res
 }
 
-func (r *SQLiteRepository) Transact(ctx context.Context, txFunc func(r Repository) error) error {
+// inTx runs fn inside a transaction, committing when it returns nil and rolling back otherwise.
+//
+// The transaction never leaves the package: fn receives an execer, not a Repository. That keeps
+// composite writes atomic by construction and makes it impossible to accidentally run a statement
+// against the pool while a transaction is open. Callers outside dal express multi-statement work as
+// a single repository method instead (see learning.go).
+//
+// Do not call query helpers that fan out concurrently (FindWordTranslations) from fn: *sql.Tx is not
+// safe for concurrent use.
+func (r *SQLiteRepository) inTx(ctx context.Context, fn func(e execer) error) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback() //nolint:errcheck // ignore rollback errors
+	defer tx.Rollback() //nolint:errcheck // no-op once the transaction is committed
 
-	if err = txFunc(newSQLRepository(r.db, r.log)); err != nil {
+	if err = fn(tx); err != nil {
 		return err
 	}
 

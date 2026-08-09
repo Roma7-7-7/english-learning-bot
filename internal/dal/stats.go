@@ -140,7 +140,7 @@ func (r *SQLiteRepository) GetStatsRange(ctx context.Context, chatID int64, from
 	return stats, nil
 }
 
-func (r *SQLiteRepository) IncrementWordGuessed(ctx context.Context, chatID int64) error {
+func incrementWordGuessed(ctx context.Context, e execer, chatID int64) error {
 	query := qb.Insert("statistics").
 		Columns("chat_id", "date", "words_guessed").
 		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
@@ -151,14 +151,14 @@ func (r *SQLiteRepository) IncrementWordGuessed(ctx context.Context, chatID int6
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increment word guessed: %w", err)
 	}
 	return nil
 }
 
-func (r *SQLiteRepository) IncrementWordMissed(ctx context.Context, chatID int64) error {
+func incrementWordMissed(ctx context.Context, e execer, chatID int64) error {
 	query := qb.Insert("statistics").
 		Columns("chat_id", "date", "words_missed").
 		Values(chatID, squirrel.Expr("date('now', 'localtime')"), 1).
@@ -169,14 +169,14 @@ func (r *SQLiteRepository) IncrementWordMissed(ctx context.Context, chatID int64
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("increment word missed: %w", err)
 	}
 	return nil
 }
 
-func (r *SQLiteRepository) UpdateTotalWordsLearned(ctx context.Context, chatID int64) error {
+func updateTotalWordsLearned(ctx context.Context, e execer, chatID int64) error {
 	query := qb.Update("statistics").
 		Set("total_words_learned", squirrel.Select("COUNT(*)").
 			From("word_translations").
@@ -194,7 +194,7 @@ func (r *SQLiteRepository) UpdateTotalWordsLearned(ctx context.Context, chatID i
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, sql, args...)
+	_, err = e.ExecContext(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("update total words learned: %w", err)
 	}
