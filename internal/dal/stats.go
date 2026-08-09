@@ -10,14 +10,19 @@ import (
 	"github.com/Masterminds/squirrel"
 )
 
+// nearlyLearnedWidth is how many streaks below the learned threshold count as "nearly there" in the
+// overall progress breakdown.
+const nearlyLearnedWidth = 5
+
 func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*TotalStats, error) {
-	query := qb.Select(
-		"chat_id",
-		"SUM(CASE WHEN guessed_streak >= 15 THEN 1 ELSE 0 END) AS streak_15_plus",
-		"SUM(CASE WHEN guessed_streak BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS streak_10_to_14",
-		"SUM(CASE WHEN guessed_streak BETWEEN 1 AND 9 THEN 1 ELSE 0 END) AS streak_1_to_9",
-		"COUNT(*) AS total_words",
-	).
+	// Buckets are derived from the streak limit so that they keep meaning something when it is
+	// retuned: [limit, ∞) is learned, the five below it are nearly there, the rest are early.
+	nearlyFrom := max(1, r.streakLimit-nearlyLearnedWidth)
+	query := qb.Select("chat_id").
+		Column("SUM(CASE WHEN guessed_streak >= ? THEN 1 ELSE 0 END) AS learned", r.streakLimit).
+		Column("SUM(CASE WHEN guessed_streak BETWEEN ? AND ? THEN 1 ELSE 0 END) AS nearly", nearlyFrom, r.streakLimit-1).
+		Column("SUM(CASE WHEN guessed_streak BETWEEN 1 AND ? THEN 1 ELSE 0 END) AS early", nearlyFrom-1).
+		Column("COUNT(*) AS total_words").
 		From("word_translations").
 		Where(squirrel.Eq{"chat_id": chatID}).
 		GroupBy("chat_id")
@@ -32,9 +37,9 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*To
 	var stats TotalStats
 	err = row.Scan(
 		&stats.ChatID,
-		&stats.GreaterThanOrEqual15,
-		&stats.Between10And14,
-		&stats.Between1And9,
+		&stats.Learned,
+		&stats.Nearly,
+		&stats.Early,
 		&stats.Total,
 	)
 	if err != nil {
@@ -45,6 +50,8 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*To
 		}
 		return nil, fmt.Errorf("get stats: %w", err)
 	}
+	stats.StreakLimit = r.streakLimit
+	stats.NearlyFrom = nearlyFrom
 	return &stats, nil
 }
 
@@ -176,12 +183,12 @@ func incrementWordMissed(ctx context.Context, e execer, chatID int64) error {
 	return nil
 }
 
-func updateTotalWordsLearned(ctx context.Context, e execer, chatID int64) error {
+func updateTotalWordsLearned(ctx context.Context, e execer, chatID int64, streakLimit int) error {
 	query := qb.Update("statistics").
 		Set("total_words_learned", squirrel.Select("COUNT(*)").
 			From("word_translations").
 			Where(squirrel.Eq{"chat_id": chatID}).
-			Where("guessed_streak >= 15")).
+			Where("guessed_streak >= ?", streakLimit)).
 		Where(squirrel.And{
 			squirrel.Eq{
 				"chat_id": chatID,

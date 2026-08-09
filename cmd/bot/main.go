@@ -29,9 +29,6 @@ var (
 )
 
 const (
-	batchSize          = 50
-	guessedStreakLimit = 15
-
 	exitCodeOK int = iota
 	exitCodeConfigParse
 	exitCodeDBConnect
@@ -80,7 +77,7 @@ func run(ctx context.Context) int {
 		return exitCodeDBConnect
 	}
 	defer db.Close()
-	repo := sqlrepo.NewSQLiteRepository(ctx, db, log)
+	repo := sqlrepo.NewSQLiteRepository(ctx, db, conf.Learning.StreakLimit, log)
 
 	// Start Telegram bot
 	bot, err := telegram.NewBot(conf.Telegram.Token, repo, log, telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(conf.Telegram.AllowedChatIDs))
@@ -96,7 +93,7 @@ func run(ctx context.Context) int {
 		HourTo:   conf.Schedule.HourTo,
 		Location: loc,
 	}, bot, log)
-	go schedule.StartUpdateBatchSchedule(ctx, conf.Telegram.AllowedChatIDs, batchSize, guessedStreakLimit, repo, log)
+	go schedule.StartUpdateBatchSchedule(ctx, conf.Telegram.AllowedChatIDs, conf.Learning.BatchSize, conf.Learning.StreakLimit, repo, log)
 
 	go bot.Start(ctx)
 
@@ -153,6 +150,10 @@ func loggableConfig(conf *config.Bot) map[string]any {
 			"publish-interval": fmt.Sprintf("%v", conf.Schedule.PublishInterval),
 			"hour-from":        conf.Schedule.HourFrom,
 			"hour-to":          conf.Schedule.HourTo,
+		},
+		"learning": map[string]any{
+			"batch-size":   conf.Learning.BatchSize,
+			"streak-limit": conf.Learning.StreakLimit,
 		},
 	}
 }

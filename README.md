@@ -23,7 +23,7 @@ The project consists of three main components:
 
 ### Web Interface
 - **Word Management**: Create, edit, and delete word translations
-- **Learning Progress**: Visual indicators for learned words (15+ streak)
+- **Learning Progress**: Visual indicators for learned words (streak at or above the configured limit)
 - **Filtering**: Filter by learning status (all, learned, batched, to_learn)
 - **Search**: Find specific words and translations
 - **Statistics Dashboard**: Charts and metrics showing learning progress
@@ -60,8 +60,9 @@ The bot uses a spaced repetition system:
 - Words start with a `guessed_streak` of 0
 - Correct answers increment the streak
 - Wrong answers reset the streak to 0
-- Words with 15+ streaks are considered "learned"
-- Learning batches automatically update based on performance
+- Words reaching `BOT_LEARNING_STREAK_LIMIT` (default 15) are considered "learned" and leave the
+  active batch
+- The learning batch is topped back up to `BOT_LEARNING_BATCH_SIZE` (default 50) every hour
 
 ## Project Structure
 
@@ -126,6 +127,10 @@ BOT_SCHEDULE_PUBLISH_INTERVAL=30m
 BOT_SCHEDULE_HOUR_FROM=9
 BOT_SCHEDULE_HOUR_TO=22
 BOT_SCHEDULE_TIMEZONE=Europe/London
+
+# Learning Configuration
+BOT_LEARNING_BATCH_SIZE=50
+BOT_LEARNING_STREAK_LIMIT=15
 
 # API Configuration
 API_TELEGRAM_TOKEN=your_telegram_bot_token

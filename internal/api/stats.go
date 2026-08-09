@@ -40,8 +40,9 @@ func (h *StatsHandler) TotalStats(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
-		"learned": stats.GreaterThanOrEqual15,
-		"total":   stats.Total,
+		"learned":      stats.Learned,
+		"total":        stats.Total,
+		"streak_limit": stats.StreakLimit,
 	})
 }
 

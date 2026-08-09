@@ -85,8 +85,13 @@ from inside `inTx` — `*sql.Tx` is not safe for concurrent use.
 - Words start with `guessed_streak = 0`
 - Correct answers: increment streak
 - Wrong answers: reset streak to 0
-- Words with 15+ streaks considered "learned"
-- Batch system rotates active learning words
+- Words reaching `BOT_LEARNING_STREAK_LIMIT` (default 15) are considered "learned"
+- Batch system rotates active learning words, topping the batch back up to
+  `BOT_LEARNING_BATCH_SIZE` (default 50) hourly
+
+The streak limit has **one** source of truth on each side: `SQLiteRepository.streakLimit` in Go (set
+from config; every "is this learned?" query reads it) and the `streak_limit` field of
+`GET /stats/total` in the web UI. Do not reintroduce a hardcoded threshold.
 
 ### Authentication Flow
 1. User enters Telegram chat ID in web UI
@@ -220,8 +225,9 @@ The application uses environment-based configuration with a unified `BOT_` prefi
 1. **Database**: Connection strings, timeouts
 2. **Telegram**: Bot token, allowed chat IDs
 3. **Scheduling**: Intervals, time windows, timezone
-4. **HTTP**: CORS, rate limiting, timeouts
-5. **Security**: JWT secrets, cookie settings
+4. **Learning** (`BOT_LEARNING_*`): Batch size, streak limit
+5. **HTTP**: CORS, rate limiting, timeouts
+6. **Security**: JWT secrets, cookie settings
 
 ## Common Development Tasks
 

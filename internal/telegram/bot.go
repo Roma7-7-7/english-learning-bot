@@ -108,8 +108,11 @@ func (b *Bot) HandleStats(m tb.Context) error {
 		return m.Reply("failed to get stats")
 	}
 
-	msg := fmt.Sprintf("Overall Progress:\n15+: %d\n10-14: %d\n1-9: %d\nTotal: %d",
-		totalStats.GreaterThanOrEqual15, totalStats.Between10And14, totalStats.Between1And9, totalStats.Total)
+	msg := fmt.Sprintf("Overall Progress:\n%d+: %d\n%d-%d: %d\n1-%d: %d\nTotal: %d",
+		totalStats.StreakLimit, totalStats.Learned,
+		totalStats.NearlyFrom, totalStats.StreakLimit-1, totalStats.Nearly,
+		totalStats.NearlyFrom-1, totalStats.Early,
+		totalStats.Total)
 
 	if stats != nil {
 		msg += fmt.Sprintf("\n\nToday's Progress:\nGuessed: %d\nMissed: %d",

@@ -12,7 +12,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const testChatID int64 = 42
+const (
+	testChatID      int64 = 42
+	testStreakLimit       = 15
+)
 
 // newTestRepo returns a repository backed by a fresh in-memory database with the production schema
 // applied. It uses the unexported constructor so that no background cleanup goroutines are started.
@@ -37,7 +40,7 @@ func newTestRepo(t *testing.T) *SQLiteRepository {
 		t.Fatalf("apply schema: %v", err)
 	}
 
-	return newSQLRepository(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return newSQLRepository(db, testStreakLimit, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
 func addWord(t *testing.T, r *SQLiteRepository, word string, streak int) {

@@ -34,11 +34,17 @@ type (
 	}
 
 	TotalStats struct {
-		ChatID               int64
-		GreaterThanOrEqual15 int
-		Between10And14       int
-		Between1And9         int
-		Total                int
+		ChatID int64
+		// Learned counts words at or above StreakLimit, Nearly those in [NearlyFrom, StreakLimit),
+		// Early those in [1, NearlyFrom).
+		Learned int
+		Nearly  int
+		Early   int
+		Total   int
+		// StreakLimit and NearlyFrom are echoed back so that callers can label the buckets without
+		// hardcoding the configured threshold.
+		StreakLimit int
+		NearlyFrom  int
 	}
 
 	WordTranslationsRepository interface {

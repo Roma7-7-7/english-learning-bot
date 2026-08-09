@@ -16,7 +16,7 @@ func (r *SQLiteRepository) RegisterGuess(ctx context.Context, chatID int64, word
 		if err := incrementWordGuessed(ctx, e, chatID); err != nil {
 			return fmt.Errorf("increment word guessed: %w", err)
 		}
-		if err := updateTotalWordsLearned(ctx, e, chatID); err != nil {
+		if err := updateTotalWordsLearned(ctx, e, chatID, r.streakLimit); err != nil {
 			return fmt.Errorf("update total words learned: %w", err)
 		}
 		return nil
@@ -33,7 +33,7 @@ func (r *SQLiteRepository) RegisterMiss(ctx context.Context, chatID int64, word 
 		if err := incrementWordMissed(ctx, e, chatID); err != nil {
 			return fmt.Errorf("increment word missed: %w", err)
 		}
-		if err := updateTotalWordsLearned(ctx, e, chatID); err != nil {
+		if err := updateTotalWordsLearned(ctx, e, chatID, r.streakLimit); err != nil {
 			return fmt.Errorf("update total words learned: %w", err)
 		}
 		return nil

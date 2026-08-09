@@ -58,7 +58,7 @@ func (r *SQLiteRepository) FindWordTranslations(ctx context.Context, chatID int6
 	switch filter.Guessed {
 	case "", GuessedAll:
 	case GuessedLearned:
-		baseQuery = baseQuery.Where("guessed_streak >= 15")
+		baseQuery = baseQuery.Where(squirrel.Expr("guessed_streak >= ?", r.streakLimit))
 	case GuessedBatched:
 		baseQuery = baseQuery.Where("EXISTS (SELECT 1 FROM learning_batches lb WHERE lb.chat_id = word_translations.chat_id AND lb.word = word_translations.word)")
 	case GuessedToLearn:

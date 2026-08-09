@@ -11,7 +11,12 @@ export interface Status {
 export interface TotalStats {
     total: number;
     learned: number;
+    /** Streak at which a word counts as learned. Configured server-side. */
+    streak_limit: number;
 }
+
+/** Used only until the first /stats/total response lands. */
+export const DEFAULT_STREAK_LIMIT = 15;
 
 export interface Stats {
     words_guessed: number;

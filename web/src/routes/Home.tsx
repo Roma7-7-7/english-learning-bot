@@ -1,5 +1,9 @@
 import { type JSX, useEffect, useState, useRef } from "react";
-import client, { type Words, type WordsQueryParams } from "../api/client.tsx";
+import client, {
+  DEFAULT_STREAK_LIMIT,
+  type Words,
+  type WordsQueryParams,
+} from "../api/client.tsx";
 import { useAppState } from "../context.tsx";
 import {
   Container,
@@ -27,7 +31,8 @@ interface ModalState {
 }
 
 export function Home() {
-  const { refreshStats } = useAppState();
+  const { state, refreshStats } = useAppState();
+  const streakLimit = state.stats?.streak_limit ?? DEFAULT_STREAK_LIMIT;
   const [words, setWords] = useState<Words | null>(null);
   const [qp, setQP] = useState({
     search: "",
@@ -188,7 +193,7 @@ export function Home() {
   };
 
   const isWordLearned = (guessedStreak: number) => {
-    return guessedStreak >= 15;
+    return guessedStreak >= streakLimit;
   };
 
   return (
@@ -391,10 +396,10 @@ export function Home() {
                             ) : (
                               <Badge
                                 bg="secondary"
-                                title={`Streak: ${item.guessed_streak || 0}/15`}
+                                title={`Streak: ${item.guessed_streak || 0}/${streakLimit}`}
                               >
                                 <span className="d-none d-sm-inline">
-                                  {item.guessed_streak || 0}/15
+                                  {item.guessed_streak || 0}/{streakLimit}
                                 </span>
                                 <span className="d-sm-none">
                                   {item.guessed_streak || 0}
