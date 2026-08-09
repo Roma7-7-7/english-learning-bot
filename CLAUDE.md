@@ -88,6 +88,12 @@ from inside `inTx` — `*sql.Tx` is not safe for concurrent use.
 - Words reaching `BOT_LEARNING_STREAK_LIMIT` (default 15) are considered "learned"
 - Batch system rotates active learning words, topping the batch back up to
   `BOT_LEARNING_BATCH_SIZE` (default 50) hourly
+- `BOT_LEARNING_REVIEW_RATE_PERCENT` (default 20) of scheduled checks re-test an already learned word
+  instead of a batch word, so learned words do not silently rot. Reviews rotate least-recently-first
+  via the `last_reviewed_seq` cursor, stamped when the message is **sent** so an ignored review still
+  advances the rotation
+- A wrong answer resets the streak **and** puts the word back into the learning batch. The batch is
+  therefore allowed to exceed its configured size; the refill just adds nothing until there is room
 
 The streak limit has **one** source of truth on each side: `SQLiteRepository.streakLimit` in Go (set
 from config; every "is this learned?" query reads it) and the `streak_limit` field of
@@ -238,10 +244,17 @@ The application uses environment-based configuration with a unified `BOT_` prefi
 4. Update TypeScript interfaces if needed
 
 ### Database Changes
-1. Update schema files in `schema/`
-2. Add corresponding Go structs in `internal/dal/models.go`
-3. Update repository interfaces and implementations
-4. Test with SQLite if applicable
+
+There is no migration runner — the schema is applied by hand (see README). So every schema change is
+**two** edits that must agree:
+
+1. Update `schema/schema_sqlite.sql` (what a fresh database gets)
+2. Add a numbered file under `schema/migrations/` (what an existing database gets), and mention it in
+   the README's setup section
+3. Add corresponding Go structs in `internal/dal/models.go` if the column is read back
+4. Update repository interfaces and implementations
+5. Cover it in `internal/dal/*_test.go` — those tests apply `schema_sqlite.sql`, so a column missing
+   from it fails loudly
 
 ### Frontend Components
 - Follow existing patterns in `web/src/components/`

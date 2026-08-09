@@ -80,7 +80,8 @@ func run(ctx context.Context) int {
 	repo := sqlrepo.NewSQLiteRepository(ctx, db, conf.Learning.StreakLimit, log)
 
 	// Start Telegram bot
-	bot, err := telegram.NewBot(conf.Telegram.Token, repo, log, telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(conf.Telegram.AllowedChatIDs))
+	bot, err := telegram.NewBot(conf.Telegram.Token, repo, conf.Learning, log,
+		telegram.Recover(log), telegram.LogErrors(log), telegram.AllowedChats(conf.Telegram.AllowedChatIDs))
 	if err != nil {
 		log.ErrorContext(ctx, "failed to create bot", "error", err)
 		return exitCodeBotCreate
@@ -152,8 +153,9 @@ func loggableConfig(conf *config.Bot) map[string]any {
 			"hour-to":          conf.Schedule.HourTo,
 		},
 		"learning": map[string]any{
-			"batch-size":   conf.Learning.BatchSize,
-			"streak-limit": conf.Learning.StreakLimit,
+			"batch-size":          conf.Learning.BatchSize,
+			"streak-limit":        conf.Learning.StreakLimit,
+			"review-rate-percent": conf.Learning.ReviewRatePercent,
 		},
 	}
 }

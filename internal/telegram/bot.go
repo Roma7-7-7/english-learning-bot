@@ -12,6 +12,7 @@ import (
 
 	tb "gopkg.in/telebot.v3"
 
+	"github.com/Roma7-7-7/english-learning-bot/internal/config"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 )
 
@@ -32,12 +33,21 @@ const (
 	processTimeout = 10 * time.Second
 
 	callbackDataExpirationTime = 24 * 7 * time.Hour
+
+	// reviewPrefix marks a word that is being re-tested after having been learned, so it is obvious
+	// that a wrong answer will cost a streak that was already complete.
+	reviewPrefix = "🔁 "
 )
 
 type (
 	Bot struct {
 		bot  *tb.Bot
 		repo dal.Repository
+
+		// streakLimit is the streak at which a word counts as learned and becomes eligible for
+		// review; reviewRatePercent is the share of scheduled checks spent on those reviews.
+		streakLimit       int
+		reviewRatePercent int
 
 		middlewares []tb.MiddlewareFunc
 
@@ -51,7 +61,7 @@ type (
 	noOpReplier struct{}
 )
 
-func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...tb.MiddlewareFunc) (*Bot, error) {
+func NewBot(token string, repo dal.Repository, conf config.Learning, log *slog.Logger, middlewares ...tb.MiddlewareFunc) (*Bot, error) {
 	b, err := tb.NewBot(tb.Settings{
 		Token: token,
 		Poller: &tb.LongPoller{
@@ -63,10 +73,12 @@ func NewBot(token string, repo dal.Repository, log *slog.Logger, middlewares ...
 	}
 
 	return &Bot{
-		bot:         b,
-		repo:        repo,
-		middlewares: middlewares,
-		log:         log,
+		bot:               b,
+		repo:              repo,
+		streakLimit:       conf.StreakLimit,
+		reviewRatePercent: conf.ReviewRatePercent,
+		middlewares:       middlewares,
+		log:               log,
 	}, nil
 }
 
@@ -129,18 +141,60 @@ func (b *Bot) HandleRandom(m tb.Context) error {
 	return b.sendWordCheck(ctx, m.Chat().ID, dal.FindRandomWordFilter{StreakLimitDirection: dal.LimitDirectionGreaterThanOrEqual, StreakLimit: 0}, m)
 }
 
+// SendWordCheck sends one scheduled word check.
+//
+// Most checks come from the active learning batch, but ReviewRatePercent of them re-test a word that
+// has already been learned. Without that, a word never comes back once its streak crosses the limit,
+// so the "learned" count drifts away from what is actually remembered.
 func (b *Bot) SendWordCheck(ctx context.Context, chatID int64) error {
-	filter := dal.FindRandomWordFilter{Batched: true}
+	review, err := b.pickReview(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if review != nil {
+		if err = b.sendWord(ctx, chatID, review, reviewPrefix); err != nil {
+			return err
+		}
+		// Stamped on send rather than on answer, so an ignored message still advances the rotation.
+		if err = b.repo.MarkWordReviewed(ctx, chatID, review.Word); err != nil {
+			b.log.ErrorContext(ctx, "failed to mark word reviewed", "error", err, "word", review.Word)
+		}
+		return nil
+	}
 
-	rnd, err := rand.Int(rand.Reader, big.NewInt(100)) //nolint:mnd // 100 is a magic number
+	return b.sendWordCheck(ctx, chatID, dal.FindRandomWordFilter{Batched: true}, &noOpReplier{})
+}
+
+// pickReview returns a learned word to re-test, or nil to fall back to the active batch. It returns
+// nil both when this check did not draw a review and when there is nothing learned yet.
+func (b *Bot) pickReview(ctx context.Context, chatID int64) (*dal.WordTranslation, error) {
+	if b.reviewRatePercent <= 0 {
+		return nil, nil
+	}
+
+	rnd, err := rand.Int(rand.Reader, big.NewInt(100)) //nolint:mnd // percentages are out of 100
 	if err != nil {
 		b.log.ErrorContext(ctx, "failed to generate random number", "error", err)
-		return errors.New(somethingWentWrongMsg)
+		return nil, errors.New(somethingWentWrongMsg)
 	}
-	if rnd.Int64() == 0 {
-		filter = dal.FindRandomWordFilter{StreakLimitDirection: dal.LimitDirectionLessThan, StreakLimit: 0} // every 100th word to be random
+	if rnd.Int64() >= int64(b.reviewRatePercent) {
+		return nil, nil
 	}
-	return b.sendWordCheck(ctx, chatID, filter, &noOpReplier{})
+
+	wt, err := b.repo.FindRandomWordTranslation(ctx, chatID, dal.FindRandomWordFilter{
+		StreakLimitDirection: dal.LimitDirectionGreaterThanOrEqual,
+		StreakLimit:          b.streakLimit,
+		Order:                dal.OrderLeastRecentlyReviewed,
+	})
+	if err != nil {
+		if errors.Is(err, dal.ErrNotFound) {
+			b.log.DebugContext(ctx, "no learned words to review", "chat_id", chatID)
+			return nil, nil
+		}
+		b.log.ErrorContext(ctx, "failed to get word to review", "error", err)
+		return nil, errors.New(somethingWentWrongMsg)
+	}
+	return wt, nil
 }
 
 func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRandomWordFilter, replier replier) error {
@@ -155,6 +209,13 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
 	}
 
+	if err = b.sendWord(ctx, chatID, wt, ""); err != nil {
+		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
+	}
+	return nil
+}
+
+func (b *Bot) sendWord(ctx context.Context, chatID int64, wt *dal.WordTranslation, prefix string) error {
 	data := dal.CallbackData{
 		ChatID:    chatID,
 		Word:      wt.Word,
@@ -163,10 +224,10 @@ func (b *Bot) sendWordCheck(ctx context.Context, chatID int64, filter dal.FindRa
 	callbackID, err := b.repo.InsertCallback(ctx, data)
 	if err != nil {
 		b.log.ErrorContext(ctx, "failed to insert callback data", "error", err)
-		return replier.Reply(somethingWentWrongMsg) //nolint:wrapcheck // lets ignore it here
+		return fmt.Errorf("insert callback data: %w", err)
 	}
 
-	_, err = b.bot.Send(tb.ChatID(chatID), normalizeMessage(fmt.Sprintf("**%s**", wt.Word)),
+	_, err = b.bot.Send(tb.ChatID(chatID), prefix+normalizeMessage(fmt.Sprintf("**%s**", wt.Word)),
 		tb.ModeMarkdownV2, tb.Silent, seeTranslationMarkup(callbackID),
 	)
 	return err //nolint:wrapcheck // lets ignore it here

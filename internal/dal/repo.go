@@ -8,7 +8,18 @@ import (
 const (
 	LimitDirectionLessThan StreakLimitDirection = iota
 	LimitDirectionGreaterThanOrEqual
+)
 
+const (
+	// OrderRandom picks any matching word with equal probability. It is the zero value, so an
+	// unset Order keeps the previous behaviour.
+	OrderRandom RandomOrder = iota
+	// OrderLeastRecentlyReviewed picks the word whose last review is furthest in the past, so that
+	// repeated picks rotate through the whole set before revisiting anything.
+	OrderLeastRecentlyReviewed
+)
+
+const (
 	GuessedAll     Guessed = "all"
 	GuessedLearned Guessed = "learned"
 	GuessedBatched Guessed = "batched"
@@ -18,6 +29,7 @@ const (
 type (
 	Guessed              string
 	StreakLimitDirection int
+	RandomOrder          int
 
 	WordTranslationsFilter struct {
 		Word     string
@@ -31,6 +43,7 @@ type (
 		Batched              bool
 		StreakLimitDirection StreakLimitDirection // ignored if Batched = true
 		StreakLimit          int                  // ignored if Batched = true
+		Order                RandomOrder          // ignored if Batched = true
 	}
 
 	TotalStats struct {
@@ -64,6 +77,7 @@ type (
 		RegisterGuess(ctx context.Context, chatID int64, word string) error
 		RegisterMiss(ctx context.Context, chatID int64, word string) error
 		MarkToReview(ctx context.Context, chatID int64, word string, toReview bool) error
+		MarkWordReviewed(ctx context.Context, chatID int64, word string) error
 		RefillLearningBatch(ctx context.Context, chatID int64, batchSize, guessedStreakLimit int) (evicted, added int, err error)
 	}
 

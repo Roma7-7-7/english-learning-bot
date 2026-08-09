@@ -64,6 +64,22 @@ The bot uses a spaced repetition system:
   active batch
 - The learning batch is topped back up to `BOT_LEARNING_BATCH_SIZE` (default 50) every hour
 
+### Reviewing learned words
+
+Learning a word once is not the same as remembering it. `BOT_LEARNING_REVIEW_RATE_PERCENT` of
+scheduled checks (default 20%) re-test an already learned word instead of one from the active batch.
+Review messages are prefixed with 🔁.
+
+Reviews rotate: the least recently reviewed learned word is always picked next, so every learned word
+comes up once before any of them comes up twice. The rotation advances when the message is **sent**,
+so ignoring one does not stall it.
+
+Answering ❌ on any word — review or not — resets its streak **and** puts it straight back into the
+learning batch. That can push the batch above `BOT_LEARNING_BATCH_SIZE`; the hourly refill simply adds
+nothing until words graduate out again.
+
+Set `BOT_LEARNING_REVIEW_RATE_PERCENT=0` to disable reviews.
+
 ## Project Structure
 
 ```
@@ -131,6 +147,7 @@ BOT_SCHEDULE_TIMEZONE=Europe/London
 # Learning Configuration
 BOT_LEARNING_BATCH_SIZE=50
 BOT_LEARNING_STREAK_LIMIT=15
+BOT_LEARNING_REVIEW_RATE_PERCENT=20
 
 # API Configuration
 API_TELEGRAM_TOKEN=your_telegram_bot_token
@@ -158,6 +175,12 @@ VITE_API_BASE_URL=http://localhost:8080
 1. **Initialize database**:
    ```bash
    sqlite3 data/db.sqlite < schema/schema_sqlite.sql
+   ```
+
+   For an **existing** database, apply any migrations it has not seen yet — they are additive and
+   safe to run against live data, but each one only once:
+   ```bash
+   sqlite3 data/db.sqlite < schema/migrations/001_last_reviewed_seq.sql
    ```
 
 2. **Build the applications**:

@@ -23,12 +23,20 @@ func (r *SQLiteRepository) RegisterGuess(ctx context.Context, chatID int64, word
 	})
 }
 
-// RegisterMiss records a wrong answer: the word's streak drops back to zero and today's counters
-// follow it.
+// RegisterMiss records a wrong answer: the word's streak drops back to zero, the word is put back
+// into the learning batch, and today's counters follow.
+//
+// Putting it back into the batch is what stops a forgotten word from disappearing again. It matters
+// most for words that had been learned and were only being reviewed; for words already in the batch
+// the insert is a no-op, so there is nothing to branch on. The batch is allowed to overflow its
+// configured size as a result — RefillLearningBatch simply stops adding until there is room.
 func (r *SQLiteRepository) RegisterMiss(ctx context.Context, chatID int64, word string) error {
 	return r.inTx(ctx, func(e execer) error {
 		if err := resetGuessedStreak(ctx, e, chatID, word); err != nil {
 			return fmt.Errorf("reset guessed streak: %w", err)
+		}
+		if err := addToLearningBatch(ctx, e, chatID, word); err != nil {
+			return fmt.Errorf("add to learning batch: %w", err)
 		}
 		if err := incrementWordMissed(ctx, e, chatID); err != nil {
 			return fmt.Errorf("increment word missed: %w", err)
@@ -38,6 +46,30 @@ func (r *SQLiteRepository) RegisterMiss(ctx context.Context, chatID int64, word 
 		}
 		return nil
 	})
+}
+
+// MarkWordReviewed records that a word has just been offered for review.
+//
+// It is called when the review is sent, not when it is answered, so that an ignored message still
+// advances the rotation instead of pinning it to the same word forever.
+func (r *SQLiteRepository) MarkWordReviewed(ctx context.Context, chatID int64, word string) error {
+	// The cursor is one past the chat's current maximum. The subquery sees the pre-update state, so
+	// the new value is always strictly greater than every other row's and the rotation can never
+	// stall on a tie.
+	query := qb.Update("word_translations").
+		Set("last_reviewed_seq", squirrel.Expr(
+			"COALESCE((SELECT MAX(last_reviewed_seq) FROM word_translations WHERE chat_id = ?), 0) + 1", chatID)).
+		Where(squirrel.Eq{"chat_id": chatID, "word": word})
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build update query: %w", err)
+	}
+
+	if _, err = r.db.ExecContext(ctx, sql, args...); err != nil {
+		return fmt.Errorf("mark word reviewed: %w", err)
+	}
+	return nil
 }
 
 // RefillLearningBatch evicts words that reached guessedStreakLimit from the learning batch and tops

@@ -288,6 +288,13 @@ func (r *SQLiteRepository) FindRandomWordTranslation(ctx context.Context, chatID
 			OrderBy("random()").
 			Limit(1)
 	} else {
+		// NULL sorts first in SQLite's ASC, so words that have never been reviewed come out ahead
+		// of any that have.
+		orderBy := "random()"
+		if filter.Order == OrderLeastRecentlyReviewed {
+			orderBy = "wt.last_reviewed_seq ASC"
+		}
+
 		query2 = qb.Select(
 			"wt.chat_id", "wt.word", "wt.translation",
 			"COALESCE(wt.description, '')", "wt.guessed_streak",
@@ -297,7 +304,7 @@ func (r *SQLiteRepository) FindRandomWordTranslation(ctx context.Context, chatID
 			Where(squirrel.Eq{"wt.chat_id": chatID}).
 			Where(squirrel.Expr("wt.guessed_streak "+filter.StreakLimitDirection.String()+" ?", filter.StreakLimit)).
 			Where("wt.word NOT IN (SELECT word FROM learning_batches WHERE chat_id = ?)", chatID).
-			OrderBy("random()").
+			OrderBy(orderBy).
 			Limit(1)
 	}
 

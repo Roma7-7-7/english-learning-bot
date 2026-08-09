@@ -74,7 +74,9 @@ func TestRegisterGuess(t *testing.T) {
 	}
 }
 
-func TestRegisterMiss(t *testing.T) {
+// A missed word must land back in the learning batch, otherwise a word forgotten during review
+// silently disappears again.
+func TestRegisterMissDemotesLearnedWordIntoBatch(t *testing.T) {
 	ctx := context.Background()
 	r := newTestRepo(t)
 	addWord(t, r, "word", 20)
@@ -86,12 +88,66 @@ func TestRegisterMiss(t *testing.T) {
 	if got := streakOf(t, r, "word"); got != 0 {
 		t.Errorf("streak = %d, want 0", got)
 	}
+	if !isBatched(t, r, "word") {
+		t.Error("missed word is not in the learning batch")
+	}
 	guessed, missed, totalLearned := todayStats(t, r)
 	if guessed != 0 || missed != 1 {
 		t.Errorf("guessed/missed = %d/%d, want 0/1", guessed, missed)
 	}
 	if totalLearned != 0 {
 		t.Errorf("total_words_learned = %d, want 0", totalLearned)
+	}
+}
+
+func TestRegisterMissOnBatchedWordIsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+	addWord(t, r, "word", 3)
+	if err := r.inTx(ctx, func(e execer) error { return addToLearningBatch(ctx, e, testChatID, "word") }); err != nil {
+		t.Fatalf("seed batch: %v", err)
+	}
+
+	if err := r.RegisterMiss(ctx, testChatID, "word"); err != nil {
+		t.Fatalf("RegisterMiss: %v", err)
+	}
+
+	if got := len(batchWords(t, r)); got != 1 {
+		t.Errorf("batch size = %d, want 1 (no duplicate row)", got)
+	}
+}
+
+// The batch is allowed to grow past its configured size when words are demoted back into it.
+func TestRegisterMissMayPushBatchOverItsLimit(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+
+	for i := range 3 {
+		addWord(t, r, fmt.Sprintf("learning-%d", i), 1)
+	}
+	if _, _, err := r.RefillLearningBatch(ctx, testChatID, 3, 15); err != nil {
+		t.Fatalf("RefillLearningBatch: %v", err)
+	}
+	addWord(t, r, "forgotten", 20)
+
+	if err := r.RegisterMiss(ctx, testChatID, "forgotten"); err != nil {
+		t.Fatalf("RegisterMiss: %v", err)
+	}
+
+	if got := len(batchWords(t, r)); got != 4 {
+		t.Errorf("batch size = %d, want 4 (over the limit of 3)", got)
+	}
+
+	// The next refill must accept the overflow rather than trimming it.
+	evicted, added, err := r.RefillLearningBatch(ctx, testChatID, 3, 15)
+	if err != nil {
+		t.Fatalf("RefillLearningBatch: %v", err)
+	}
+	if evicted != 0 || added != 0 {
+		t.Errorf("evicted/added = %d/%d, want 0/0", evicted, added)
+	}
+	if got := len(batchWords(t, r)); got != 4 {
+		t.Errorf("batch size = %d after refill, want 4", got)
 	}
 }
 
