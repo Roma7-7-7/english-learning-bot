@@ -14,16 +14,19 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 		streakLimit int
 		// streaks to seed, one word each
 		streaks                       []int
+		batched                       int // how many of the seeded words, from the front, go into the batch
 		wantLearned, wantNearly       int
 		wantEarly, wantTotal          int
 		wantStreakLimit, wantNearlyFr int
+		wantBatched                   int
 	}{
 		{
 			name:        "default limit keeps the historical 15+/10-14/1-9 split",
 			streakLimit: 15,
 			streaks:     []int{0, 1, 9, 10, 14, 15, 20},
+			batched:     2,
 			wantLearned: 2, wantNearly: 2, wantEarly: 2, wantTotal: 7,
-			wantStreakLimit: 15, wantNearlyFr: 10,
+			wantStreakLimit: 15, wantNearlyFr: 10, wantBatched: 2,
 		},
 		{
 			name:        "retuned limit moves every bucket together",
@@ -31,14 +34,15 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 			// limit 8 => learned >= 8, nearly 3-7, early 1-2
 			streaks:     []int{0, 1, 2, 3, 7, 8, 12},
 			wantLearned: 2, wantNearly: 2, wantEarly: 2, wantTotal: 7,
-			wantStreakLimit: 8, wantNearlyFr: 3,
+			wantStreakLimit: 8, wantNearlyFr: 3, wantBatched: 0,
 		},
 		{
 			name:        "limit below the nearly width collapses the early bucket",
 			streakLimit: 3,
 			streaks:     []int{0, 1, 2, 3},
+			batched:     1,
 			wantLearned: 1, wantNearly: 2, wantEarly: 0, wantTotal: 4,
-			wantStreakLimit: 3, wantNearlyFr: 1,
+			wantStreakLimit: 3, wantNearlyFr: 1, wantBatched: 1,
 		},
 	}
 
@@ -46,8 +50,16 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := dal.NewTestRepo(t)
 			r.SetStreakLimit(tt.streakLimit)
+			var toBatch []string
 			for i, streak := range tt.streaks {
-				r.AddWord(fmt.Sprintf("word-%d", i), streak)
+				word := fmt.Sprintf("word-%d", i)
+				r.AddWord(word, streak)
+				if i < tt.batched {
+					toBatch = append(toBatch, word)
+				}
+			}
+			if len(toBatch) > 0 {
+				r.SeedBatch(toBatch...)
 			}
 
 			got, err := r.GetTotalStats(context.Background(), dal.TestChatID)
@@ -73,6 +85,9 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 			if got.NearlyFrom != tt.wantNearlyFr {
 				t.Errorf("NearlyFrom = %d, want %d", got.NearlyFrom, tt.wantNearlyFr)
 			}
+			if got.Batched != tt.wantBatched {
+				t.Errorf("Batched = %d, want %d", got.Batched, tt.wantBatched)
+			}
 		})
 	}
 }
@@ -95,6 +110,9 @@ func TestGetTotalStatsNoWords(t *testing.T) {
 	}
 	if got.NearlyFrom != 3 {
 		t.Errorf("NearlyFrom = %d, want 3", got.NearlyFrom)
+	}
+	if got.Batched != 0 {
+		t.Errorf("Batched = %d, want 0", got.Batched)
 	}
 }
 

@@ -72,6 +72,8 @@ type (
 		// hardcoding the configured threshold.
 		StreakLimit int
 		NearlyFrom  int
+		// Batched is how many words are currently sitting in the active learning batch.
+		Batched int
 	}
 
 	WordTranslationsRepository interface {

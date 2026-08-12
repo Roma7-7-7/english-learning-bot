@@ -145,6 +145,7 @@ func totalStatsMessage(s *dal.TotalStats) string {
 		lines = append(lines, fmt.Sprintf("1-%d: %d", s.NearlyFrom-1, s.Early))
 	}
 	lines = append(lines, fmt.Sprintf("Total: %d", s.Total))
+	lines = append(lines, fmt.Sprintf("In learning batch: %d", s.Batched))
 
 	return strings.Join(lines, "\n")
 }
