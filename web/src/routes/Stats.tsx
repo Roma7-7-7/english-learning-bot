@@ -15,6 +15,7 @@ import { Line, Bar } from 'react-chartjs-2';
 import { format, subDays } from 'date-fns';
 import client from '../api/client.tsx';
 import type { Stats, StatsRange } from '../api/client.tsx';
+import { useAppState } from '../context.tsx';
 
 ChartJS.register(
     CategoryScale,
@@ -28,6 +29,7 @@ ChartJS.register(
 );
 
 export function Stats() {
+    const { state: appState } = useAppState();
     const [stats, setStats] = useState<Stats | null>(null);
     const [rangeStats, setRangeStats] = useState<StatsRange | null>(null);
     const [dateRange, setDateRange] = useState(7); // days
@@ -105,7 +107,7 @@ export function Stats() {
             <h1 className="mb-4">Statistics</h1>
 
             <Row className="mb-4">
-                <Col md={4}>
+                <Col md={3}>
                     <Card>
                         <Card.Body>
                             <Card.Title>Today's Progress</Card.Title>
@@ -121,11 +123,21 @@ export function Stats() {
                         </Card.Body>
                     </Card>
                 </Col>
-                <Col md={8}>
+                <Col md={3}>
+                    <Card>
+                        <Card.Body>
+                            <Card.Title>Learning Batch</Card.Title>
+                            <div className="text-primary">
+                                In batch: {appState.stats?.batched ?? 0}
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={6}>
                     <Form.Group>
                         <Form.Label>Time Range</Form.Label>
-                        <Form.Select 
-                            value={dateRange} 
+                        <Form.Select
+                            value={dateRange}
                             onChange={(e) => setDateRange(Number(e.target.value))}
                         >
                             <option value={7}>Last 7 days</option>

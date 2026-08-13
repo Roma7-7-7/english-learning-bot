@@ -43,6 +43,7 @@ func (h *StatsHandler) TotalStats(c echo.Context) error {
 		"learned":      stats.Learned,
 		"total":        stats.Total,
 		"streak_limit": stats.StreakLimit,
+		"batched":      stats.Batched,
 	})
 }
 
