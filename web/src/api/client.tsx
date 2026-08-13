@@ -21,6 +21,8 @@ export interface TotalStats {
     learned: number;
     /** Streak at which a word counts as learned. Configured server-side. */
     streak_limit: number;
+    /** Words currently sitting in the active learning batch. */
+    batched: number;
 }
 
 /** Used only until the first /stats/total response lands. */
