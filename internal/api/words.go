@@ -4,11 +4,18 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/context"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
 	"github.com/labstack/echo/v4"
 )
+
+func sanitizeForLog(value string) string {
+	value = strings.ReplaceAll(value, "\n", "")
+	value = strings.ReplaceAll(value, "\r", "")
+	return value
+}
 
 type (
 	WordTranslation struct {
@@ -175,7 +182,7 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 		})
 	}
 
-	h.log.ErrorContext(ctx, "gave up creating word translation", "word", wt.Word)
+	h.log.ErrorContext(ctx, "gave up creating word translation", "word", sanitizeForLog(wt.Word))
 	return c.JSON(http.StatusInternalServerError, InternalServerError)
 }
 
