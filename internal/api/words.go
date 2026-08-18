@@ -18,9 +18,9 @@ type (
 		Description   string `json:"description"`
 		ToReview      bool   `json:"to_review"`
 		GuessedStreak int    `json:"guessed_streak,omitempty"`
-		// InBatch is read-only: it says whether the word is currently in the learning batch, which
-		// is what tells a caller resolving a conflict whether "add to the batch" would change
-		// anything.
+		// InBatch is read-only: it says whether the word has already requested batch membership
+		// (in the batch itself, or waiting in the admission queue behind it), which is what tells a
+		// caller resolving a conflict whether "add to the batch" would change anything.
 		InBatch bool `json:"in_batch"`
 		// OnConflict is only meaningful on create. Left empty, adding a word that already exists is
 		// refused with 409 and the existing entry, so the caller can ask the user what to do; set,

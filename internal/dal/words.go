@@ -12,35 +12,43 @@ import (
 )
 
 // CreateWordTranslation stores a word that is not supposed to exist yet, reporting ErrAlreadyExists
-// instead of overwriting one that does.
+// instead of overwriting one that does, and requests batch membership for it - a brand-new word wants
+// practicing exactly like a missed or deliberately reset one, so it goes through the same admission
+// gate rather than waiting for the next hourly refill's random pick.
 //
 // The check is the insert itself rather than a preceding lookup: two concurrent creates would both
 // find nothing and the second would silently discard the first, along with its learning progress.
 // Overwriting on purpose goes through ResolveWordConflict.
 func (r *SQLiteRepository) CreateWordTranslation(ctx context.Context, chatID int64, word, translation, description string) error {
-	query := qb.Insert("word_translations").
-		Columns("chat_id", "word", "translation", "description").
-		Values(chatID, word, translation, description).
-		Suffix("ON CONFLICT (chat_id, word) DO NOTHING")
+	return r.inTx(ctx, func(e execer) error {
+		query := qb.Insert("word_translations").
+			Columns("chat_id", "word", "translation", "description").
+			Values(chatID, word, translation, description).
+			Suffix("ON CONFLICT (chat_id, word) DO NOTHING")
 
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return fmt.Errorf("build insert query: %w", err)
-	}
+		sql, args, err := query.ToSql()
+		if err != nil {
+			return fmt.Errorf("build insert query: %w", err)
+		}
 
-	res, err := r.db.ExecContext(ctx, sql, args...)
-	if err != nil {
-		return fmt.Errorf("create translation: %w", err)
-	}
+		res, err := e.ExecContext(ctx, sql, args...)
+		if err != nil {
+			return fmt.Errorf("create translation: %w", err)
+		}
 
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("get rows affected: %w", err)
-	}
-	if affected == 0 {
-		return ErrAlreadyExists
-	}
-	return nil
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("get rows affected: %w", err)
+		}
+		if affected == 0 {
+			return ErrAlreadyExists
+		}
+
+		if err := requestBatchMembership(ctx, e, chatID, word, r.batchSize); err != nil {
+			return fmt.Errorf("request batch membership: %w", err)
+		}
+		return nil
+	})
 }
 
 func upsertWordTranslation(ctx context.Context, e execer, chatID int64, word, translation, description string) error {
@@ -185,6 +193,136 @@ func addToLearningBatch(ctx context.Context, e execer, chatID int64, word string
 		return fmt.Errorf("add to learning batch: %w", err)
 	}
 	return nil
+}
+
+// wordInBatchOrQueue reports whether requesting batch membership for word would have anything to do:
+// true if it is already in the active batch or already waiting in the admission queue behind it. A
+// word is never in both at once - see requestBatchMembership.
+func wordInBatchOrQueue(ctx context.Context, e execer, chatID int64, word string) (bool, error) {
+	query := qb.Select().Column(
+		"EXISTS(SELECT 1 FROM learning_batches WHERE chat_id = ? AND word = ?) OR "+
+			"EXISTS(SELECT 1 FROM learning_batch_queue WHERE chat_id = ? AND word = ?)",
+		chatID, word, chatID, word,
+	)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return false, fmt.Errorf("build select query: %w", err)
+	}
+
+	var awaiting bool
+	if err := e.QueryRowContext(ctx, sql, args...).Scan(&awaiting); err != nil {
+		return false, fmt.Errorf("check batch admission state: %w", err)
+	}
+	return awaiting, nil
+}
+
+// enqueueForLearningBatch appends word to the FIFO admission queue. ON CONFLICT DO NOTHING means a
+// word that somehow gets queued twice keeps its original position rather than being pushed to the
+// back - callers are expected to have already checked wordInBatchOrQueue, so this should only ever
+// insert a fresh row in practice.
+func enqueueForLearningBatch(ctx context.Context, e execer, chatID int64, word string) error {
+	// Same "one past the chat's current maximum" pattern as MarkWordReviewed's last_reviewed_seq:
+	// the subquery sees the pre-insert state, so the new value is always strictly greater than every
+	// other queued word's and two words queued in the same instant never tie.
+	query := qb.Insert("learning_batch_queue").
+		Columns("chat_id", "word", "queued_seq").
+		Values(chatID, word, squirrel.Expr(
+			"COALESCE((SELECT MAX(queued_seq) FROM learning_batch_queue WHERE chat_id = ?), 0) + 1", chatID)).
+		Suffix("ON CONFLICT DO NOTHING")
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("build insert query: %w", err)
+	}
+	if _, err = e.ExecContext(ctx, sql, args...); err != nil {
+		return fmt.Errorf("enqueue for learning batch: %w", err)
+	}
+	return nil
+}
+
+// requestBatchMembership is the single admission gate every producer of "this word should be
+// practiced" goes through: RegisterMiss, ResetStreak, ResolveWordConflict's reset_and_batch, and
+// CreateWordTranslation for brand-new words.
+//
+// It admits immediately if there is room (today's "instant" UX for a miss or a deliberate reset), or
+// appends to the FIFO queue otherwise so the word is delayed, never lost. It is idempotent - a word
+// already in the batch or already queued is left exactly where it is, so two producers racing on the
+// same word (or the same producer firing twice) never duplicates a row or reorders the queue.
+func requestBatchMembership(ctx context.Context, e execer, chatID int64, word string, batchSize int) error {
+	awaiting, err := wordInBatchOrQueue(ctx, e, chatID, word)
+	if err != nil {
+		return fmt.Errorf("check batch admission state: %w", err)
+	}
+	if awaiting {
+		return nil
+	}
+
+	batched, err := batchedWordTranslationsCount(ctx, e, chatID)
+	if err != nil {
+		return fmt.Errorf("get batched word translations count: %w", err)
+	}
+
+	if batched < batchSize {
+		if err := addToLearningBatch(ctx, e, chatID, word); err != nil {
+			return fmt.Errorf("add to learning batch: %w", err)
+		}
+		return nil
+	}
+
+	if err := enqueueForLearningBatch(ctx, e, chatID, word); err != nil {
+		return fmt.Errorf("enqueue for learning batch: %w", err)
+	}
+	return nil
+}
+
+// drainLearningBatchQueue admits up to limit of the oldest eligible queued words into
+// learning_batches, then removes them from the queue: insert first, delete second, so a crash
+// between the two never loses a word (worst case it briefly sits in both, never in neither).
+//
+// The guessed_streak filter is defensive: nothing should ever queue a word above guessedStreakLimit,
+// since every producer resets the streak to 0 before requesting membership, but a stale row must not
+// be promoted if that invariant is ever violated.
+//
+// The delete is safe precisely because of the batch/queue mutual-exclusivity invariant: within this
+// transaction, the only rows that can be in both tables at this point are the ones the insert above
+// just moved.
+func drainLearningBatchQueue(ctx context.Context, e execer, chatID int64, guessedStreakLimit, limit int) (int, error) {
+	insert := qb.Insert("learning_batches").
+		Columns("chat_id", "word").
+		Select(squirrel.Select("lbq.chat_id", "lbq.word").
+			From("learning_batch_queue lbq").
+			Join("word_translations wt ON wt.chat_id = lbq.chat_id AND wt.word = lbq.word").
+			Where("lbq.chat_id = ? AND wt.guessed_streak < ?", chatID, guessedStreakLimit).
+			OrderBy("lbq.queued_seq ASC").
+			Limit(uint64(limit))). //nolint:gosec // limit is room, itself bounded by batchSize
+		Suffix("ON CONFLICT DO NOTHING")
+
+	sql, args, err := insert.ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build insert query: %w", err)
+	}
+	res, err := e.ExecContext(ctx, sql, args...)
+	if err != nil {
+		return 0, fmt.Errorf("drain learning batch queue: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("get rows affected: %w", err)
+	}
+
+	del := qb.Delete("learning_batch_queue").
+		Where("chat_id = ? AND word IN (SELECT word FROM learning_batches WHERE chat_id = ?)", chatID, chatID)
+
+	delSQL, delArgs, err := del.ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build delete query: %w", err)
+	}
+	if _, err = e.ExecContext(ctx, delSQL, delArgs...); err != nil {
+		return 0, fmt.Errorf("remove drained words from queue: %w", err)
+	}
+
+	return int(affected), nil
 }
 
 func increaseGuessedStreak(ctx context.Context, e execer, chatID int64, word string) error {
@@ -377,7 +515,13 @@ func wordTranslationColumns() []string {
 		"wt.chat_id", "wt.word", "wt.translation",
 		"COALESCE(wt.description, '')", "wt.guessed_streak",
 		"wt.to_review", "wt.created_at", "wt.updated_at",
-		"EXISTS (SELECT 1 FROM learning_batches blb WHERE blb.chat_id = wt.chat_id AND blb.word = wt.word)",
+		// Folds in the admission queue: requesting membership again is a no-op whether the word is
+		// sitting in the batch or waiting behind it, so the conflict-resolution "would this change
+		// anything?" question (see api.WordTranslation.InBatch) should get the same answer either
+		// way. The word-list "batched" filter (GuessedBatched, above) deliberately does NOT do this -
+		// a queued word is not actively being asked about right now and should not show up there.
+		"EXISTS (SELECT 1 FROM learning_batches blb WHERE blb.chat_id = wt.chat_id AND blb.word = wt.word) OR " +
+			"EXISTS (SELECT 1 FROM learning_batch_queue blq WHERE blq.chat_id = wt.chat_id AND blq.word = wt.word)",
 	}
 }
 

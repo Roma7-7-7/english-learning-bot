@@ -49,6 +49,29 @@ CREATE TABLE learning_batches
 CREATE INDEX idx_learning_batches_chat_id
     ON learning_batches (chat_id);
 
+-- FIFO admission queue: BOT_LEARNING_BATCH_SIZE is a hard cap on learning_batches, so a word that
+-- wants back in (a miss, a deliberate reset, a conflict resolution, or a brand-new word) while the
+-- batch is already full lands here instead of overflowing it or being lost. RefillLearningBatch
+-- drains it oldest-first as room frees up.
+CREATE TABLE learning_batch_queue
+(
+    chat_id    INTEGER NOT NULL,
+    word       TEXT    NOT NULL,
+    -- Monotonic per-chat FIFO cursor, same pattern as word_translations.last_reviewed_seq: a counter
+    -- rather than a timestamp so two words queued in the same instant never tie.
+    queued_seq INTEGER NOT NULL,
+
+    PRIMARY KEY (chat_id, word),
+    FOREIGN KEY (chat_id, word)
+    REFERENCES word_translations (chat_id, word)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+);
+
+-- Serves the drain: oldest-first per chat.
+CREATE INDEX idx_learning_batch_queue_chat_id_seq
+    ON learning_batch_queue (chat_id, queued_seq);
+
 CREATE TABLE callback_data
 (
     chat_id    INTEGER NOT NULL,

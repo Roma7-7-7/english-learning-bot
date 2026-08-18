@@ -25,12 +25,16 @@ type (
 		// streakLimit is the number of consecutive correct answers after which a word counts as
 		// learned. It is the single source of truth for every "is this learned?" query.
 		streakLimit int
-		log         *slog.Logger
+		// batchSize is the hard cap on how many words learning_batches may hold per chat. It is the
+		// single source of truth for every admission decision - RefillLearningBatch and
+		// requestBatchMembership both read it here instead of taking it as a parameter.
+		batchSize int
+		log       *slog.Logger
 	}
 )
 
-func NewSQLiteRepository(ctx context.Context, client *sql.DB, streakLimit int, log *slog.Logger) *SQLiteRepository {
-	res := newSQLRepository(client, streakLimit, log)
+func NewSQLiteRepository(ctx context.Context, client *sql.DB, streakLimit, batchSize int, log *slog.Logger) *SQLiteRepository {
+	res := newSQLRepository(client, streakLimit, batchSize, log)
 	go res.cleanupCallbacksJob(ctx)
 	go res.cleanupAuthConfirmations(ctx)
 	return res
@@ -63,6 +67,6 @@ func (r *SQLiteRepository) inTx(ctx context.Context, fn func(e execer) error) er
 	return nil
 }
 
-func newSQLRepository(db *sql.DB, streakLimit int, log *slog.Logger) *SQLiteRepository {
-	return &SQLiteRepository{db: db, streakLimit: streakLimit, log: log}
+func newSQLRepository(db *sql.DB, streakLimit, batchSize int, log *slog.Logger) *SQLiteRepository {
+	return &SQLiteRepository{db: db, streakLimit: streakLimit, batchSize: batchSize, log: log}
 }

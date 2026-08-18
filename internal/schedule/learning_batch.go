@@ -12,7 +12,7 @@ const (
 	processTimeout = 10 * time.Second
 )
 
-func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, batchSize, guessedStreakLimit int, repo dal.Repository, log *slog.Logger) {
+func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, repo dal.Repository, log *slog.Logger) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.ErrorContext(ctx, "panic", "error", r)
@@ -33,7 +33,7 @@ func StartUpdateBatchSchedule(ctx context.Context, chatIDs []int64, batchSize, g
 			for _, chatID := range chatIDs {
 				ctx, cancel := context.WithTimeout(ctx, processTimeout)
 
-				evicted, added, err := repo.RefillLearningBatch(ctx, chatID, batchSize, guessedStreakLimit)
+				evicted, added, err := repo.RefillLearningBatch(ctx, chatID)
 				if err != nil {
 					log.ErrorContext(ctx, "failed to refill learning batch", "error", err, "chat_id", chatID)
 				} else {

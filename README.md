@@ -39,7 +39,7 @@ The project consists of three main components:
 ## Tech Stack
 
 ### Backend
-- **Language**: Go 1.26.5
+- **Language**: Go 1.26.6
 - **Web Framework**: Echo v4
 - **Database**: SQLite
 - **Telegram**: gopkg.in/telebot.v3
@@ -122,7 +122,7 @@ Set `BOT_LEARNING_REVIEW_RATE_PERCENT=0` to disable reviews.
 ## Setup and Installation
 
 ### Prerequisites
-- Go 1.26.5+
+- Go 1.26.6+
 - Node.js 18+
 - Telegram Bot Token
 - SQLite
@@ -183,6 +183,7 @@ VITE_API_BASE_URL=http://localhost:8080
    safe to run against live data, but each one only once:
    ```bash
    sqlite3 data/db.sqlite < schema/migrations/001_last_reviewed_seq.sql
+   sqlite3 data/db.sqlite < schema/migrations/002_learning_batch_queue.sql
    ```
 
 2. **Build the applications**:

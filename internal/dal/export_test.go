@@ -20,6 +20,8 @@ const TestChatID int64 = 42
 
 const TestStreakLimit int = 15
 
+const TestBatchSize int = 50
+
 // TestRepo is a repository backed by a fresh in-memory database with the production schema applied,
 // plus the assertion helpers the tests need. It embeds *SQLiteRepository, so every repository method
 // is available on it directly.
@@ -52,7 +54,7 @@ func NewTestRepo(t *testing.T) *TestRepo {
 		t.Fatalf("apply schema: %v", err)
 	}
 
-	repo := newSQLRepository(db, TestStreakLimit, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	repo := newSQLRepository(db, TestStreakLimit, TestBatchSize, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	return &TestRepo{SQLiteRepository: repo, t: t}
 }
 
@@ -61,24 +63,27 @@ func (r *TestRepo) SetStreakLimit(limit int) {
 	r.streakLimit = limit
 }
 
+// SetBatchSize retunes the hard cap the repository admits into learning_batches with.
+func (r *TestRepo) SetBatchSize(size int) {
+	r.batchSize = size
+}
+
+// AddWord inserts a word directly at the given streak, bypassing CreateWordTranslation so that
+// building a fixture never triggers batch admission as a side effect - tests that want to exercise
+// admission call CreateWordTranslation themselves.
 func (r *TestRepo) AddWord(word string, streak int) {
 	r.t.Helper()
 
 	ctx := context.Background()
-	if err := r.CreateWordTranslation(ctx, TestChatID, word, word+"-translation", ""); err != nil {
-		r.t.Fatalf("add word %q: %v", word, err)
-	}
-	if streak == 0 {
-		return
-	}
 	_, err := r.db.ExecContext(ctx,
-		"UPDATE word_translations SET guessed_streak = ? WHERE chat_id = ? AND word = ?", streak, TestChatID, word)
+		"INSERT INTO word_translations (chat_id, word, translation, guessed_streak) VALUES (?, ?, ?, ?)",
+		TestChatID, word, word+"-translation", streak)
 	if err != nil {
-		r.t.Fatalf("set streak for %q: %v", word, err)
+		r.t.Fatalf("add word %q: %v", word, err)
 	}
 }
 
-// SeedBatch puts words into the learning batch directly, bypassing the refill rules.
+// SeedBatch puts words into the learning batch directly, bypassing the admission rules.
 func (r *TestRepo) SeedBatch(words ...string) {
 	r.t.Helper()
 
@@ -86,6 +91,19 @@ func (r *TestRepo) SeedBatch(words ...string) {
 	for _, word := range words {
 		if err := r.inTx(ctx, func(e execer) error { return addToLearningBatch(ctx, e, TestChatID, word) }); err != nil {
 			r.t.Fatalf("seed batch with %q: %v", word, err)
+		}
+	}
+}
+
+// SeedQueue puts words into the admission queue directly, in the given order, bypassing the request
+// rules - mirrors SeedBatch.
+func (r *TestRepo) SeedQueue(words ...string) {
+	r.t.Helper()
+
+	ctx := context.Background()
+	for _, word := range words {
+		if err := r.inTx(ctx, func(e execer) error { return enqueueForLearningBatch(ctx, e, TestChatID, word) }); err != nil {
+			r.t.Fatalf("seed queue with %q: %v", word, err)
 		}
 	}
 }
@@ -147,6 +165,44 @@ func (r *TestRepo) BatchWords() []string {
 	}
 	if err := rows.Err(); err != nil {
 		r.t.Fatalf("iterate batch: %v", err)
+	}
+	return words
+}
+
+func (r *TestRepo) IsQueued(word string) bool {
+	r.t.Helper()
+
+	var count int
+	err := r.db.QueryRowContext(context.Background(),
+		"SELECT COUNT(*) FROM learning_batch_queue WHERE chat_id = ? AND word = ?", TestChatID, word).Scan(&count)
+	if err != nil {
+		r.t.Fatalf("check queue membership for %q: %v", word, err)
+	}
+	return count > 0
+}
+
+// QueueWords returns queued words oldest-first, unlike BatchWords (alphabetical, since batch order
+// never matters) - queue order is exactly what FIFO tests need to assert on.
+func (r *TestRepo) QueueWords() []string {
+	r.t.Helper()
+
+	rows, err := r.db.QueryContext(context.Background(),
+		"SELECT word FROM learning_batch_queue WHERE chat_id = ? ORDER BY queued_seq", TestChatID)
+	if err != nil {
+		r.t.Fatalf("list queue: %v", err)
+	}
+	defer rows.Close()
+
+	var words []string
+	for rows.Next() {
+		var word string
+		if err := rows.Scan(&word); err != nil {
+			r.t.Fatalf("scan queue word: %v", err)
+		}
+		words = append(words, word)
+	}
+	if err := rows.Err(); err != nil {
+		r.t.Fatalf("iterate queue: %v", err)
 	}
 	return words
 }

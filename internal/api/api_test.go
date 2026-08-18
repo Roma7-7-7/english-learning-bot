@@ -115,7 +115,7 @@ func (s *stubWordsRepo) RegisterMiss(_ context.Context, _ int64, _ string) error
 func (s *stubWordsRepo) MarkToReview(_ context.Context, _ int64, _ string, _ bool) error  { return nil }
 func (s *stubWordsRepo) MarkWordReviewed(_ context.Context, _ int64, _ string) error      { return nil }
 
-func (s *stubWordsRepo) RefillLearningBatch(_ context.Context, _ int64, _, _ int) (int, int, error) {
+func (s *stubWordsRepo) RefillLearningBatch(_ context.Context, _ int64) (int, int, error) {
 	return 0, 0, nil
 }
 

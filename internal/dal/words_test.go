@@ -255,20 +255,25 @@ func TestCreateWordTranslationRefusesExistingWord(t *testing.T) {
 }
 
 // The conflict dialog decides whether "add to the learning batch" is worth offering, so a read has
-// to say where the word currently is, not just what its streak is.
+// to say where the word currently is, not just what its streak is. A word waiting in the admission
+// queue counts too: requesting membership again would be just as much of a no-op as for a batched
+// word.
 func TestFindWordTranslationReportsBatchMembership(t *testing.T) {
 	ctx := context.Background()
 	r := dal.NewTestRepo(t)
 
 	r.AddWord("batched", 3)
+	r.AddWord("queued", 3)
 	r.AddWord("loose", 3)
 	r.SeedBatch("batched")
+	r.SeedQueue("queued")
 
 	for _, tt := range []struct {
 		word string
 		want bool
 	}{
 		{word: "batched", want: true},
+		{word: "queued", want: true},
 		{word: "loose", want: false},
 	} {
 		got, err := r.FindWordTranslation(ctx, dal.TestChatID, tt.word)
