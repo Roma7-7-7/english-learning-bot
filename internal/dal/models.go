@@ -19,8 +19,9 @@ type (
 		Description   string
 		GuessedStreak int
 		ToReview      bool
-		// InBatch reports whether the word is currently in the active learning batch, i.e. whether
-		// it is one of the words being asked about right now.
+		// InBatch reports whether the word has already requested batch membership: it is either in
+		// the active learning batch (one of the words being asked about right now) or waiting in
+		// learning_batch_queue behind it. Either way, requesting membership again is a no-op.
 		InBatch   bool
 		CreatedAt time.Time
 		UpdatedAt time.Time

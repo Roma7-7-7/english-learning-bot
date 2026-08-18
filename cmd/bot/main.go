@@ -77,7 +77,7 @@ func run(ctx context.Context) int {
 		return exitCodeDBConnect
 	}
 	defer db.Close()
-	repo := sqlrepo.NewSQLiteRepository(ctx, db, conf.Learning.StreakLimit, log)
+	repo := sqlrepo.NewSQLiteRepository(ctx, db, conf.Learning.StreakLimit, conf.Learning.BatchSize, log)
 
 	// Start Telegram bot
 	bot, err := telegram.NewBot(conf.Telegram.Token, repo, conf.Learning, log,
@@ -94,7 +94,7 @@ func run(ctx context.Context) int {
 		HourTo:   conf.Schedule.HourTo,
 		Location: loc,
 	}, bot, log)
-	go schedule.StartUpdateBatchSchedule(ctx, conf.Telegram.AllowedChatIDs, conf.Learning.BatchSize, conf.Learning.StreakLimit, repo, log)
+	go schedule.StartUpdateBatchSchedule(ctx, conf.Telegram.AllowedChatIDs, repo, log)
 
 	go bot.Start(ctx)
 

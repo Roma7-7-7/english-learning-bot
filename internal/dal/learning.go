@@ -23,20 +23,21 @@ func (r *SQLiteRepository) RegisterGuess(ctx context.Context, chatID int64, word
 	})
 }
 
-// RegisterMiss records a wrong answer: the word's streak drops back to zero, the word is put back
-// into the learning batch, and today's counters follow.
+// RegisterMiss records a wrong answer: the word's streak drops back to zero, the word requests batch
+// membership again, and today's counters follow.
 //
-// Putting it back into the batch is what stops a forgotten word from disappearing again. It matters
-// most for words that had been learned and were only being reviewed; for words already in the batch
-// the insert is a no-op, so there is nothing to branch on. The batch is allowed to overflow its
-// configured size as a result — RefillLearningBatch simply stops adding until there is room.
+// Requesting membership is what stops a forgotten word from disappearing again. It matters most for
+// words that had been learned and were only being reviewed; for words already in the batch, or
+// already queued behind it, the request is a no-op. BOT_LEARNING_BATCH_SIZE is a hard cap: if the
+// batch is full the word is appended to learning_batch_queue instead of being lost, and is drained
+// oldest-first the next time RefillLearningBatch runs.
 func (r *SQLiteRepository) RegisterMiss(ctx context.Context, chatID int64, word string) error {
 	return r.inTx(ctx, func(e execer) error {
 		if err := resetGuessedStreak(ctx, e, chatID, word); err != nil {
 			return fmt.Errorf("reset guessed streak: %w", err)
 		}
-		if err := addToLearningBatch(ctx, e, chatID, word); err != nil {
-			return fmt.Errorf("add to learning batch: %w", err)
+		if err := requestBatchMembership(ctx, e, chatID, word, r.batchSize); err != nil {
+			return fmt.Errorf("request batch membership: %w", err)
 		}
 		if err := incrementWordMissed(ctx, e, chatID); err != nil {
 			return fmt.Errorf("increment word missed: %w", err)
@@ -48,20 +49,21 @@ func (r *SQLiteRepository) RegisterMiss(ctx context.Context, chatID int64, word 
 	})
 }
 
-// ResetStreak drops a word's streak back to zero on purpose, optionally putting it back into the
-// learning batch so that it is asked again soon.
+// ResetStreak drops a word's streak back to zero on purpose, optionally requesting batch membership
+// so that it is asked again soon.
 //
 // Unlike RegisterMiss this is a deliberate correction rather than a wrong answer, so it does not
-// touch the daily guessed/missed counters. Adding to the batch may push it past its configured size;
-// RefillLearningBatch simply stops adding until there is room again.
+// touch the daily guessed/missed counters. Requesting membership when the batch is full queues the
+// word instead of overflowing the configured size; RefillLearningBatch drains it oldest-first once
+// there is room again.
 func (r *SQLiteRepository) ResetStreak(ctx context.Context, chatID int64, word string, addToBatch bool) error {
 	return r.inTx(ctx, func(e execer) error {
 		if err := resetGuessedStreak(ctx, e, chatID, word); err != nil {
 			return fmt.Errorf("reset guessed streak: %w", err)
 		}
 		if addToBatch {
-			if err := addToLearningBatch(ctx, e, chatID, word); err != nil {
-				return fmt.Errorf("add to learning batch: %w", err)
+			if err := requestBatchMembership(ctx, e, chatID, word, r.batchSize); err != nil {
+				return fmt.Errorf("request batch membership: %w", err)
 			}
 		}
 		if err := updateTotalWordsLearned(ctx, e, chatID, r.streakLimit); err != nil {
@@ -96,8 +98,8 @@ func (r *SQLiteRepository) ResolveWordConflict(
 			}
 		}
 		if resolution == ResolveResetAndBatch {
-			if err := addToLearningBatch(ctx, e, chatID, word); err != nil {
-				return fmt.Errorf("add to learning batch: %w", err)
+			if err := requestBatchMembership(ctx, e, chatID, word, r.batchSize); err != nil {
+				return fmt.Errorf("request batch membership: %w", err)
 			}
 		}
 
@@ -132,17 +134,20 @@ func (r *SQLiteRepository) MarkWordReviewed(ctx context.Context, chatID int64, w
 	return nil
 }
 
-// RefillLearningBatch evicts words that reached guessedStreakLimit from the learning batch and tops
-// it back up to batchSize with randomly chosen words that are still being learned.
+// RefillLearningBatch evicts words that reached the streak limit from the learning batch, then tops
+// it back up to batchSize: first draining learning_batch_queue oldest-first (words that explicitly
+// requested membership - a miss, a deliberate reset, a conflict resolution, or a new word - while the
+// batch was full), and only once the queue is exhausted falling back to a random pick from the wider
+// pool of still-eligible words nobody has explicitly asked to re-admit.
 //
-// The batch is allowed to sit above batchSize (words can be pushed back into it out of band); in that
-// case nothing is added until eviction frees up room again.
-func (r *SQLiteRepository) RefillLearningBatch(ctx context.Context, chatID int64, batchSize, guessedStreakLimit int) (int, int, error) {
+// The drain always runs before the fallback, so a still-queued word can never be skipped by the
+// random pick while it waits its turn.
+func (r *SQLiteRepository) RefillLearningBatch(ctx context.Context, chatID int64) (int, int, error) {
 	var evicted, added int
 
 	err := r.inTx(ctx, func(e execer) error {
 		var err error
-		if evicted, err = deleteFromLearningBatchGeGuessedStreak(ctx, e, chatID, guessedStreakLimit); err != nil {
+		if evicted, err = deleteFromLearningBatchGeGuessedStreak(ctx, e, chatID, r.streakLimit); err != nil {
 			return fmt.Errorf("delete from learning batch: %w", err)
 		}
 
@@ -151,14 +156,26 @@ func (r *SQLiteRepository) RefillLearningBatch(ctx context.Context, chatID int64
 			return fmt.Errorf("get batched word translations count: %w", err)
 		}
 
-		room := batchSize - batched
+		room := r.batchSize - batched
 		if room <= 0 {
 			return nil
 		}
 
-		if added, err = fillLearningBatch(ctx, e, chatID, guessedStreakLimit, room); err != nil {
+		drained, err := drainLearningBatchQueue(ctx, e, chatID, r.streakLimit, room)
+		if err != nil {
+			return fmt.Errorf("drain learning batch queue: %w", err)
+		}
+		added += drained
+		room -= drained
+		if room <= 0 {
+			return nil
+		}
+
+		filled, err := fillLearningBatch(ctx, e, chatID, r.streakLimit, room)
+		if err != nil {
 			return fmt.Errorf("fill learning batch: %w", err)
 		}
+		added += filled
 		return nil
 	})
 	if err != nil {

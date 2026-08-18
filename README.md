@@ -183,6 +183,7 @@ VITE_API_BASE_URL=http://localhost:8080
    safe to run against live data, but each one only once:
    ```bash
    sqlite3 data/db.sqlite < schema/migrations/001_last_reviewed_seq.sql
+   sqlite3 data/db.sqlite < schema/migrations/002_learning_batch_queue.sql
    ```
 
 2. **Build the applications**:

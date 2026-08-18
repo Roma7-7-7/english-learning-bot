@@ -76,7 +76,8 @@ from inside `inTx` — `*sql.Tx` is not safe for concurrent use.
 ### Database Design
 - **Per-user isolation**: All tables use `chat_id` for user separation
 - **Learning algorithm**: `guessed_streak` field tracks spaced repetition progress
-- **Batch system**: `learning_batches` table manages active learning words
+- **Batch system**: `learning_batches` table manages active learning words, capped at
+  `BOT_LEARNING_BATCH_SIZE`; `learning_batch_queue` holds words waiting for room, drained oldest-first
 - **Statistics**: Daily tracking in `statistics` table
 
 ## Key Business Logic
@@ -92,8 +93,13 @@ from inside `inTx` — `*sql.Tx` is not safe for concurrent use.
   instead of a batch word, so learned words do not silently rot. Reviews rotate least-recently-first
   via the `last_reviewed_seq` cursor, stamped when the message is **sent** so an ignored review still
   advances the rotation
-- A wrong answer resets the streak **and** puts the word back into the learning batch. The batch is
-  therefore allowed to exceed its configured size; the refill just adds nothing until there is room
+- A wrong answer resets the streak **and** requests the word back into the learning batch, same as a
+  deliberate reset or a `reset_and_batch` conflict resolution. `BOT_LEARNING_BATCH_SIZE` is a hard
+  cap: if there is room the word rejoins the batch immediately; if not, it is appended to
+  `learning_batch_queue` instead of being lost, and `RefillLearningBatch` drains the queue oldest-first
+  the next time it runs, before falling back to a random pick for anything else still eligible.
+  Brand-new words go through the same admission path, so they too can enter the batch immediately if
+  there is room rather than waiting for the next hourly refill
 
 The streak limit has **one** source of truth on each side: `SQLiteRepository.streakLimit` in Go (set
 from config; every "is this learned?" query reads it) and the `streak_limit` field of

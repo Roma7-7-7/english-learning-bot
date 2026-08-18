@@ -96,7 +96,7 @@ type (
 		MarkWordReviewed(ctx context.Context, chatID int64, word string) error
 		ResetStreak(ctx context.Context, chatID int64, word string, addToBatch bool) error
 		ResolveWordConflict(ctx context.Context, chatID int64, word, translation, description string, resolution ConflictResolution) error
-		RefillLearningBatch(ctx context.Context, chatID int64, batchSize, guessedStreakLimit int) (evicted, added int, err error)
+		RefillLearningBatch(ctx context.Context, chatID int64) (evicted, added int, err error)
 	}
 
 	StatsRepository interface {
