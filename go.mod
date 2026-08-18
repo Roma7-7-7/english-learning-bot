@@ -1,6 +1,6 @@
 module github.com/Roma7-7-7/english-learning-bot
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/Masterminds/squirrel v1.5.4

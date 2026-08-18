@@ -135,7 +135,7 @@ See `.claude/commands/` and `.claude/skills/` for implementation details.
 ## Development Environment
 
 ### Go Configuration
-- Version: 1.26.5
+- Version: 1.26.6
 - Key dependencies:
   - `github.com/labstack/echo/v4` - Web framework
   - `gopkg.in/telebot.v3` - Telegram bot
