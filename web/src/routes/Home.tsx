@@ -221,10 +221,24 @@ export function Home() {
     <>
       {!words ? (
         <Container className="text-center mt-5">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
-          <h1>Loading...</h1>
+          {error ? (
+            <>
+              <Alert variant="danger">{error}</Alert>
+              <Button
+                variant="secondary"
+                onClick={() => setRefetchTrigger((prev) => prev + 1)}
+              >
+                Retry
+              </Button>
+            </>
+          ) : (
+            <>
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+              <h1>Loading...</h1>
+            </>
+          )}
         </Container>
       ) : (
         <Container id="content" className="p-3">

@@ -23,6 +23,8 @@ export interface TotalStats {
     streak_limit: number;
     /** Words currently sitting in the active learning batch. */
     batched: number;
+    /** Words waiting in the admission queue for room to open up in the batch. */
+    queued: number;
 }
 
 /** Used only until the first /stats/total response lands. */

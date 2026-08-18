@@ -74,6 +74,9 @@ type (
 		NearlyFrom  int
 		// Batched is how many words are currently sitting in the active learning batch.
 		Batched int
+		// Queued is how many words are waiting in learning_batch_queue for room to open up in the
+		// batch.
+		Queued int
 	}
 
 	WordTranslationsRepository interface {

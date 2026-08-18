@@ -60,6 +60,12 @@ func (r *SQLiteRepository) GetTotalStats(ctx context.Context, chatID int64) (*To
 	}
 	stats.Batched = batched
 
+	queued, err := queuedWordCount(ctx, r.db, chatID)
+	if err != nil {
+		return nil, fmt.Errorf("get queued word count: %w", err)
+	}
+	stats.Queued = queued
+
 	return &stats, nil
 }
 

@@ -35,6 +35,7 @@ func TestTotalStatsIncludesBatched(t *testing.T) {
 		Total:       12,
 		StreakLimit: 15,
 		Batched:     4,
+		Queued:      2,
 	}}
 	h := api.NewStatsHandler(repo, testLogger())
 
@@ -50,7 +51,7 @@ func TestTotalStatsIncludesBatched(t *testing.T) {
 		t.Fatalf("unmarshal body: %v", err)
 	}
 
-	want := map[string]int{"learned": 3, "total": 12, "streak_limit": 15, "batched": 4}
+	want := map[string]int{"learned": 3, "total": 12, "streak_limit": 15, "batched": 4, "queued": 2}
 	for k, v := range want {
 		if body[k] != v {
 			t.Errorf("body[%q] = %d, want %d", k, body[k], v)
