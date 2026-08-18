@@ -146,6 +146,7 @@ func totalStatsMessage(s *dal.TotalStats) string {
 	}
 	lines = append(lines, fmt.Sprintf("Total: %d", s.Total))
 	lines = append(lines, fmt.Sprintf("In learning batch: %d", s.Batched))
+	lines = append(lines, fmt.Sprintf("Waiting in queue: %d", s.Queued))
 
 	return strings.Join(lines, "\n")
 }

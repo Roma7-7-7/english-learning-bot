@@ -414,6 +414,24 @@ func batchedWordTranslationsCount(ctx context.Context, e execer, chatID int64) (
 	return count, nil
 }
 
+func queuedWordCount(ctx context.Context, e execer, chatID int64) (int, error) {
+	query := qb.Select("COUNT(*)").
+		From("learning_batch_queue").
+		Where(squirrel.Eq{"chat_id": chatID})
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build count query: %w", err)
+	}
+
+	var count int
+	err = e.QueryRowContext(ctx, sql, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("get queued word count: %w", err)
+	}
+	return count, nil
+}
+
 func (r *SQLiteRepository) FindWordTranslation(ctx context.Context, chatID int64, word string) (*WordTranslation, error) {
 	query := qb.Select(wordTranslationColumns()...).
 		From("word_translations wt").

@@ -21,32 +21,32 @@ func TestTotalStatsMessage(t *testing.T) {
 			name: "default limit shows every bucket",
 			stats: dal.TotalStats{
 				Learned: 3, Nearly: 2, Early: 5, Total: 12,
-				StreakLimit: 15, NearlyFrom: 10, Batched: 4,
+				StreakLimit: 15, NearlyFrom: 10, Batched: 4, Queued: 6,
 			},
-			want: "Overall Progress:\n15+: 3\n10-14: 2\n1-9: 5\nTotal: 12\nIn learning batch: 4",
+			want: "Overall Progress:\n15+: 3\n10-14: 2\n1-9: 5\nTotal: 12\nIn learning batch: 4\nWaiting in queue: 6",
 		},
 		{
 			name: "small limit drops the early bucket instead of labelling it 1-0",
 			stats: dal.TotalStats{
 				Learned: 3, Nearly: 2, Early: 0, Total: 6,
-				StreakLimit: 5, NearlyFrom: 1, Batched: 2,
+				StreakLimit: 5, NearlyFrom: 1, Batched: 2, Queued: 1,
 			},
-			want: "Overall Progress:\n5+: 3\n1-4: 2\nTotal: 6\nIn learning batch: 2",
+			want: "Overall Progress:\n5+: 3\n1-4: 2\nTotal: 6\nIn learning batch: 2\nWaiting in queue: 1",
 		},
 		{
 			name: "a limit of 1 leaves nothing between learned and nothing",
 			stats: dal.TotalStats{
 				Learned: 4, Total: 6,
-				StreakLimit: 1, NearlyFrom: 1, Batched: 0,
+				StreakLimit: 1, NearlyFrom: 1, Batched: 0, Queued: 0,
 			},
-			want: "Overall Progress:\n1+: 4\nTotal: 6\nIn learning batch: 0",
+			want: "Overall Progress:\n1+: 4\nTotal: 6\nIn learning batch: 0\nWaiting in queue: 0",
 		},
 		{
 			name: "an empty vocabulary still labels the buckets",
 			stats: dal.TotalStats{
 				StreakLimit: 15, NearlyFrom: 10,
 			},
-			want: "Overall Progress:\n15+: 0\n10-14: 0\n1-9: 0\nTotal: 0\nIn learning batch: 0",
+			want: "Overall Progress:\n15+: 0\n10-14: 0\n1-9: 0\nTotal: 0\nIn learning batch: 0\nWaiting in queue: 0",
 		},
 	}
 

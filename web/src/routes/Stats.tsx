@@ -130,6 +130,9 @@ export function Stats() {
                             <div className="text-primary">
                                 In batch: {appState.stats?.batched ?? 0}
                             </div>
+                            <div className="text-secondary">
+                                Waiting in queue: {appState.stats?.queued ?? 0}
+                            </div>
                         </Card.Body>
                     </Card>
                 </Col>

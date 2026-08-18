@@ -15,10 +15,12 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 		// streaks to seed, one word each
 		streaks                       []int
 		batched                       int // how many of the seeded words, from the front, go into the batch
+		queued                        int // how many of the seeded words, after those, go into the queue
 		wantLearned, wantNearly       int
 		wantEarly, wantTotal          int
 		wantStreakLimit, wantNearlyFr int
 		wantBatched                   int
+		wantQueued                    int
 	}{
 		{
 			name:        "default limit keeps the historical 15+/10-14/1-9 split",
@@ -41,8 +43,9 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 			streakLimit: 3,
 			streaks:     []int{0, 1, 2, 3},
 			batched:     1,
+			queued:      1,
 			wantLearned: 1, wantNearly: 2, wantEarly: 0, wantTotal: 4,
-			wantStreakLimit: 3, wantNearlyFr: 1, wantBatched: 1,
+			wantStreakLimit: 3, wantNearlyFr: 1, wantBatched: 1, wantQueued: 1,
 		},
 	}
 
@@ -50,16 +53,22 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := dal.NewTestRepo(t)
 			r.SetStreakLimit(tt.streakLimit)
-			var toBatch []string
+			var toBatch, toQueue []string
 			for i, streak := range tt.streaks {
 				word := fmt.Sprintf("word-%d", i)
 				r.AddWord(word, streak)
-				if i < tt.batched {
+				switch {
+				case i < tt.batched:
 					toBatch = append(toBatch, word)
+				case i < tt.batched+tt.queued:
+					toQueue = append(toQueue, word)
 				}
 			}
 			if len(toBatch) > 0 {
 				r.SeedBatch(toBatch...)
+			}
+			if len(toQueue) > 0 {
+				r.SeedQueue(toQueue...)
 			}
 
 			got, err := r.GetTotalStats(context.Background(), dal.TestChatID)
@@ -88,6 +97,9 @@ func TestGetTotalStatsBuckets(t *testing.T) {
 			if got.Batched != tt.wantBatched {
 				t.Errorf("Batched = %d, want %d", got.Batched, tt.wantBatched)
 			}
+			if got.Queued != tt.wantQueued {
+				t.Errorf("Queued = %d, want %d", got.Queued, tt.wantQueued)
+			}
 		})
 	}
 }
@@ -113,6 +125,9 @@ func TestGetTotalStatsNoWords(t *testing.T) {
 	}
 	if got.Batched != 0 {
 		t.Errorf("Batched = %d, want 0", got.Batched)
+	}
+	if got.Queued != 0 {
+		t.Errorf("Queued = %d, want 0", got.Queued)
 	}
 }
 

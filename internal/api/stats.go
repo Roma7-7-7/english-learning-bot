@@ -44,6 +44,7 @@ func (h *StatsHandler) TotalStats(c echo.Context) error {
 		"total":        stats.Total,
 		"streak_limit": stats.StreakLimit,
 		"batched":      stats.Batched,
+		"queued":       stats.Queued,
 	})
 }
 
