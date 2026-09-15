@@ -101,7 +101,7 @@ func (b *Bot) Start(ctx context.Context) {
 }
 
 func (b *Bot) HandleStart(m tb.Context) error {
-	return m.Reply("Hello, I'm a translation bot. To add a translation use /add command. Example: /add word: translation")
+	return m.Reply(fmt.Sprintf("Hello, your chat ID is %d", m.Chat().ID))
 }
 
 func (b *Bot) HandleStats(m tb.Context) error {
