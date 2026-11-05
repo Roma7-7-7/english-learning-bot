@@ -43,7 +43,7 @@ This is a personal English learning platform with two main components:
 ## Architecture & Design Patterns
 
 ### Backend (Go)
-- **Framework**: Echo v4 web framework
+- **Framework**: Echo v5 web framework
 - **Architecture**: Clean architecture with separate layers
 - **Database**: SQLite
 - **Authentication**: JWT with HTTP-only cookies + Telegram verification
@@ -137,7 +137,7 @@ See `.claude/commands/` and `.claude/skills/` for implementation details.
 ### Go Configuration
 - Version: 1.26.10
 - Key dependencies:
-  - `github.com/labstack/echo/v4` - Web framework
+  - `github.com/labstack/echo/v5` - Web framework
   - `gopkg.in/telebot.v3` - Telegram bot
   - `github.com/Masterminds/squirrel` - SQL query builder
   - `github.com/golang-jwt/jwt/v5` - JWT tokens

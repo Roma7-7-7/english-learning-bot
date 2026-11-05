@@ -10,7 +10,7 @@ import (
 
 	appctx "github.com/Roma7-7-7/english-learning-bot/internal/context"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type (
@@ -63,14 +63,14 @@ func NewAuthHandler(deps AuthDependencies) *AuthHandler {
 	}
 }
 
-func (h *AuthHandler) Info(c echo.Context) error {
+func (h *AuthHandler) Info(c *echo.Context) error {
 	chatID := appctx.MustChatIDFromContext(c.Request().Context())
-	return c.JSON(http.StatusOK, echo.Map{
+	return c.JSON(http.StatusOK, map[string]any{
 		"chat_id": chatID,
 	})
 }
 
-func (h *AuthHandler) Login(c echo.Context) error {
+func (h *AuthHandler) Login(c *echo.Context) error {
 	var req submitChatIDRequest
 	if err := c.Bind(&req); err != nil {
 		h.log.DebugContext(c.Request().Context(), "failed to bind request", "error", err)
@@ -110,7 +110,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	return c.JSON(http.StatusAccepted, nil)
 }
 
-func (h *AuthHandler) Status(c echo.Context) error {
+func (h *AuthHandler) Status(c *echo.Context) error {
 	var res statusResponse
 
 	token, ok := h.cookiesProcessor.GetAuthToken(c)
@@ -153,7 +153,7 @@ func (h *AuthHandler) Status(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
-func (h *AuthHandler) LogOut(c echo.Context) error {
+func (h *AuthHandler) LogOut(c *echo.Context) error {
 	c.SetCookie(h.cookiesProcessor.ExpireAccessTokenCookie())
 	return c.JSON(http.StatusOK, nil)
 }
