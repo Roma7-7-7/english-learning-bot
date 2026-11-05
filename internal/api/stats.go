@@ -8,7 +8,7 @@ import (
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/context"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type (
@@ -30,7 +30,7 @@ func NewStatsHandler(repo dal.StatsRepository, log *slog.Logger) *StatsHandler {
 	}
 }
 
-func (h *StatsHandler) TotalStats(c echo.Context) error {
+func (h *StatsHandler) TotalStats(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	stats, err := h.repo.GetTotalStats(c.Request().Context(), chatID)
@@ -39,7 +39,7 @@ func (h *StatsHandler) TotalStats(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{
+	return c.JSON(http.StatusOK, map[string]any{
 		"learned":      stats.Learned,
 		"total":        stats.Total,
 		"streak_limit": stats.StreakLimit,
@@ -48,7 +48,7 @@ func (h *StatsHandler) TotalStats(c echo.Context) error {
 	})
 }
 
-func (h *StatsHandler) GetStats(c echo.Context) error {
+func (h *StatsHandler) GetStats(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	stats, err := h.repo.GetStats(c.Request().Context(), chatID, time.Now())
@@ -58,21 +58,21 @@ func (h *StatsHandler) GetStats(c echo.Context) error {
 	}
 
 	if errors.Is(err, dal.ErrNotFound) {
-		return c.JSON(http.StatusOK, echo.Map{
+		return c.JSON(http.StatusOK, map[string]any{
 			"words_guessed":       0,
 			"words_missed":        0,
 			"total_words_learned": 0,
 		})
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{
+	return c.JSON(http.StatusOK, map[string]any{
 		"words_guessed":       stats.WordsGuessed,
 		"words_missed":        stats.WordsMissed,
 		"total_words_learned": stats.TotalWordsLearned,
 	})
 }
 
-func (h *StatsHandler) GetStatsRange(c echo.Context) error {
+func (h *StatsHandler) GetStatsRange(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	var qp StatsQueryParams
@@ -92,9 +92,9 @@ func (h *StatsHandler) GetStatsRange(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	result := make([]echo.Map, len(stats))
+	result := make([]map[string]any, len(stats))
 	for i, stat := range stats {
-		result[i] = echo.Map{
+		result[i] = map[string]any{
 			"date":                stat.Date,
 			"words_guessed":       stat.WordsGuessed,
 			"words_missed":        stat.WordsMissed,
@@ -102,7 +102,7 @@ func (h *StatsHandler) GetStatsRange(c echo.Context) error {
 		}
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{
+	return c.JSON(http.StatusOK, map[string]any{
 		"items": result,
 	})
 }

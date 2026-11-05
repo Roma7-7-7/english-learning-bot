@@ -8,7 +8,7 @@ import (
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/context"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func sanitizeForLog(value string) string {
@@ -69,7 +69,7 @@ func NewWordsHandler(repo dal.WordTranslationsRepository, log *slog.Logger) *Wor
 	}
 }
 
-func (h *WordsHandler) FindWords(c echo.Context) error {
+func (h *WordsHandler) FindWords(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	var qp WordsQueryParams
@@ -108,13 +108,13 @@ func (h *WordsHandler) FindWords(c echo.Context) error {
 		}
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{
+	return c.JSON(http.StatusOK, map[string]any{
 		"items": viewWords,
 		"total": totalWords,
 	})
 }
 
-func (h *WordsHandler) CreateWord(c echo.Context) error {
+func (h *WordsHandler) CreateWord(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	var wt WordTranslation
@@ -140,7 +140,7 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 			h.log.ErrorContext(ctx, "failed to resolve word conflict", "error", err)
 			return c.JSON(http.StatusInternalServerError, InternalServerError)
 		}
-		return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word resolved"})
+		return c.JSON(http.StatusOK, map[string]any{"status": "ok", "message": "word resolved"})
 	}
 
 	// Without a decision the create must not overwrite anything, so the repository refuses the
@@ -152,7 +152,7 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 		err := h.repo.CreateWordTranslation(ctx, chatID, wt.Word, wt.Translation, wt.Description)
 		switch {
 		case err == nil:
-			return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word created"})
+			return c.JSON(http.StatusOK, map[string]any{"status": "ok", "message": "word created"})
 		case !errors.Is(err, dal.ErrAlreadyExists):
 			h.log.ErrorContext(ctx, "failed to create word translation", "error", err)
 			return c.JSON(http.StatusInternalServerError, InternalServerError)
@@ -169,7 +169,7 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 
 		// Report what is already stored so the caller can show the translation and the streak that
 		// an overwrite would discard, and work out which resolutions would actually change anything.
-		return c.JSON(http.StatusConflict, echo.Map{
+		return c.JSON(http.StatusConflict, map[string]any{
 			"error": "word already exists",
 			"existing": WordTranslation{
 				Word:          existing.Word,
@@ -186,7 +186,7 @@ func (h *WordsHandler) CreateWord(c echo.Context) error {
 	return c.JSON(http.StatusInternalServerError, InternalServerError)
 }
 
-func (h *WordsHandler) UpdateWord(c echo.Context) error {
+func (h *WordsHandler) UpdateWord(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	var wt WordTranslation
@@ -205,14 +205,14 @@ func (h *WordsHandler) UpdateWord(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word updated"})
+	return c.JSON(http.StatusOK, map[string]any{"status": "ok", "message": "word updated"})
 }
 
 type DeleteWordRequest struct {
 	Word string `json:"word" validate:"required,min=1"`
 }
 
-func (h *WordsHandler) DeleteWord(c echo.Context) error {
+func (h *WordsHandler) DeleteWord(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	var req DeleteWordRequest
@@ -231,7 +231,7 @@ func (h *WordsHandler) DeleteWord(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word deleted"})
+	return c.JSON(http.StatusOK, map[string]any{"status": "ok", "message": "word deleted"})
 }
 
 type MarkToReviewRequest struct {
@@ -239,7 +239,7 @@ type MarkToReviewRequest struct {
 	ToReview bool   `json:"to_review"`
 }
 
-func (h *WordsHandler) MarkToReview(c echo.Context) error {
+func (h *WordsHandler) MarkToReview(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	var r MarkToReviewRequest
@@ -258,7 +258,7 @@ func (h *WordsHandler) MarkToReview(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "word marked"})
+	return c.JSON(http.StatusOK, map[string]any{"status": "ok", "message": "word marked"})
 }
 
 type ResetStreakRequest struct {
@@ -269,7 +269,7 @@ type ResetStreakRequest struct {
 	AddToBatch bool `json:"add_to_batch"`
 }
 
-func (h *WordsHandler) ResetStreak(c echo.Context) error {
+func (h *WordsHandler) ResetStreak(c *echo.Context) error {
 	chatID := context.MustChatIDFromContext(c.Request().Context())
 
 	var req ResetStreakRequest
@@ -296,7 +296,7 @@ func (h *WordsHandler) ResetStreak(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, InternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "streak reset"})
+	return c.JSON(http.StatusOK, map[string]any{"status": "ok", "message": "streak reset"})
 }
 
 func toDALGuessed(g Guessed) dal.Guessed {

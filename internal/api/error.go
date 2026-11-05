@@ -1,12 +1,11 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type ErrorResponse struct {
@@ -19,42 +18,30 @@ var (
 	NotFoundError       = ErrorResponse{"Not found"}             //nolint:gochecknoglobals // this is a constant response for not found
 )
 
-func HTTPErrorHandler(log *slog.Logger) func(err error, c echo.Context) {
-	return func(err error, c echo.Context) {
-		log.ErrorContext(c.Request().Context(), "failed to process request", "error", err)
+func HTTPErrorHandler(log *slog.Logger) echo.HTTPErrorHandler {
+	return func(c *echo.Context, err error) {
+		ctx := c.Request().Context()
+		log.ErrorContext(ctx, "failed to process request", "error", err)
 
+		if resp, uerr := echo.UnwrapResponse(c.Response()); uerr == nil && resp.Committed {
+			return
+		}
+
+		code := echo.StatusCode(err)
+		if code == 0 {
+			code = http.StatusInternalServerError
+		}
+
+		message := InternalServerError.Message
 		var echoError *echo.HTTPError
-		if !errors.As(err, &echoError) {
-			if err := c.JSON(http.StatusInternalServerError, InternalServerError); err != nil {
-				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
-			}
-			return
+		if code != http.StatusInternalServerError && errors.As(err, &echoError) && echoError.Message != "" {
+			message = echoError.Message
+		} else if code != http.StatusInternalServerError {
+			message = http.StatusText(code)
 		}
 
-		if message, ok := echoError.Message.(string); ok {
-			if message == "" {
-				message = "Internal server error"
-			}
-			if echoError.Code == http.StatusInternalServerError {
-				message = InternalServerError.Message
-			}
-			if err := c.JSON(echoError.Code, ErrorResponse{Message: message}); err != nil {
-				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
-			}
-
-			return
-		}
-
-		if bytes, err := json.Marshal(echoError.Message); err != nil {
-			log.ErrorContext(c.Request().Context(), "failed to marshal error message", "error", err)
-			if err := c.JSON(echoError.Code, InternalServerError); err != nil {
-				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
-			}
-		} else {
-			c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-			if err := c.String(echoError.Code, string(bytes)); err != nil {
-				log.ErrorContext(c.Request().Context(), "failed to write error response", "error", err)
-			}
+		if err := c.JSON(code, ErrorResponse{Message: message}); err != nil {
+			log.ErrorContext(ctx, "failed to write error response", "error", err)
 		}
 	}
 }

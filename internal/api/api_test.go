@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/api"
 	appctx "github.com/Roma7-7-7/english-learning-bot/internal/context"
@@ -25,7 +25,7 @@ func testLogger() *slog.Logger {
 // newRequest wires up just enough of echo to exercise one handler: the custom validator and the
 // chat ID that AuthMiddleware would normally have injected. Booting NewRouter would need a full
 // config (JWT, CORS, cookies) for no extra coverage. Every handler covered here takes a POST.
-func newRequest(t *testing.T, path, body string) (echo.Context, *httptest.ResponseRecorder) {
+func newRequest(t *testing.T, path, body string) (*echo.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 
 	e := echo.New()

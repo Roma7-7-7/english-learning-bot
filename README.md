@@ -40,7 +40,7 @@ The project consists of three main components:
 
 ### Backend
 - **Language**: Go 1.26.10
-- **Web Framework**: Echo v4
+- **Web Framework**: Echo v5
 - **Database**: SQLite
 - **Telegram**: gopkg.in/telebot.v3
 - **Authentication**: JWT tokens with HTTP-only cookies

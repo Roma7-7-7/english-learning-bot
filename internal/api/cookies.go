@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 const (
@@ -43,7 +43,7 @@ func (p *CookiesProcessor) NewAuthTokenCookie(token string) *http.Cookie {
 	}
 }
 
-func (p *CookiesProcessor) GetAuthToken(c echo.Context) (string, bool) {
+func (p *CookiesProcessor) GetAuthToken(c *echo.Context) (string, bool) {
 	cookie, err := c.Cookie(authCookieName)
 	if err != nil {
 		return "", false
@@ -65,7 +65,7 @@ func (p *CookiesProcessor) NewAccessTokenCookie(token string) *http.Cookie {
 	}
 }
 
-func (p *CookiesProcessor) GetAccessToken(c echo.Context) (string, bool) {
+func (p *CookiesProcessor) GetAccessToken(c *echo.Context) (string, bool) {
 	cookie, err := c.Cookie(accessCookieName)
 	if err != nil {
 		return "", false

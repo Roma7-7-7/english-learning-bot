@@ -8,9 +8,8 @@ import (
 
 	"github.com/Roma7-7-7/english-learning-bot/internal/config"
 	"github.com/Roma7-7-7/english-learning-bot/internal/dal"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"golang.org/x/time/rate"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 )
 
 type (
@@ -32,20 +31,20 @@ func NewRouter(ctx context.Context, conf *config.Bot, deps Dependencies) http.Ha
 	e.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
 			middleware.RateLimiterMemoryStoreConfig{
-				Rate:      rate.Limit(conf.HTTP.RateLimit),
+				Rate:      conf.HTTP.RateLimit,
 				Burst:     int(conf.HTTP.RateLimit * 2), //nolint:mnd // burst is twice the rate limit
 				ExpiresIn: time.Minute,
 			},
 		),
-		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+		IdentifierExtractor: func(ctx *echo.Context) (string, error) {
 			return ctx.RealIP(), nil
 		},
-		ErrorHandler: func(context echo.Context, _ error) error {
+		ErrorHandler: func(context *echo.Context, _ error) error {
 			return context.JSON(http.StatusTooManyRequests, ErrorResponse{
 				Message: "Too many requests",
 			})
 		},
-		DenyHandler: func(context echo.Context, _ string, _ error) error {
+		DenyHandler: func(context *echo.Context, _ string, _ error) error {
 			return context.JSON(http.StatusTooManyRequests, ErrorResponse{
 				Message: "Too many requests",
 			})
@@ -60,7 +59,7 @@ func NewRouter(ctx context.Context, conf *config.Bot, deps Dependencies) http.Ha
 		MaxAge:           3600, //nolint:mnd // 1 hour
 	}))
 
-	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+	e.Use(middleware.ContextTimeoutWithConfig(middleware.ContextTimeoutConfig{
 		Timeout: conf.HTTP.ProcessTimeout,
 	}))
 
@@ -75,12 +74,12 @@ func NewRouter(ctx context.Context, conf *config.Bot, deps Dependencies) http.Ha
 		ReferrerPolicy:        "strict-origin-when-cross-origin",
 	}))
 
-	e.Use(middleware.BodyLimit("1M"))
+	e.Use(middleware.BodyLimit(1 << 20))
 
 	e.HTTPErrorHandler = HTTPErrorHandler(deps.Logger)
 
 	// Health endpoint
-	e.GET("/health", func(c echo.Context) error {
+	e.GET("/health", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{
 			"status":     "ok",
 			"version":    conf.BuildInfo.Version,
@@ -128,9 +127,8 @@ func loggingMiddleware(ctx context.Context, log *slog.Logger) echo.MiddlewareFun
 	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogStatus:   true,
 		LogURI:      true,
-		LogError:    true,
 		HandleError: true,
-		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
+		LogValuesFunc: func(_ *echo.Context, v middleware.RequestLoggerValues) error {
 			if v.Error == nil {
 				log.LogAttrs(ctx, slog.LevelInfo, "REQUEST",
 					slog.String("uri", v.URI),
